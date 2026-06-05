@@ -27,12 +27,10 @@ pnpm add -D agent-utils-reuse
 Run at your **project root** (where `package.json` lives):
 
 ```bash
-# 1. Copy config, docs, Cursor templates, package scripts
+# 1. Copy config, docs, Cursor templates, package scripts; merge AGENTS.md
 pnpm agent-utils-reuse init
 
-# 2. Paste the printed snippet into AGENTS.md (or your agent guide)
-
-# 3. Ensure src/utils exists, then generate the book
+# 2. Ensure src/utils exists, then generate the book
 pnpm gen:utils-book
 ```
 
@@ -57,8 +55,10 @@ pnpm add -D file:../agent-utils-reuse
 
 | Path | Purpose |
 |------|---------|
+| `AGENTS.md` | **Auto-created or merged** with utils reuse section |
 | `.utils-bookrc.json` | Scan paths and JSDoc tag |
 | `docs/agent-catalog/placement-decision.md` | Reuse rules (five questions) |
+| `docs/agent-catalog/AGENTS.utils-reuse.snippet.md` | Manual-merge reference (usually not needed) |
 | `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
 | `.cursor/skills/reuse-before-create/` | Step-by-step Skill |
 | `.cursor/rules/reuse-first.mdc` | Always-on Rule |
@@ -70,7 +70,7 @@ pnpm add -D file:../agent-utils-reuse
 |---------|--------|
 | `pnpm agent-utils-reuse init` | One-time setup |
 | `pnpm agent-utils-reuse init --with-examples` | Setup + sample array utils |
-| `pnpm agent-utils-reuse init --force` | Overwrite existing template files |
+| `pnpm agent-utils-reuse init --force` | Overwrite templates + refresh AGENTS.md snippet block |
 | `pnpm gen:utils-book` | Regenerate utils-book from `src/utils` |
 | `pnpm check:utils-book` | Regenerate + `git diff` (CI gate) |
 
@@ -84,6 +84,7 @@ pnpm add -D file:../agent-utils-reuse
 | `catalogDir` | `docs/agent-catalog` | Agent catalog root |
 | `utilsBookDir` | `docs/agent-catalog/utils-book` | Generated book output |
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
+| `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
 
 ## JSDoc summaries (recommended)

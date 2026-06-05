@@ -51,13 +51,13 @@ Usage:
   agent-utils-reuse check
 
 Commands:
-  init   Copy templates, write .utils-bookrc.json, patch package.json & hooks
+  init   Copy templates, merge AGENTS.md, write .utils-bookrc.json, patch package.json & hooks
   gen    Scan utilsDir and generate utils-book
   check  Regenerate utils-book and git diff (CI gate)
 
 Options:
   --yes            Non-interactive init with defaults
-  --force          Overwrite existing template files
+  --force          Overwrite existing template files and refresh AGENTS.md snippet
   --with-examples  Copy minimal array utils into utilsDir/array/
   --check          Fail gen if JSDoc coverage below 30%
 `)

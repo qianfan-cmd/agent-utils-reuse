@@ -4,5 +4,6 @@
   "catalogDir": "docs/agent-catalog",
   "utilsBookDir": "docs/agent-catalog/utils-book",
   "skillsDir": ".cursor/skills",
+  "agentsFile": "AGENTS.md",
   "jsdocTag": "@utils-book"
 }

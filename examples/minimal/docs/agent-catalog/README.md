@@ -9,6 +9,7 @@
 | [`utils-book/index.md`](utils-book/index.md) | **脚本生成** | 全书目录、章链接、同名符号附录 |
 | [`utils-book/{章}.md`](utils-book/) | **脚本生成** | 每章：文件用途 + 符号一行摘要 + 行号 |
 | [`placement-decision.md`](placement-decision.md) | **手写** | 可复用证明（五问）、问用户、范式示例 |
+| [`MERGE-AGENTS.md`](MERGE-AGENTS.md) | **手写** | `init` 如何自动处理 `AGENTS.md` |
 | [`skills.md`](skills.md) | **脚本生成** | 项目 Agent Skills 索引 |
 
 ## 工作流

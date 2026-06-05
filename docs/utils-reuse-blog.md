@@ -534,8 +534,7 @@ B) 定制 — 在组件内做展示层包装，或 newUtil 新符号；不修改
 
 ```bash
 pnpm add -D github:qianfan-cmd/agent-utils-reuse
-pnpm agent-utils-reuse init
-# 合并 init 打印的 AGENTS 片段
+pnpm agent-utils-reuse init   # 自动创建或合并 AGENTS.md
 pnpm gen:utils-book
 ```
 
