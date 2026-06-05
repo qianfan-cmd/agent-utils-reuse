@@ -1,0 +1,8 @@
+{
+  "projectRoot": ".",
+  "utilsDir": "src/utils",
+  "catalogDir": "docs/agent-catalog",
+  "utilsBookDir": "docs/agent-catalog/utils-book",
+  "skillsDir": ".cursor/skills",
+  "jsdocTag": "@utils-book"
+}

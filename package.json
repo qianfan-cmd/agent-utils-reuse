@@ -1,0 +1,27 @@
+{
+  "name": "agent-utils-reuse",
+  "version": "0.1.0",
+  "description": "Agent utils reuse gate: utils-book generator, five-question Confirm flow, Cursor templates",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "agent-utils-reuse": "./bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "templates",
+    ".utils-bookrc.example.json"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cursor",
+    "agent",
+    "utils",
+    "reuse",
+    "utils-book",
+    "ai-coding"
+  ]
+}

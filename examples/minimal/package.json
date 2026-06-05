@@ -1,0 +1,9 @@
+{
+  "name": "agent-utils-reuse-minimal-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen:utils-book": "node ../../bin/cli.mjs gen",
+    "check:utils-book": "node ../../bin/cli.mjs check"
+  }
+}

@@ -1,0 +1,33 @@
+---
+description: Utils 按需复用 — Shortlist → Confirm（五问）→ Verdict
+alwaysApply: true
+---
+
+# Utils 按需复用
+
+涉及 **工具函数** 时：**Shortlist → Confirm（五问）→ Verdict → Write**。细则 `docs/agent-catalog/placement-decision.md` §1、§1.5；**AGENTS.md** utils 复用节。
+
+## Do（默认偏向 reuse）
+
+- **已实现勿重写** — 同语义用公共 utils，不在 feature 再抄纯函数
+- **子集 / 单 export** — 只 import 需要的一个
+- **五问通过 + Q5=否** → **reuse**
+- **展示层细小差异且需求未写明** → **问用户**（§1.5）
+
+## Verdict
+
+| Verdict | 含义 |
+|---------|------|
+| **reuse** | 五问通过，Q5 否（或用户选 A） |
+| **newUtil** | Q1–Q4 硬失败要共享；或 Q5 是 |
+| **featureLocal** | 硬失败仅本页；或用户选 B 且仅本页 |
+
+## Invalid reject（不得单独否决）
+
+- 展示层文案 · 子集 · 类里函数多 · util 更大 · 「组件要瘦」
+
+## 禁止
+
+- 无五问就 reuse · extend 旧 export · 展示层差异时静默 fork
+
+Skill：`.cursor/skills/reuse-before-create/SKILL.md`
