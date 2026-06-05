@@ -1,13 +1,13 @@
 # Minimal example
 
-Two simple array utils (`sortAsc`, `uniqueByKey`) to demonstrate utils-book generation.
+Preview what `pnpm gen:utils-book` produces: two array utils and a pre-generated utils-book.
+
+Browse [`docs/agent-catalog/utils-book/`](docs/agent-catalog/utils-book/) in this folder.
+
+To regenerate locally (from repo root `examples/minimal/`):
 
 ```bash
-# From this directory
-pnpm gen:utils-book
-pnpm check:utils-book
+node ../../bin/cli.mjs gen
 ```
 
-Generated output lives in `docs/agent-catalog/utils-book/`.
-
-After `agent-utils-reuse init` in your own project, you get the same layout — but scanning **your** utils directory.
+In your own project after `pnpm agent-utils-reuse init`, the same layout appears under your configured paths.

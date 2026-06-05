@@ -530,23 +530,15 @@ B) 定制 — 在组件内做展示层包装，或 newUtil 新符号；不修改
 
 ## 十二、开源安装：一键落到你的仓库
 
-上文的设计已抽成独立 npm 包 **[agent-utils-reuse](https://github.com/qianfan-cmd/agent-utils-reuse)**，与任何业务仓库解耦。作者 GitHub：[qianfan-cmd](https://github.com/qianfan-cmd?tab=repositories)。
+同一套设计已开源为 **[agent-utils-reuse](https://github.com/qianfan-cmd/agent-utils-reuse)**，可安装到任意前端/Node 项目，自动根据**你自己的** `src/utils` 生成工具书。
 
 ```bash
-# 安装（GitHub）
 pnpm add -D github:qianfan-cmd/agent-utils-reuse
-
-# 一次性初始化：配置 + 决策文档 + Cursor Skill/Rule/Hook + package scripts
 pnpm agent-utils-reuse init
-
-# 把 init 打印的 AGENTS 片段合并进你的 Agent 指南
-
-# 根据你项目里的 src/utils 生成工具书
+# 合并 init 打印的 AGENTS 片段
 pnpm gen:utils-book
 ```
 
-想先体验产出长什么样，可克隆仓库看 [`examples/minimal`](https://github.com/qianfan-cmd/agent-utils-reuse/tree/main/examples/minimal)：`sortAsc`、`uniqueByKey` 两个数组工具 + 预生成的 `utils-book` 样例。
+快速体验：`pnpm agent-utils-reuse init --with-examples` 会拷贝 `sortAsc` / `uniqueByKey` 示例，再执行 `pnpm gen:utils-book` 即可。
 
-可选：`pnpm agent-utils-reuse init --with-examples` 会把示例 utils 复制到你的 `src/utils/array/` 便于本地试跑。
-
-详细说明见仓库 [README](https://github.com/qianfan-cmd/agent-utils-reuse#readme)。
+预生成样例见仓库 [`examples/minimal/docs/agent-catalog/utils-book/`](https://github.com/qianfan-cmd/agent-utils-reuse/tree/main/examples/minimal/docs/agent-catalog/utils-book)。安装与配置详见 [README](https://github.com/qianfan-cmd/agent-utils-reuse#readme)。

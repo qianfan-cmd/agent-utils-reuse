@@ -2,101 +2,104 @@
 
 **Agent utils reuse gate** — Shortlist → Confirm (five questions) → Verdict.
 
-Stop AI coding agents from silently forking your shared utilities. This package ships:
+Stop AI coding agents from silently forking your shared utilities. Install once, then generate a **utils-book** from your own `src/utils`.
 
-- A **utils-book generator** (scans your utils dir, writes index + chapters)
-- **Decision docs** (five-question Confirm flow, ask-user on cosmetic diff)
-- **Cursor templates** (Skill, Rule, Hook)
+- **utils-book generator** — scan utils, write index + chapters + line numbers
+- **Decision docs** — five-question Confirm, ask-user on cosmetic diff
+- **Cursor templates** — Skill, Rule, Hook
 
-> 设计说明（博客全文）：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
+> 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
+
+## Install
+
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse
+```
+
+npm (if published):
+
+```bash
+pnpm add -D agent-utils-reuse
+```
 
 ## Quick start
 
+Run at your **project root** (where `package.json` lives):
+
 ```bash
-# Install (GitHub)
-pnpm add -D github:qianfan-cmd/agent-utils-reuse
-
-# Or npm (after publish)
-# pnpm add -D agent-utils-reuse
-
-# One-time setup in your project root
+# 1. Copy config, docs, Cursor templates, package scripts
 pnpm agent-utils-reuse init
 
-# Merge printed AGENTS.md snippet into your agent guide
+# 2. Paste the printed snippet into AGENTS.md (or your agent guide)
 
-# Generate utils-book from your src/utils
+# 3. Ensure src/utils exists, then generate the book
 pnpm gen:utils-book
-
-# Optional CI gate
-pnpm check:utils-book
 ```
 
-### With example utils
+### Try with sample utils
 
 ```bash
 pnpm agent-utils-reuse init --with-examples
 pnpm gen:utils-book
 ```
 
-Copies minimal `sortAsc` / `uniqueByKey` into `src/utils/array/` for learning.
+Copies `sortAsc` / `uniqueByKey` into `src/utils/array/` so you can see output immediately.
 
-## What `init` creates
+### Windows note
 
-| Output | Purpose |
-|--------|---------|
-| `.utils-bookrc.json` | Paths and JSDoc tag config |
-| `docs/agent-catalog/` | Decision docs + generated utils-book |
+If installing from a local path, use a relative path:
+
+```bash
+pnpm add -D file:../agent-utils-reuse
+```
+
+## What you get after `init`
+
+| Path | Purpose |
+|------|---------|
+| `.utils-bookrc.json` | Scan paths and JSDoc tag |
+| `docs/agent-catalog/placement-decision.md` | Reuse rules (five questions) |
+| `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
 | `.cursor/skills/reuse-before-create/` | Step-by-step Skill |
 | `.cursor/rules/reuse-first.mdc` | Always-on Rule |
 | `.cursor/hooks/` | Reminder before writing utils |
-| `package.json` scripts | `gen:utils-book`, `check:utils-book` |
+
+## Commands
+
+| Command | Action |
+|---------|--------|
+| `pnpm agent-utils-reuse init` | One-time setup |
+| `pnpm agent-utils-reuse init --with-examples` | Setup + sample array utils |
+| `pnpm agent-utils-reuse init --force` | Overwrite existing template files |
+| `pnpm gen:utils-book` | Regenerate utils-book from `src/utils` |
+| `pnpm check:utils-book` | Regenerate + `git diff` (CI gate) |
+
+`init` does **not** generate the book — run `gen` after you have `.ts` files under `utilsDir`.
 
 ## Configuration (`.utils-bookrc.json`)
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `projectRoot` | `.` | Project root |
 | `utilsDir` | `src/utils` | Directory to scan |
 | `catalogDir` | `docs/agent-catalog` | Agent catalog root |
-| `utilsBookDir` | `docs/agent-catalog/utils-book` | Generated book |
-| `skillsDir` | `.cursor/skills` | For skills.md index |
-| `jsdocTag` | `@utils-book` | Summary tag in JSDoc |
+| `utilsBookDir` | `docs/agent-catalog/utils-book` | Generated book output |
+| `skillsDir` | `.cursor/skills` | For `skills.md` index |
+| `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
 
-## CLI
-
-```bash
-agent-utils-reuse init [--yes] [--force] [--with-examples]
-agent-utils-reuse gen [--check]
-agent-utils-reuse check
-```
-
-## Improve summaries
+## JSDoc summaries (recommended)
 
 ```ts
-/** @utils-book One-line description of what this export does */
-export function myUtil(input: string): string {
-  return input.trim()
+/** @utils-book 数字数组升序排序，返回新数组 */
+export function sortAsc(nums: number[]): number[] {
+  return [...nums].sort((a, b) => a - b)
 }
 ```
 
-## Example project
+Without `@utils-book`, the script uses the first description line in `/** */` above the export, or `(无简介 — Confirm 前须 Read 实现)`.
 
-See [`examples/minimal/`](examples/minimal/) — run `pnpm gen:utils-book` there to preview output.
+## Preview output
 
-## Publish this repo to GitHub
-
-This folder is **standalone**. To publish:
-
-```bash
-cd agent-utils-reuse
-git init
-git add .
-git commit -m "Initial release: agent-utils-reuse"
-git remote add origin git@github.com:qianfan-cmd/agent-utils-reuse.git
-git push -u origin main
-```
-
-Users then: `pnpm add -D github:qianfan-cmd/agent-utils-reuse`
+Clone this repo and open [`examples/minimal/docs/agent-catalog/utils-book/`](examples/minimal/docs/agent-catalog/utils-book/) — sample generated book from two array utils.
 
 ## License
 

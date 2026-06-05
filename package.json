@@ -1,9 +1,17 @@
 {
   "name": "agent-utils-reuse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent utils reuse gate: utils-book generator, five-question Confirm flow, Cursor templates",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qianfan-cmd/agent-utils-reuse.git"
+  },
+  "homepage": "https://github.com/qianfan-cmd/agent-utils-reuse#readme",
+  "bugs": {
+    "url": "https://github.com/qianfan-cmd/agent-utils-reuse/issues"
+  },
   "bin": {
     "agent-utils-reuse": "./bin/cli.mjs"
   },
@@ -11,6 +19,7 @@
     "bin",
     "lib",
     "templates",
+    "examples",
     ".utils-bookrc.example.json"
   ],
   "engines": {
