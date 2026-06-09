@@ -1,12 +1,12 @@
 # agent-utils-reuse
 
-**Agent utils reuse gate** — Shortlist → Confirm (five questions) → Verdict.
+**Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. Install once, then generate a **utils-book** from your own `src/utils`.
+Stop AI coding agents from silently forking your shared utilities. **v0.1.4** adds **confirm mode**: deny Write until util source files were Read this session (no cache JSON).
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
-- **Decision docs** — five-question Confirm, ask-user on cosmetic diff
-- **Cursor templates** — Skill, Rule, **mandatory gate Rule**, Hook (utils + configurable app paths)
+- **Confirm gate** — mandatory Q1–Q5 + Verdict in chat; Shortlist optional
+- **Cursor templates** — Skill, Rule, **utils-reuse-gate.mdc**, read-audit Hook
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
@@ -60,9 +60,10 @@ pnpm add -D file:../agent-utils-reuse
 | `docs/agent-catalog/placement-decision.md` | Reuse rules (five questions) |
 | `docs/agent-catalog/AGENTS.utils-reuse.snippet.md` | Manual-merge reference (usually not needed) |
 | `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
-| `.cursor/skills/reuse-before-create/` | Step-by-step Skill |
-| `.cursor/rules/reuse-first.mdc` | Always-on Rule |
-| `.cursor/hooks/` | Reminder before writing utils |
+| `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
+| `.cursor/rules/reuse-first.mdc` | Summary Rule |
+| `.cursor/hooks/` | Read audit + confirm deny (or remind mode) |
+| `.cursor/.utils-gate-reads.json` | Session read audit (gitignored) |
 
 ## Commands
 
@@ -86,6 +87,21 @@ pnpm add -D file:../agent-utils-reuse
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
+| `hookMode` | `confirm` | `confirm` = deny until util source Read; `remind` = allow + message only |
+| `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook import detection |
+| `remindWritePaths` | `src/feature`, … | App paths that trigger confirm when adding utils imports |
+
+### Test Hook locally (Windows)
+
+Git Bash `node` is often aliased to `winpty node.exe` — **pipe tests fail** with `stdin is not a tty`. Use PowerShell or direct path:
+
+```powershell
+cd your-project
+'{"tool_input":{"path":"src/feature/foo.vue","content":"import { X } from \"@/utils/foo\""}}' |
+  node .cursor/hooks/check-discovery-before-shared-write.mjs
+```
+
+Or Git Bash: `/c/nvm4w/nodejs/node.exe .cursor/hooks/check-discovery-before-shared-write.mjs < /tmp/in.json`
 
 ## JSDoc summaries (recommended)
 

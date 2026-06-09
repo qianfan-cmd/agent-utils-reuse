@@ -1,38 +1,26 @@
 ### Utils reuse (shared utilities only)
 
-**Scope**: Discovery applies only to your configured utils directory (default `src/utils/`). Hooks and components use **featureLocal** when appropriate.
+**Scope**: Only your configured utils directory (default `src/utils/`). Components/hooks use **featureLocal** when appropriate.
 
-**Mandatory gate**: `.cursor/rules/utils-reuse-gate.mdc` (alwaysApply) — Read AGENTS + placement + utils-book before first business Write when utils logic may apply.
+**Mandatory gate**: `.cursor/rules/utils-reuse-gate.mdc` — **Confirm (Q1–Q5) + Verdict（最终） in chat** before first business Write when utils logic may apply. **WIP obvious reuse is NOT exempt.**
 
-**Flow**: **Shortlist** (utils-book index → 1 chapter) → **Confirm** (five questions, read source) → **Verdict** → Write.
+**Optional**: Shortlist via `docs/agent-catalog/utils-book/index.md` + one chapter when unsure which util.
 
-Details: `docs/agent-catalog/README.md`, `docs/agent-catalog/placement-decision.md` section 1.
+**Flow**: Identify utils → **Read util source** → **Confirm + Verdict in chat** → Write.
+
+Details: `docs/agent-catalog/placement-decision.md` §1, §3.
 
 #### Reuse philosophy
 
 - Do not re-implement logic that already exists with the same semantics and storage/API contract.
 - Single-export import from a larger module is fine.
-- Summaries alone are not proof — answer the five Confirm questions after reading source.
-- Cosmetic UI copy diff alone does not forbid reuse; if the ticket is silent, **ask the user** (placement section 1.5).
-- If unsure after reading source but Q1–Q4 have no hard failure and Q5 is **no**, **prefer reuse** over duplicating logic in feature code.
-- **No extend**: if you must change an existing export's default semantics → **newUtil** (new symbol), not patch the old one.
+- Summaries alone are not proof — answer Confirm after **reading util source**.
+- Cosmetic UI copy diff alone does not forbid reuse; if the ticket is silent, **ask the user** (placement §1.5).
+- **No extend**: changing an existing export's default semantics → **newUtil**.
 
-**Anti-patterns** (invalid reject reasons): label-only diff, "class has other methods", subset need, "lean component" — see `placement-decision.md` §1.2 and §6.
+#### Confirm (five questions) — mandatory
 
-#### Shortlist (utils-book)
-
-When the task may need a util:
-
-1. **Read only** `docs/agent-catalog/utils-book/index.md`.
-2. **Read only one relevant chapter**. Do not Read every chapter. If unsure, `Grep docs/agent-catalog/utils-book/`.
-3. List **candidates** (`name @ path`).
-4. Do not write a final **Verdict: reuse** from summaries alone.
-
-For duplicate symbol names, see the index appendix.
-
-#### Confirm (five questions)
-
-For each candidate, **Read** utils source. Answer:
+For **each** util you will import or call, **Read** its source file, then answer in chat:
 
 | # | Question |
 |---|----------|
@@ -42,9 +30,9 @@ For each candidate, **Read** utils source. Answer:
 | Q4 | Substitution: does `util(x)` match the `f(x)` you would write? |
 | Q5 | Must you change the existing export? Yes → **newUtil**; no → prefer **reuse** |
 
-**Before Write**, output **Discovery**, **Confirm**, and **Verdict** **in chat** — template in `placement-decision.md` §3.
+**Before Write**, output **Confirm** and **Verdict（最终）** — template in `placement-decision.md` §3.
 
-**Do NOT** write `.utils-discovery-cache.json` or other cache files.
+**Do NOT** write `.utils-discovery-cache.json` or gate cache files.
 
 | Verdict | Meaning |
 |---------|---------|
@@ -52,10 +40,8 @@ For each candidate, **Read** utils source. Answer:
 | **newUtil** | Hard failure and shared; or Q5 yes |
 | **featureLocal** | Hard failure, page-local only |
 
-**Forbidden**: reuse without Confirm; duplicate implementation when reuse is proven; silent fork on cosmetic diff.
+**Plan → Implement**: First Implement assistant message must include Verdict when the plan touches `@/utils`.
 
-#### Cosmetic diff (ask user)
-
-When Q1–Q4 pass and Q5 is no, but user-visible copy differs and the requirement is silent: ask before Write (placement §1.5).
+**Hook** (`hookMode: confirm` in `.utils-bookrc.json`): Write may be **denied** until util sources were Read this session.
 
 After new utils exports → `pnpm gen:utils-book`. Skill: `.cursor/skills/reuse-before-create/SKILL.md`.

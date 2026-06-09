@@ -2,7 +2,7 @@
 
 本目录帮助 Cursor Agent **在公共 utils 目录中按需复用工具函数**：先 Shortlist（index → 1 章），再 **Confirm（五问）**，必要时 **问用户**（展示层细小差异），最后 Verdict。
 
-**强制总闸**：`pnpm agent-utils-reuse init` 会安装 **`.cursor/rules/utils-reuse-gate.mdc`**（alwaysApply）。Agent 在可能涉及 utils 逻辑的任务上，须 Read 本目录 + 输出 Discovery/Confirm/Verdict **于对话中**（不写 cache JSON），再 Write 业务代码。
+**强制总闸（v0.1.4）**：`utils-reuse-gate.mdc` — **Confirm（五问）+ Verdict 对话输出** 不可跳过；Shortlist 可选。`hookMode: confirm` 时未 Read util 源码会 **deny** Write。
 
 ## 文件说明
 

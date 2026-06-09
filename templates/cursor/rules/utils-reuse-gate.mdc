@@ -1,30 +1,44 @@
 ---
-description: Mandatory utils reuse gate — Read AGENTS + utils-book before code Write
+description: Mandatory utils Confirm gate — five questions + Verdict in chat before Write
 alwaysApply: true
 ---
 
-# Utils reuse gate (mandatory)
+# Utils Confirm gate (mandatory)
 
-Before **first business Write / StrReplace** when the task may involve **shared utility logic**:
+**Non-skippable**: For each util you will **import or call**, complete **Confirm (Q1–Q5) + Verdict（最终）** in **chat** before the first business **Write / StrReplace**.
 
-1. **Read** project root **`AGENTS.md`** — utils reuse section (marker `<!-- agent-utils-reuse:start -->` if present).
-2. **Read** **`docs/agent-catalog/placement-decision.md`**.
-3. **Read** **`docs/agent-catalog/utils-book/index.md`** → **one** chapter only (not every chapter).
-4. **Output in chat** (not as a file): **Discovery + Confirm (five questions) + final Verdict**.
-5. **Then** Write / StrReplace application or utils code.
+**Optional** (when unsure which util): Shortlist via `docs/agent-catalog/utils-book/index.md` + one chapter, or read `placement-decision.md`.
 
-## When this gate applies (non-exhaustive)
+## Mandatory flow (Implement / first business Write)
 
-- May **`import`** from configured utils dir (default `src/utils/`)
-- Upload / download / parse / format / validate / mention / file IO logic
-- **Even when editing `.vue` / `.ts` in feature or components** — not only when writing utils files
+1. **Identify** util symbols/paths (task, existing imports, planned code — **WIP obvious reuse is NOT exempt**).
+2. **Read** each util **source file** under `utilsDir` (default `src/utils/`). Utils-book catalog read is optional.
+3. **Output in chat** (never as a JSON cache file):
+   - **Confirm（五问）** Q1–Q5 per util
+   - **Verdict（最终）**: `reuse(symbol)` | `newUtil` | `featureLocal`
+   - Template: `docs/agent-catalog/placement-decision.md` §3
+4. **Then** Write / StrReplace.
+
+## Plan approved → Implement
+
+When implementing an approved plan that may use `@/utils` or shared util logic:
+
+- The **first assistant message** of Implement must include **Verdict（最终）** (after Confirm).
+- **No** Write/StrReplace as the first tool call unless the prior assistant message already contains `Verdict（最终）` or `Verdict:`.
+
+## When this gate applies
+
+- `import` from utils dir; upload/parse/format/validate/mention/file IO
+- Editing `.vue` / `.ts` in feature, components, hooks, views — not only `src/utils/` files
+
+## Hook (`hookMode: confirm`)
+
+If `.utils-bookrc.json` has `"hookMode": "confirm"`, Write may be **denied** until util source files were **Read** this session (tracked in `.cursor/.utils-gate-reads.json`). This enforces Read + Confirm; it does not replace chat Verdict (Rules still require it).
 
 ## Do NOT
 
-- Write **`.utils-discovery-cache.json`** or any gate cache file — soft gate; output D/C/V **in chat only**
-- **reuse** without Confirm (five questions after reading source)
-- Copy a Verdict from docs for a specific business task
+- Write `.utils-discovery-cache.json` or gate cache files
+- **reuse** without Confirm after reading source
+- Skip Confirm because reuse seems obvious
 
-## Paths
-
-Adjust if your project uses `.utils-bookrc.json` custom `catalogDir` / `utilsDir`. Skill: `.cursor/skills/reuse-before-create/SKILL.md`. Rule summary: `.cursor/rules/reuse-first.mdc`.
+Skill: `.cursor/skills/reuse-before-create/SKILL.md`

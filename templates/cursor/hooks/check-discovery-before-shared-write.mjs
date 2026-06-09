@@ -1,52 +1,16 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
-import path from 'node:path'
+import {
+  hasRead,
+  isUnderUtils,
+  loadAudit,
+  loadHookConfig,
+  matchesRemindPath,
+  normalizeAuditPath,
+  resolveContentUtilPaths
+} from './read-audit-lib.mjs'
 
-const CONFIG_FILENAME = '.utils-bookrc.json'
-const DEFAULT_UTILS_DIR = 'src/utils'
-const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src/views']
-const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md section 1'
-
-function loadConfig() {
-  const base = {
-    utilsDir: DEFAULT_UTILS_DIR,
-    remindWritePaths: DEFAULT_REMIND_PATHS
-  }
-  try {
-    const configPath = path.join(process.cwd(), CONFIG_FILENAME)
-    if (fs.existsSync(configPath)) {
-      const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-      if (raw.utilsDir) base.utilsDir = String(raw.utilsDir).replace(/\\/g, '/')
-      if (Array.isArray(raw.remindWritePaths)) {
-        base.remindWritePaths = raw.remindWritePaths.map((p) =>
-          String(p).replace(/\\/g, '/').replace(/\/+$/, '')
-        )
-      }
-    }
-  } catch {
-    /* use defaults */
-  }
-  return base
-}
-
-function utilsPathRe(utilsDir) {
-  const escaped = utilsDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(?:^|[/\\\\])${escaped}(?:[/\\\\]|$)`, 'i')
-}
-
-function remindPathRes(prefixes) {
-  return prefixes
-    .filter(Boolean)
-    .map((prefix) => {
-      const normalized = prefix.replace(/\\/g, '/').replace(/\/+$/, '')
-      const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      return new RegExp(`(?:^|[/\\\\])${escaped}(?:[/\\\\]|$)`, 'i')
-    })
-}
-
-const config = loadConfig()
-const UTILS_PATH_RE = utilsPathRe(config.utilsDir)
-const REMIND_PATH_RES = remindPathRes(config.remindWritePaths)
+const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md section 3'
 
 async function readStdin() {
   const chunks = []
@@ -59,7 +23,7 @@ function extractPath(input) {
   if (typeof toolInput === 'string') {
     try {
       const parsed = JSON.parse(toolInput)
-      return parsed.path ?? parsed.file_path
+      return parsed.path ?? parsed.file_path ?? parsed.target_notebook
     } catch {
       return null
     }
@@ -67,12 +31,37 @@ function extractPath(input) {
   return toolInput.path ?? toolInput.file_path ?? toolInput.target_notebook
 }
 
-function normalizePath(filePath) {
-  return String(filePath).replace(/\\/g, '/')
+function extractWriteContent(input) {
+  const toolInput = input.tool_input ?? input.arguments ?? input
+  if (typeof toolInput === 'string') {
+    try {
+      return JSON.parse(toolInput)
+    } catch {
+      return {}
+    }
+  }
+  return toolInput ?? {}
 }
 
-function matchRemindPath(normalized) {
-  return REMIND_PATH_RES.some((re) => re.test(normalized))
+function getContentPayload(payload) {
+  const parts = []
+  if (payload.content) parts.push(String(payload.content))
+  if (payload.new_string) parts.push(String(payload.new_string))
+  if (payload.newString) parts.push(String(payload.newString))
+  return parts.join('\n')
+}
+
+function denyMessage(missingPaths) {
+  const list = missingPaths.map((p) => `\`${p}\``).join(', ')
+  return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+}
+
+function remindUtilsMessage() {
+  return `Reminder: Before writing shared utils, Read source, output Confirm (Q1-Q5) + Verdict in chat. See ${PLACEMENT_SECTION}.`
+}
+
+function remindAppMessage() {
+  return `Reminder: Read util source, output Confirm + Verdict in chat before Write. hookMode confirm requires Read audit. See utils-reuse-gate.mdc.`
 }
 
 async function main() {
@@ -82,36 +71,79 @@ async function main() {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
+
     const input = JSON.parse(raw)
+    const config = loadHookConfig(process.cwd())
     const filePath = extractPath(input)
     if (!filePath) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
 
-    const normalized = normalizePath(filePath)
+    const normalized = normalizeAuditPath(filePath)
+    const payload = extractWriteContent(input)
+    const content = getContentPayload(payload)
+    const isRemind = matchesRemindPath(normalized, config.remindWritePaths)
+    const isUtils = isUnderUtils(normalized, config.utilsDir)
 
-    if (UTILS_PATH_RE.test(normalized)) {
+    if (config.hookMode === 'remind') {
+      if (isUtils) {
+        process.stdout.write(
+          JSON.stringify({ permission: 'allow', agent_message: remindUtilsMessage() })
+        )
+        return
+      }
+      if (isRemind) {
+        process.stdout.write(
+          JSON.stringify({ permission: 'allow', agent_message: remindAppMessage() })
+        )
+        return
+      }
+      process.stdout.write(JSON.stringify({ permission: 'allow' }))
+      return
+    }
+
+    // hookMode: confirm
+    const utilPathsFromContent = resolveContentUtilPaths(content, config, process.cwd())
+    const requiredReads = new Set(utilPathsFromContent)
+
+    if (isUtils) {
+      requiredReads.add(normalized)
+    }
+
+    if (requiredReads.size === 0) {
+      if (isUtils) {
+        process.stdout.write(
+          JSON.stringify({ permission: 'allow', agent_message: remindUtilsMessage() })
+        )
+        return
+      }
+      if (isRemind) {
+        process.stdout.write(JSON.stringify({ permission: 'allow' }))
+        return
+      }
+      process.stdout.write(JSON.stringify({ permission: 'allow' }))
+      return
+    }
+
+    const missing = [...requiredReads].filter((p) => !hasRead(p, process.cwd()))
+    if (missing.length > 0) {
       process.stdout.write(
         JSON.stringify({
-          permission: 'allow',
-          agent_message: `Reminder: Before writing shared utils, output Discovery + Confirm (five questions Q1-Q5) + final Verdict in chat (not a cache file). Read utils-book first; reuse only after Confirm passes. See ${PLACEMENT_SECTION}.`
+          permission: 'deny',
+          agent_message: denyMessage(missing)
         })
       )
       return
     }
 
-    if (matchRemindPath(normalized)) {
-      process.stdout.write(
-        JSON.stringify({
-          permission: 'allow',
-          agent_message: `Reminder: This task may need shared utils. Follow utils-reuse-gate: Read AGENTS.md utils section + placement-decision + utils-book (index + 1 chapter), output Discovery + Confirm + Verdict in chat before Write. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION}.`
-        })
+    process.stdout.write(
+      JSON.stringify(
+        isUtils || isRemind
+          ? { permission: 'allow', agent_message: remindAppMessage() }
+          : { permission: 'allow' }
       )
-      return
-    }
-
-    process.stdout.write(JSON.stringify({ permission: 'allow' }))
+    )
   } catch {
     process.stdout.write(JSON.stringify({ permission: 'allow' }))
   }
