@@ -1,12 +1,16 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 import { generateUtilsBook } from '../lib/generate-utils-book.mjs'
 import { loadConfig } from '../lib/load-config.mjs'
 import { printInitSummary, runInit } from '../lib/init.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const PACKAGE_VERSION = JSON.parse(
+  readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
+).version
 
 function parseFlags(argv) {
   const flags = new Set(argv.filter((a) => a.startsWith('--')))
@@ -43,7 +47,7 @@ function runCheck(cwd) {
 }
 
 function printHelp() {
-  console.log(`agent-utils-reuse — Utils reuse gate for AI coding agents
+  console.log(`agent-utils-reuse v${PACKAGE_VERSION} — Utils reuse gate for AI coding agents
 
 Usage:
   agent-utils-reuse init [--yes] [--force] [--with-examples]
@@ -60,11 +64,18 @@ Options:
   --force          Overwrite existing template files and refresh AGENTS.md snippet
   --with-examples  Copy minimal array utils into utilsDir/array/
   --check          Fail gen if JSDoc coverage below 30%
+  --version, -V    Print package version
 `)
 }
 
 async function main() {
-  const { command, cwd, yes, force, withExamples, check } = parseFlags(process.argv.slice(2))
+  const argv = process.argv.slice(2)
+  if (argv.includes('--version') || argv.includes('-V')) {
+    console.log(PACKAGE_VERSION)
+    return
+  }
+
+  const { command, cwd, yes, force, withExamples, check } = parseFlags(argv)
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp()

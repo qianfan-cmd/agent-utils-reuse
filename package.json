@@ -1,6 +1,6 @@
 {
   "name": "agent-utils-reuse",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Agent utils reuse gate: utils-book generator, five-question Confirm flow, Cursor templates",
   "type": "module",
   "license": "MIT",

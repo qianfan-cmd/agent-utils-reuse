@@ -6,7 +6,7 @@ Stop AI coding agents from silently forking your shared utilities. Install once,
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
 - **Decision docs** — five-question Confirm, ask-user on cosmetic diff
-- **Cursor templates** — Skill, Rule, Hook
+- **Cursor templates** — Skill, Rule, **mandatory gate Rule**, Hook (utils + configurable app paths)
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 

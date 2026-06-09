@@ -1,0 +1,30 @@
+---
+description: Mandatory utils reuse gate — Read AGENTS + utils-book before code Write
+alwaysApply: true
+---
+
+# Utils reuse gate (mandatory)
+
+Before **first business Write / StrReplace** when the task may involve **shared utility logic**:
+
+1. **Read** project root **`AGENTS.md`** — utils reuse section (marker `<!-- agent-utils-reuse:start -->` if present).
+2. **Read** **`docs/agent-catalog/placement-decision.md`**.
+3. **Read** **`docs/agent-catalog/utils-book/index.md`** → **one** chapter only (not every chapter).
+4. **Output in chat** (not as a file): **Discovery + Confirm (five questions) + final Verdict**.
+5. **Then** Write / StrReplace application or utils code.
+
+## When this gate applies (non-exhaustive)
+
+- May **`import`** from configured utils dir (default `src/utils/`)
+- Upload / download / parse / format / validate / mention / file IO logic
+- **Even when editing `.vue` / `.ts` in feature or components** — not only when writing utils files
+
+## Do NOT
+
+- Write **`.utils-discovery-cache.json`** or any gate cache file — soft gate; output D/C/V **in chat only**
+- **reuse** without Confirm (five questions after reading source)
+- Copy a Verdict from docs for a specific business task
+
+## Paths
+
+Adjust if your project uses `.utils-bookrc.json` custom `catalogDir` / `utilsDir`. Skill: `.cursor/skills/reuse-before-create/SKILL.md`. Rule summary: `.cursor/rules/reuse-first.mdc`.

@@ -7,6 +7,9 @@
 | 没有 `AGENTS.md` | 创建文件并写入 utils 复用规范 |
 | 已有 `AGENTS.md` | 在文末追加规范（用 HTML 注释标记包裹，避免重复插入） |
 | 再次 `init` | 若标记块已存在则跳过；`init --force` 可刷新片段内容 |
+| `init --force` + 已有 §7 / Design briefly | 自动注入 Shortlist 工作流 bullet（见 `<!-- agent-utils-reuse:workflow-inject -->`） |
+
+`init` 还会安装 **`.cursor/rules/utils-reuse-gate.mdc`**（alwaysApply 总闸）与 **`.utils-bookrc.json`** 中的 `remindWritePaths`（Hook 软提醒业务目录 Write）。
 
 Monorepo 请在**放 `src/utils` 的子包根**执行 `init`（例如 `frontend/`），`AGENTS.md` 会写在同一目录。
 
