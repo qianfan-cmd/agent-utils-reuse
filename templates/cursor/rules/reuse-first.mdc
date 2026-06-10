@@ -1,31 +1,29 @@
 ---
-description: Utils 按需复用 — 先摸底 → Identify → Confirm（五问）→ Verdict
+description: Utils 按需复用 — 先摸底 → Identify → Confirm（五问）→ Verdict（不可跳过）
 alwaysApply: true
 ---
 
 # Utils 按需复用
 
-动手前 **先 Read `AGENTS.md`**（见 **`.cursor/rules/workspace-agent-gate.mdc`**）。涉及 **工具函数** 时：**先读任务/业务代码** → **Identify** → **Read 将调用的 export** → **Confirm（五问）+ Verdict** → Write。Shortlist（utils-book）**可选**。强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**。
+动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read export** → **Confirm + `Verdict（最终）`** → Write。
+
+**已有 import / WIP 接线 / 无新 import — 不豁免。** 强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**。
 
 ## Do（默认偏向 reuse）
 
-- **已实现勿重写** — 同语义用公共 utils，不在 feature 再抄纯函数
-- **子集 / 单 export** — 只 import 并 Read/调用需要的方法即可
+- **已实现勿重写** — 同语义用公共 utils
+- **子集 / 单 export** — 只 Read/调用需要的方法
 - **五问通过 + Q5=否** → **reuse**
-- **展示层细小差异且需求未写明** → **问用户**（placement §1.5，遇疑时再读该节）
+- **展示层细小差异且需求未写明** → **问用户**（§1.5）
 
 ## Verdict
 
 | Verdict | 含义 |
 |---------|------|
-| **reuse** | 五问通过，Q5 否（或用户选 A） |
+| **reuse** | 五问通过，Q5 否 |
 | **newUtil** | Q1–Q4 硬失败要共享；或 Q5 是 |
-| **featureLocal** | 硬失败仅本页；或用户选 B 且仅本页 |
-
-## Invalid reject（不得单独否决）
-
-- 展示层文案 · 子集 · 类里函数多 · util 更大 · 「组件要瘦」
+| **featureLocal** | 硬失败仅本页 |
 
 ## 禁止
 
-- 未 Read 将调用的 export 就 Verdict reuse · 无实质五问就 reuse · extend 旧 export · 写 `.utils-discovery-cache.json`
+- 无 **`Verdict（最终）`** 就 Write feature 文件 · 无实质五问 · 因 WIP/无新 import 跳过门禁 · 写 cache JSON

@@ -11,33 +11,31 @@ Open Cursor at the **project root** (directory with `package.json` and `AGENTS.m
 
 When the task will touch application source or project config:
 
-1. **First step**: Read **`AGENTS.md`** at the project root (path from `.utils-bookrc.json` → `agentsFile`, default `AGENTS.md`). Read the full file once per session/task — do not rely on rule summaries alone.
-2. **Understand the task**: Read / Grep / search **business code**, specs, and **existing imports** so you know what you will call and where.
-3. **If shared utils may apply**:
-   - **Identify** each util symbol @ path (plan, import, grep, or optional utils-book Shortlist).
-   - **Read** the **export(s)/method(s)** you will call (partial Read / Grep OK — not necessarily the whole file).
-   - **Output in chat** before the first business Write / StrReplace: substantive **Confirm (Q1–Q5) per util** + **Verdict（最终）** (see `.cursor/rules/utils-reuse-gate.mdc`).
+1. **First step**: Read **`AGENTS.md`** at the project root in **full** (no `limit`/`offset`). Path from `.utils-bookrc.json` → `agentsFile`, default `AGENTS.md`.
+2. **Understand the task**: Read / Grep / search **business code**, specs, and **existing imports**.
+3. **When utils gate applies** (see `.cursor/rules/utils-reuse-gate.mdc` — **includes existing `@/utils` in target file, WIP wiring NOT exempt**):
+   - **Identify** each util `symbol @ path`
+   - **Read** export(s)/method(s) you will call (partial Read / Grep OK)
+   - **Output in chat** before first business Write / StrReplace: substantive **Confirm (Q1–Q5) per util** + **`Verdict（最终）`**
 4. **Last**: Write / StrReplace.
 
 ## Optional (not required every task)
 
-- utils-book Shortlist (`index.md` + one chapter) when candidates are unclear
-- Read `docs/agent-catalog/placement-decision.md` (reference for §1.5 ask-user and edge cases)
-- Read `.cursor/skills/reuse-before-create/SKILL.md` (procedural duplicate of rules)
+- utils-book Shortlist when candidates unclear
+- Read `placement-decision.md` for §1.5 ask-user / edge cases
+- Read `reuse-before-create` Skill (rules already cover mandatory steps)
 
 ## Utils detail
 
-Confirm object: **each util symbol + this task's planned usage** — can it replace what you would write without changing the util?
-
 Details: **`.cursor/rules/utils-reuse-gate.mdc`**.
 
-## Hook (default remind)
+## Hook (default confirm)
 
-Default `hookMode` is **`remind`**: Write shows a reminder only; **Rules above are the primary gate**. Optional hard deny: set `"hookMode": "confirm"` in `.utils-bookrc.json` (see package README).
+Default `hookMode` is **`confirm`**: may deny Write until util files Read this session. Chat **Verdict（最终）** still required by Rules. Optional `"hookMode": "remind"` — see README.
 
 ## Do NOT
 
-- Skip reading `AGENTS.md` because rules already summarized it
-- Output **Verdict: reuse** without Read of the export(s) you will call
-- Write before Confirm + Verdict when utils logic may apply
+- Skip full `AGENTS.md` read (no limit-only reads)
+- Write before Confirm + **`Verdict（最终）`** when gate applies
+- Assume gate does not apply because there is no new import
 - Write `.utils-discovery-cache.json` or gate cache files

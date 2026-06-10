@@ -6,26 +6,28 @@ alwaysApply: false
 
 # Before editing source — mandatory order
 
-You are about to read or modify **application source** under this repository (matched by configured source globs; default `src/**/*.{vue,ts,tsx}`).
+You are about to read or modify **application source** (default globs: `src/**/*.{vue,ts,tsx}`).
 
-Customize globs in this file's frontmatter if your layout differs (see `.utils-bookrc.json` → optional `sourceGlobs` in README).
+## Gate applies here
+
+If the target file **already imports `@/utils`** or you will call util symbols: **Confirm + Verdict required** — even for WIP wiring, no new import, or obvious reuse. See `utils-reuse-gate.mdc`.
 
 ## Mandatory order
 
-1. **Read `AGENTS.md`** at the project root (see `.cursor/rules/workspace-agent-gate.mdc`).
-2. **Understand the task**: Read / Grep / search related **business code** and existing imports.
-3. If **shared utils** may apply:
-   - **Identify** each util `symbol @ path` (import / grep / plan / optional utils-book).
-   - **Read** each **export/method you will call** (offset/limit or Grep OK; whole file not required).
-   - **Output Confirm (Q1–Q5) + Verdict（最终）** in chat — substantive answers per util; compressed format OK if not empty.
+1. **Read `AGENTS.md`** in full (no limit/offset).
+2. **Understand the task**: Read / Grep business code and existing imports.
+3. When gate applies:
+   - **Identify** each util `symbol @ path`
+   - **Read** each export/method you will call
+   - **Output Confirm (Q1–Q5) + `Verdict（最终）`** in chat (substantive; compressed OK)
 4. **Last** Write / StrReplace.
 
 ## Session checklist
 
-- [ ] Read `AGENTS.md` this session
+- [ ] Read full `AGENTS.md` this session
 - [ ] Understood task / business context before Confirm
-- [ ] Utils needed: Read called export(s), Confirm + Verdict (not copied from docs without source)
-- [ ] Cosmetic UI diff not specified in ticket: **ask the user** (placement §1.5 — optional read)
-- [ ] Run project typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
+- [ ] Utils: Read called export(s), Confirm + **`Verdict（最终）`** in chat
+- [ ] Cosmetic UI diff not specified: ask user (placement §1.5)
+- [ ] Typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
 
 Details: `.cursor/rules/utils-reuse-gate.mdc`

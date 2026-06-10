@@ -1,0 +1,32 @@
+---
+description: Project agent gate — AGENTS.md + utils Confirm+Verdict before Write (installed by agent-utils-reuse init)
+alwaysApply: true
+---
+
+# Project agent gate (agent-utils-reuse)
+
+Installed by **`agent-utils-reuse init`**. Works in **any** project root with `AGENTS.md`. Complements `workspace-agent-gate.mdc` and `utils-reuse-gate.mdc`.
+
+## Hard checklist (every coding task)
+
+1. Read **`AGENTS.md`** in **full** once per session/task — **no** `limit`/`offset`.
+2. Understand task: Read / Grep business code and **existing imports** before Confirm.
+3. **Utils gate applies** when target files have **`@/utils`** or call util symbols — **NOT exempt**: WIP wiring, no new import, obvious reuse.
+4. Before **first business Write / StrReplace**: **Identify** → Read export(s) → substantive **Confirm (Q1–Q5) + `Verdict（最终）`** in chat.
+5. Then Write / StrReplace.
+
+## Hook
+
+Default **`hookMode: confirm`** in `.utils-bookrc.json`: deny Write until util **files** Read this session (merged disk + StrReplace detection). Chat Verdict still required — Hook cannot verify chat text.
+
+## Project-specific core rule
+
+If your project has its own alwaysApply rule (e.g. `ai-web-agent-core.mdc`), set **`projectAgentCoreRule`** in `.utils-bookrc.json` and run **`init --force`** to inject the same bullets there. This file remains active as the package default.
+
+## Do NOT
+
+- Skip gate because WIP or no new import
+- Write feature files without **`Verdict（最终）`** when gate applies
+- Write `.utils-discovery-cache.json`
+
+Details: `.cursor/rules/utils-reuse-gate.mdc`

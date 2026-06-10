@@ -5,46 +5,54 @@ alwaysApply: true
 
 # Utils Confirm gate (mandatory)
 
-**Non-skippable**: For each util you will **import or call**, complete substantive **Confirm (Q1–Q5) + Verdict（最终）** in **chat** before the first business **Write / StrReplace**.
+**Before first business Write / StrReplace** on an applicable task: assistant chat must include substantive **Confirm (Q1–Q5) per util** and **`Verdict（最终）`** (or `Verdict:`). **Forbidden**: empty "Q1–Q5 pass"; StrReplace feature files without Verdict.
 
-**Confirm confirms**: whether **this symbol**, for **this task's planned usage**, can replace what you would write **without changing the util** (Q1–Q5). Not an abstract "use utils?" decision.
+**Non-skippable**: For each util you will **import or call**, complete Confirm + Verdict in **chat**, then Write.
+
+**Confirm confirms**: whether **this symbol**, for **this task's planned usage**, can replace what you would write **without changing the util** (Q1–Q5).
 
 **Optional**: utils-book Shortlist; read `placement-decision.md` or Skill when unclear or §1.5 applies.
 
+## Gate applies — NOT exempt
+
+The gate **applies** (Confirm + Verdict required) when **any** of:
+
+- Write/StrReplace under `remindWritePaths` (default `src/feature`, `src/components`, `src/hooks`, `src/views`) on `.vue`/`.ts`, and the **target file on disk (after merging the patch)** has `@/utils` imports **or** calls imported util symbols
+- Task involves mention, upload, prompt conversion, format, validate, or similar **utils semantics**
+- You will **import or call** anything under configured `utilsDir`
+
+**NOT exempt** (gate still applies):
+
+- No new import this task — **existing** `@/utils` in the file counts
+- WIP wiring only (events, IME, emit) — if utils are still called
+- Obvious reuse — still require Read export(s) + Confirm + Verdict in chat
+
 ## Mandatory flow
 
-1. **Read `AGENTS.md`** (once per session/task).
+1. **Read `AGENTS.md`** in full once per session/task — **no** `limit`/`offset`.
 2. **Understand the task**: Read / Grep business code, plan, **existing imports** — **before** Confirm.
-3. **Identify** each util `symbol @ path` (WIP obvious reuse is **NOT** exempt).
-4. **Read** each **export/method you will call** under `utilsDir` (partial Read / Grep OK; not necessarily whole file).
-5. **Output in chat** (never as a JSON cache file):
-   - **Confirm（五问）** — substantive Q1–Q5 per util (compressed OK; not "Q1–Q5 pass" alone)
-   - **Verdict（最终）** per util: `reuse(symbol)` | `newUtil` | `featureLocal`
-   - Reference format: `placement-decision.md` §3 (recommended, not mandatory template)
+3. **Identify** each util `symbol @ path`.
+4. **Read** each **export/method you will call** (partial Read / Grep OK).
+5. **Output in chat** (never as JSON cache):
+   - Substantive **Confirm（五问）** per util
+   - **`Verdict（最终）`** per util: `reuse(symbol)` | `newUtil` | `featureLocal`
 6. **Then** Write / StrReplace.
 
 ## Plan approved → Implement
 
-When implementing a plan that may use `@/utils`:
+- Read/Search in earlier Implement messages is **allowed**.
+- **`Verdict（最终）`** must appear in chat **before the first business Write / StrReplace** (same task).
+- **No** Write/StrReplace until the assistant message immediately before that Write includes `Verdict（最终）` or `Verdict:`.
 
-- **Verdict（最终）** must appear in chat **before the first business Write / StrReplace** (same task).
-- Read/Search in earlier Implement messages is **allowed** before Confirm + Verdict.
-- **No** Write/StrReplace until the latest assistant message before that Write includes `Verdict（最终）` or `Verdict:`.
+## Hook (default `confirm`)
 
-## When this gate applies
+Default `hookMode` is **`confirm`**: may **deny** Write until util **files** were Read this session. Uses merged file content (disk + patch) to detect `@/utils` on StrReplace. Does **not** replace chat Verdict — Rules still require Confirm + Verdict in chat.
 
-- `import` from utils dir; upload/parse/format/validate/mention/file IO
-- Editing `.vue` / `.ts` in feature, components, hooks, views — not only `src/utils/` files
-
-## Hook (default `remind`)
-
-Default `.utils-bookrc.json` uses `"hookMode": "remind"`: reminder only — **Rules above are the primary gate**.
-
-Optional **`hookMode: "confirm"`** (advanced): may deny Write until util **files** were Read this session. Does not replace chat Verdict. See package README.
+Set `"hookMode": "remind"` in `.utils-bookrc.json` for reminder-only (see README).
 
 ## Do NOT
 
 - Write `.utils-discovery-cache.json` or gate cache files
-- **reuse** without Read of called export(s) + Confirm
-- Skip Confirm because reuse seems obvious
-- Require utils-book Shortlist or reading placement/Skill every task
+- **reuse** without Read of called export(s) + Confirm + Verdict in chat
+- Skip Confirm because reuse seems obvious or "no new import"
+- Read `AGENTS.md` with limit/offset only

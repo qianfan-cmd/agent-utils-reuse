@@ -1,9 +1,20 @@
 {
   "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/hooks/track-utils-reads.mjs --reset"
+      }
+    ],
     "preToolUse": [
       {
         "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",
         "matcher": "Write|StrReplace|EditNotebook"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "node .cursor/hooks/track-utils-reads.mjs",
+        "matcher": "Read"
       }
     ]
   }

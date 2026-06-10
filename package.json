@@ -1,6 +1,6 @@
 {
   "name": "agent-utils-reuse",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Agent utils reuse gate: utils-book generator, five-question Confirm flow, Cursor templates",
   "type": "module",
   "license": "MIT",
@@ -32,5 +32,8 @@
     "reuse",
     "utils-book",
     "ai-coding"
-  ]
+  ],
+  "scripts": {
+    "test:hooks": "node scripts/test-hook-confirm.mjs"
+  }
 }

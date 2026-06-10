@@ -1,21 +1,21 @@
 ### Utils reuse (shared utilities only)
 
-**Agent single source of truth**: This file (`AGENTS.md`). Cursor Rules require reading the **full** file before modifying source — not rule summaries alone. See `.cursor/rules/workspace-agent-gate.mdc`.
+**Agent single source of truth**: This file (`AGENTS.md`). Read the **full** file before modifying source — **no** `limit`/`offset`. See `.cursor/rules/workspace-agent-gate.mdc`.
 
 **Scope**: Only your configured utils directory (default `src/utils/`). Components/hooks use **featureLocal** when appropriate.
 
-**Mandatory gate**: `.cursor/rules/utils-reuse-gate.mdc` — before first business Write when utils may apply:
+**Mandatory gate** (`.cursor/rules/utils-reuse-gate.mdc`) — **NOT exempt**: existing `@/utils` in file, WIP wiring, no new import.
 
-1. Read `AGENTS.md`
+Before first business Write when gate applies:
+
+1. Read `AGENTS.md` in full
 2. Understand task / read business code and existing imports
 3. **Identify** each util `symbol @ path`
 4. **Read** each export/method you will call (partial Read OK)
-5. **Confirm (Q1–Q5) + Verdict（最终）** in chat — substantive per util
+5. **Confirm (Q1–Q5) + `Verdict（最终）`** in chat — substantive per util
 6. Then Write
 
-**WIP obvious reuse is NOT exempt.**
-
-**Optional**: utils-book Shortlist; read `placement-decision.md` or Skill for edge cases (§1.5 ask-user).
+**Optional**: utils-book Shortlist; `placement-decision.md` for §1.5 edge cases.
 
 #### Reuse philosophy
 
@@ -37,7 +37,7 @@ For **each** util you will import or call, answer in chat (substantive; compress
 | Q4 | Substitution: does `util(x)` match the `f(x)` you would write for **this task**? |
 | Q5 | Must you change the existing export? Yes → **newUtil**; no → prefer **reuse** |
 
-**Before Write**, output **Confirm** and **Verdict（最终）** per util. See `placement-decision.md` §3 for a recommended chat format (not mandatory).
+**Before Write**, output **Confirm** and **`Verdict（最终）`** per util.
 
 **Do NOT** write `.utils-discovery-cache.json` or gate cache files.
 
@@ -47,8 +47,8 @@ For **each** util you will import or call, answer in chat (substantive; compress
 | **newUtil** | Hard failure and shared; or Q5 yes |
 | **featureLocal** | Hard failure, page-local only |
 
-**Plan → Implement**: Verdict must appear **before the first business Write/StrReplace**; earlier Read/Search messages are allowed.
+**Plan → Implement**: **`Verdict（最终）`** before first business Write/StrReplace; earlier Read/Search allowed.
 
-**Hook** (default `hookMode: remind`): reminder on Write. Optional `confirm` mode — see package README.
+**Hook** (default `hookMode: confirm`): deny Write until util files Read this session; chat Verdict still required.
 
 After new utils exports → `pnpm gen:utils-book`.

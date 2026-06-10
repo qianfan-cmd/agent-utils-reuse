@@ -2,30 +2,27 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.1.6** refines the **Rules stack**: understand task first, then **Identify → Read export(s) → Confirm + Verdict** before Write; Hook defaults to **remind**.
+Stop AI coding agents from silently forking your shared utilities. **v0.1.8**: **`init` upgrades any project automatically** — package-managed rules/hooks/docs refresh on every init; **`project-agent-gate.mdc`** (`alwaysApply`) for all projects; optional merge into your own core rule via `projectAgentCoreRule`.
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
-- **Confirm gate** — substantive Q1–Q5 + Verdict per util; Shortlist / placement / Skill optional
-- **Cursor templates** — workspace gate, code-before-edit glob, utils-reuse-gate, optional Skill, remind Hook
+- **Confirm gate** — substantive Q1–Q5 + **`Verdict（最终）`** per util before Write
+- **Cursor templates** — full Rules stack + confirm Hook; **no manual per-project edits**
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
-## How constraints work (v0.1.6)
+## How constraints work (v0.1.8)
 
 | Layer | Role |
 |-------|------|
-| **Rules** (primary) | Read `AGENTS.md` → understand task/business code → Identify utils → Read **called export(s)** → Confirm + Verdict → Write |
-| **AGENTS.md** | Single source of truth merged by `init` |
-| **Skill** | Optional procedural duplicate — **not required to Read each task** |
-| **Hook** (secondary) | Default **`remind`**: allow + message — **not** a hard deny |
+| **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`init`** |
+| **Hook (default confirm)** | Deny Write until util files Read; merged disk + StrReplace `@/utils` detection |
+| **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
-**Mandatory (utils validation)**: Read AGENTS → task context → Identify → Read export(s) you will call → substantive Confirm + Verdict before Write.
+**Any project** gets the same stack after `pnpm agent-utils-reuse init` — test projects (e.g. ai-web) do not need hand-edited rules.
 
-**Optional**: utils-book Shortlist; read `placement-decision.md` for §1.5 edge cases; read Skill file.
+**Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
 
-Open Cursor at the **project root** (where `package.json` lives) so rules and hooks resolve paths correctly.
-
-Optional **`hookMode: confirm`** (advanced): may deny Write until util **files** were Read this session. See [Optional confirm mode](#optional-confirm-mode) below.
+Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]`.
 
 ## Install
 
@@ -79,19 +76,38 @@ pnpm add -D file:../agent-utils-reuse
 | `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
 | `.cursor/rules/workspace-agent-gate.mdc` | **Read AGENTS.md first** (alwaysApply) |
 | `.cursor/rules/code-before-edit.mdc` | Source globs — Confirm before Write |
+| `.cursor/rules/project-agent-gate.mdc` | **alwaysApply checklist** — any project (v0.1.8+) |
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
-| `.cursor/hooks/` | Remind Hook (confirm hooks kept for opt-in) |
+| `.cursor/hooks/` | confirm Hook; refreshed every init |
+
+### Upgrade / update
+
+Every **`pnpm agent-utils-reuse init`** refreshes **package-managed** files (rules, hooks, placement-decision, Skill). You do **not** need to copy from `node_modules` manually.
+
+- **`init --force`**: also refresh `AGENTS.md` utils snippet, workflow inject, and `projectAgentCoreRule` inject block
+- **`hookMode`** and other package keys merge into existing `.utils-bookrc.json` (`--force` overwrites package keys)
+
+### Projects with an existing agent-core rule
+
+If you already have `.cursor/rules/my-agent-core.mdc` (`alwaysApply: true`), add to `.utils-bookrc.json`:
+
+```json
+"projectAgentCoreRule": ".cursor/rules/my-agent-core.mdc"
+```
+
+Then `pnpm agent-utils-reuse init --force` injects a marked utils gate block (same content as `project-agent-gate.mdc`). **`project-agent-gate.mdc` remains installed** for redundancy.
 
 ## Commands
 
 | Command | Action |
 |---------|--------|
-| `pnpm agent-utils-reuse init` | One-time setup |
+| `pnpm agent-utils-reuse init` | Install / **upgrade** package-managed rules, hooks, docs |
 | `pnpm agent-utils-reuse init --with-examples` | Setup + sample array utils |
-| `pnpm agent-utils-reuse init --force` | Overwrite templates + refresh AGENTS.md snippet block |
+| `pnpm agent-utils-reuse init --force` | Also refresh AGENTS.md snippet + project-core inject |
 | `pnpm gen:utils-book` | Regenerate utils-book from `src/utils` |
 | `pnpm check:utils-book` | Regenerate + `git diff` (CI gate) |
+| `pnpm test:hooks` | Hook confirm smoke tests |
 
 `init` does **not** generate the book — run `gen` after you have `.ts` files under `utilsDir`.
 
@@ -105,17 +121,24 @@ pnpm add -D file:../agent-utils-reuse
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `remind` | `remind` = allow + message; `confirm` = optional deny until util Read |
-| `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook import detection (confirm mode) |
-| `remindWritePaths` | `src/feature`, … | App paths that trigger remind on Write |
-| `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Documented default for `code-before-edit.mdc` (edit rule frontmatter if needed) |
+| `hookMode` | `confirm` | `confirm` = deny until util file Read (default); `remind` = message only |
+| `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
+| `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
+| `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
+| `projectAgentCoreRule` | `null` | Optional path to merge utils gate into your alwaysApply core rule |
 
-### Optional confirm mode
+### Optional remind mode (soft Hook)
 
-For teams that want Hook-level deny (experimental; may vary by Cursor version):
+To disable Read deny and show reminders only:
 
-1. Set `"hookMode": "confirm"` in `.utils-bookrc.json`
-2. Add to `.cursor/hooks.json`:
+1. Set `"hookMode": "remind"` in `.utils-bookrc.json`
+2. Run `init --force` or manually remove `sessionStart` / `postToolUse` from `.cursor/hooks.json` (keep `preToolUse` only)
+
+Rules still require Confirm + **`Verdict（最终）`** in chat — remind does not enforce that.
+
+### confirm mode (default)
+
+`init --force` installs:
 
 ```json
 {

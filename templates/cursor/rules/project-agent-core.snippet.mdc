@@ -1,22 +1,23 @@
 ---
-description: Optional overlay — merge workspace + utils gate bullets into your project agent-core rule
+description: Legacy pointer — use project-agent-gate.mdc (alwaysApply) or projectAgentCoreRule merge
 alwaysApply: false
 ---
 
-# Project agent-core overlay (optional)
+# Deprecated: manual overlay
 
-If your project already has an alwaysApply agent-core rule, copy relevant bullets below. Link to package rules for full Confirm text.
+**Do not copy this file.** `agent-utils-reuse init` now installs:
 
-## Before coding (add under 动手前 / Before coding)
+- **`.cursor/rules/project-agent-gate.mdc`** — `alwaysApply: true` for **any** project
+- Package-managed rules/hooks refreshed on **every** `init` (not only `--force`)
 
-1. Read **`AGENTS.md`** at project root first (`.cursor/rules/workspace-agent-gate.mdc`).
-2. If shared utils may apply: understand task / read business code → Identify → Read called export(s) → **Confirm (Q1–Q5) + Verdict（最终）** in chat **before first Write** (`.cursor/rules/utils-reuse-gate.mdc`).
+To merge the same bullets into **your** project core rule (e.g. `my-agent-core.mdc`):
 
-## Do not
+1. Add to `.utils-bookrc.json`:
 
-- Skip `AGENTS.md` because rules summarized it
-- Verdict reuse without Read of export(s) you will call
-- Skip Confirm because WIP already imports utils
-- Write `.utils-discovery-cache.json`
+```json
+"projectAgentCoreRule": ".cursor/rules/my-agent-core.mdc"
+```
 
-Default Hook is **remind** only. Optional `hookMode: confirm` — see package README.
+2. Run `pnpm agent-utils-reuse init --force`
+
+See `templates/snippets/project-agent-gate.inject.md` in the npm package.

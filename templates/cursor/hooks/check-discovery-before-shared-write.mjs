@@ -1,13 +1,12 @@
 #!/usr/bin/env node
-import fs from 'node:fs'
 import {
   hasRead,
   isUnderUtils,
-  loadAudit,
   loadHookConfig,
   matchesRemindPath,
   normalizeAuditPath,
-  resolveContentUtilPaths
+  resolveContentUtilPaths,
+  resolveTargetUtilPaths
 } from './read-audit-lib.mjs'
 
 const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md section 3'
@@ -43,25 +42,47 @@ function extractWriteContent(input) {
   return toolInput ?? {}
 }
 
-function getContentPayload(payload) {
-  const parts = []
-  if (payload.content) parts.push(String(payload.content))
-  if (payload.new_string) parts.push(String(payload.new_string))
-  if (payload.newString) parts.push(String(payload.newString))
-  return parts.join('\n')
-}
-
 function denyMessage(missingPaths) {
   const list = missingPaths.map((p) => `\`${p}\``).join(', ')
-  return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+  return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. WIP/existing import does NOT exempt. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
 function remindUtilsMessage() {
-  return `Reminder: Before writing shared utils, Read source, output Confirm (Q1-Q5) + Verdict in chat. See ${PLACEMENT_SECTION}.`
+  return `Reminder: Before writing shared utils, Read source, output Confirm (Q1-Q5) + Verdict（最终） in chat. See utils-reuse-gate.mdc.`
 }
 
 function remindAppMessage() {
-  return `Reminder: Read util source, output Confirm + Verdict in chat before Write. hookMode confirm requires Read audit. See utils-reuse-gate.mdc.`
+  return `Reminder: Utils gate applies (existing @/utils counts). Read util source, output Confirm + Verdict（最终） in chat before Write. See utils-reuse-gate.mdc.`
+}
+
+function collectRequiredReads(normalized, payload, config, cwd) {
+  const requiredReads = new Set()
+  const isRemind = matchesRemindPath(normalized, config.remindWritePaths)
+  const isUtils = isUnderUtils(normalized, config.utilsDir)
+
+  if (isUtils) {
+    requiredReads.add(normalized)
+  }
+
+  if (isRemind || isUtils) {
+    for (const p of resolveTargetUtilPaths(normalized, payload, config, cwd)) {
+      requiredReads.add(p)
+    }
+  }
+
+  // Also scan patch-only imports (new files / import line in diff)
+  const patchContent = [
+    payload.content,
+    payload.new_string,
+    payload.newString
+  ]
+    .filter(Boolean)
+    .join('\n')
+  for (const p of resolveContentUtilPaths(patchContent, config, cwd)) {
+    requiredReads.add(p)
+  }
+
+  return { requiredReads, isRemind, isUtils }
 }
 
 async function main() {
@@ -74,6 +95,7 @@ async function main() {
 
     const input = JSON.parse(raw)
     const config = loadHookConfig(process.cwd())
+    const cwd = process.cwd()
     const filePath = extractPath(input)
     if (!filePath) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
@@ -82,9 +104,12 @@ async function main() {
 
     const normalized = normalizeAuditPath(filePath)
     const payload = extractWriteContent(input)
-    const content = getContentPayload(payload)
-    const isRemind = matchesRemindPath(normalized, config.remindWritePaths)
-    const isUtils = isUnderUtils(normalized, config.utilsDir)
+    const { requiredReads, isRemind, isUtils } = collectRequiredReads(
+      normalized,
+      payload,
+      config,
+      cwd
+    )
 
     if (config.hookMode === 'remind') {
       if (isUtils) {
@@ -104,29 +129,12 @@ async function main() {
     }
 
     // hookMode: confirm
-    const utilPathsFromContent = resolveContentUtilPaths(content, config, process.cwd())
-    const requiredReads = new Set(utilPathsFromContent)
-
-    if (isUtils) {
-      requiredReads.add(normalized)
-    }
-
     if (requiredReads.size === 0) {
-      if (isUtils) {
-        process.stdout.write(
-          JSON.stringify({ permission: 'allow', agent_message: remindUtilsMessage() })
-        )
-        return
-      }
-      if (isRemind) {
-        process.stdout.write(JSON.stringify({ permission: 'allow' }))
-        return
-      }
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
 
-    const missing = [...requiredReads].filter((p) => !hasRead(p, process.cwd()))
+    const missing = [...requiredReads].filter((p) => !hasRead(p, cwd))
     if (missing.length > 0) {
       process.stdout.write(
         JSON.stringify({

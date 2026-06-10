@@ -14,7 +14,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     utilsDir: DEFAULT_UTILS_DIR,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
-    hookMode: 'remind'
+    hookMode: 'confirm'
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)
@@ -171,4 +171,51 @@ export function resolveContentUtilPaths(content, config, cwd = process.cwd()) {
     }
   }
   return [...paths]
+}
+
+/**
+ * Merge Write/StrReplace payload with on-disk target file content.
+ */
+export function mergeWritePayload(filePath, payload, cwd = process.cwd()) {
+  const normalized = normalizeAuditPath(filePath)
+  const diskPath = path.join(cwd, normalized)
+  let base = ''
+  if (fs.existsSync(diskPath)) {
+    try {
+      base = fs.readFileSync(diskPath, 'utf8')
+    } catch {
+      base = ''
+    }
+  }
+
+  if (payload.content != null && String(payload.content).length > 0) {
+    return String(payload.content)
+  }
+
+  const oldStr = payload.old_string ?? payload.oldString
+  const newStr = payload.new_string ?? payload.newString
+  if (oldStr != null && newStr != null && base) {
+    const oldString = String(oldStr)
+    const newString = String(newStr)
+    if (payload.replace_all || payload.replaceAll) {
+      return base.split(oldString).join(newString)
+    }
+    if (base.includes(oldString)) {
+      return base.replace(oldString, newString)
+    }
+  }
+
+  if (newStr != null) {
+    return base ? `${base}\n${String(newStr)}` : String(newStr)
+  }
+
+  return base
+}
+
+/**
+ * Resolve util paths from merged target file (disk + patch).
+ */
+export function resolveTargetUtilPaths(filePath, payload, config, cwd = process.cwd()) {
+  const merged = mergeWritePayload(filePath, payload, cwd)
+  return resolveContentUtilPaths(merged, config, cwd)
 }
