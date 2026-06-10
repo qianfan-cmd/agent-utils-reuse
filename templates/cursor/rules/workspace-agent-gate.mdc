@@ -1,0 +1,32 @@
+---
+description: Project root workspace gate — read AGENTS.md first, then Confirm+Verdict before Write
+alwaysApply: true
+---
+
+# Workspace agent gate (mandatory)
+
+Open Cursor at the **project root** (directory with `package.json` and `AGENTS.md`). Rules and hooks resolve paths from that root.
+
+## Before modifying source or config
+
+When the task will touch application source or project config:
+
+1. **First step**: Read **`AGENTS.md`** at the project root (path from `.utils-bookrc.json` → `agentsFile`, default `AGENTS.md`). Read the full file — do not rely on rule summaries alone.
+2. **If shared utils may apply**: Read `docs/agent-catalog/placement-decision.md` §3 (Confirm template). Optional Shortlist: `docs/agent-catalog/utils-book/index.md` + one chapter when unsure which util.
+3. **Before the first business Write / StrReplace**: output **Confirm (Q1–Q5) + Verdict（最终）** in chat (see `.cursor/rules/utils-reuse-gate.mdc`).
+4. **Then** Read / Grep / search business code.
+5. **Last** Write / StrReplace.
+
+## Utils detail
+
+Confirm flow, WIP reuse, and Plan → Implement rules: **`.cursor/rules/utils-reuse-gate.mdc`**.
+
+## Hook (default remind)
+
+Default `hookMode` is **`remind`**: Write shows a reminder only; **Rules above are the primary gate**. Optional hard deny: set `"hookMode": "confirm"` in `.utils-bookrc.json` (see package README).
+
+## Do NOT
+
+- Skip reading `AGENTS.md` because rules already summarized it
+- Write before Confirm + Verdict when utils logic may apply
+- Write `.utils-discovery-cache.json` or gate cache files

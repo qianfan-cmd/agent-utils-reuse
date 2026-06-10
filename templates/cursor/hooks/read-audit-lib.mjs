@@ -14,7 +14,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     utilsDir: DEFAULT_UTILS_DIR,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
-    hookMode: 'confirm'
+    hookMode: 'remind'
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)

@@ -1,0 +1,30 @@
+---
+description: Before editing source files — mandatory Read AGENTS + Confirm order (pairs with workspace gate)
+globs: src/**/*.{vue,ts,tsx}
+alwaysApply: false
+---
+
+# Before editing source — mandatory order
+
+You are about to read or modify **application source** under this repository (matched by configured source globs; default `src/**/*.{vue,ts,tsx}`).
+
+Customize globs in this file's frontmatter if your layout differs (see `.utils-bookrc.json` → optional `sourceGlobs` in README).
+
+## Mandatory order
+
+1. **Read `AGENTS.md`** at the project root (see `.cursor/rules/workspace-agent-gate.mdc`).
+2. If **shared utils** may apply: optional Shortlist via `docs/agent-catalog/utils-book/index.md` + one chapter; then **Confirm (Q1–Q5) + Verdict（最终）** per `docs/agent-catalog/placement-decision.md` §3.
+3. **Read each util source file** under configured `utilsDir` (default `src/utils/`) — full file, not partial reads with limit/offset.
+4. **Output Confirm + Verdict in chat** before the first business Write / StrReplace on this task.
+5. **Then** Read / Grep / search related business code.
+6. **Last** Write / StrReplace.
+
+## Session checklist
+
+- [ ] Read `AGENTS.md` this session
+- [ ] Utils needed: Confirm (five questions) + Verdict (not copied from docs without reading source)
+- [ ] Cosmetic UI diff not specified in ticket: **ask the user** (placement §1.5)
+- [ ] Minimal scope design before editing
+- [ ] Run project typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
+
+Details: `.cursor/rules/utils-reuse-gate.mdc` · Skill: `.cursor/skills/reuse-before-create/SKILL.md`

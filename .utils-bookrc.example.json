@@ -6,7 +6,8 @@
   "skillsDir": ".cursor/skills",
   "agentsFile": "AGENTS.md",
   "jsdocTag": "@utils-book",
-  "hookMode": "confirm",
+  "hookMode": "remind",
   "utilsImportAliases": ["@/utils"],
-  "remindWritePaths": ["src/feature", "src/components", "src/hooks", "src/views"]
+  "remindWritePaths": ["src/feature", "src/components", "src/hooks", "src/views"],
+  "sourceGlobs": ["src/**/*.{vue,ts,tsx}"]
 }

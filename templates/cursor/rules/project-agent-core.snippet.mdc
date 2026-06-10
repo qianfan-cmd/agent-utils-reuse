@@ -1,19 +1,21 @@
 ---
-description: Optional overlay — merge utils Confirm gate into your project agent-core rule
+description: Optional overlay — merge workspace + utils gate bullets into your project agent-core rule
 alwaysApply: false
 ---
 
 # Project agent-core overlay (optional)
 
-Copy relevant bullets into your existing `ai-web-agent-core.mdc` or project equivalent:
+If your project already has an alwaysApply agent-core rule (e.g. `project-agent-core.mdc`), copy relevant bullets below. Do not duplicate full Confirm text — link to the package rules.
 
-## Utils Confirm gate (add under 动手前)
+## Before coding (add under 动手前 / Before coding)
 
-4. If Implement touches `@/utils` or shared util logic: first assistant message must include **Confirm (Q1-Q5) + Verdict（最终）** in chat; Hook `hookMode: confirm` denies Write until util **source** was Read this session.
+1. Read **`AGENTS.md`** at project root first (`.cursor/rules/workspace-agent-gate.mdc`).
+2. If Implement may touch shared utils: first assistant message includes **Confirm (Q1–Q5) + Verdict（最终）** in chat; read util **source** before deciding (`.cursor/rules/utils-reuse-gate.mdc`).
 
 ## Do not
 
+- Skip `AGENTS.md` because rules summarized it
 - Skip Confirm because WIP already imports utils
 - Write `.utils-discovery-cache.json`
 
-See `.cursor/rules/utils-reuse-gate.mdc` and `AGENTS.md` utils reuse section.
+Default Hook is **remind** only. Optional `hookMode: confirm` — see package README.

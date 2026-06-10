@@ -1,5 +1,7 @@
 ### Utils reuse (shared utilities only)
 
+**Agent single source of truth**: This file (`AGENTS.md`). Cursor Rules require reading the **full** file before modifying source — not rule summaries alone. See `.cursor/rules/workspace-agent-gate.mdc`.
+
 **Scope**: Only your configured utils directory (default `src/utils/`). Components/hooks use **featureLocal** when appropriate.
 
 **Mandatory gate**: `.cursor/rules/utils-reuse-gate.mdc` — **Confirm (Q1–Q5) + Verdict（最终） in chat** before first business Write when utils logic may apply. **WIP obvious reuse is NOT exempt.**
@@ -42,6 +44,6 @@ For **each** util you will import or call, **Read** its source file, then answer
 
 **Plan → Implement**: First Implement assistant message must include Verdict when the plan touches `@/utils`.
 
-**Hook** (`hookMode: confirm` in `.utils-bookrc.json`): Write may be **denied** until util sources were Read this session.
+**Hook** (default `hookMode: remind` in `.utils-bookrc.json`): Write shows a reminder on utils / app paths. Optional `confirm` mode may deny until util sources were Read — see package README.
 
 After new utils exports → `pnpm gen:utils-book`. Skill: `.cursor/skills/reuse-before-create/SKILL.md`.

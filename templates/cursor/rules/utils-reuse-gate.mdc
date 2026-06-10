@@ -31,9 +31,11 @@ When implementing an approved plan that may use `@/utils` or shared util logic:
 - `import` from utils dir; upload/parse/format/validate/mention/file IO
 - Editing `.vue` / `.ts` in feature, components, hooks, views — not only `src/utils/` files
 
-## Hook (`hookMode: confirm`)
+## Hook (default `remind`)
 
-If `.utils-bookrc.json` has `"hookMode": "confirm"`, Write may be **denied** until util source files were **Read** this session (tracked in `.cursor/.utils-gate-reads.json`). This enforces Read + Confirm; it does not replace chat Verdict (Rules still require it).
+Default `.utils-bookrc.json` uses `"hookMode": "remind"`: Write / StrReplace on `utilsDir` or `remindWritePaths` shows a **reminder only** — **Rules in this file and `workspace-agent-gate.mdc` are the primary gate**.
+
+Optional **`hookMode: "confirm"`** (advanced): may **deny** Write until util source files were **Read** this session (`.cursor/.utils-gate-reads.json`). Does not replace chat Verdict. See package README to enable.
 
 ## Do NOT
 

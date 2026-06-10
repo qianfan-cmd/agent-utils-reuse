@@ -2,13 +2,26 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.1.4** adds **confirm mode**: deny Write until util source files were Read this session (no cache JSON).
+Stop AI coding agents from silently forking your shared utilities. **v0.1.5** ships a **Rules stack** (primary gate) via `init`; Hook defaults to **remind** (soft reminder on Write).
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
 - **Confirm gate** — mandatory Q1–Q5 + Verdict in chat; Shortlist optional
-- **Cursor templates** — Skill, Rule, **utils-reuse-gate.mdc**, read-audit Hook
+- **Cursor templates** — workspace gate, code-before-edit glob, utils-reuse-gate, Skill, remind Hook
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
+
+## How constraints work (v0.1.5)
+
+| Layer | Role |
+|-------|------|
+| **Rules** (primary) | `workspace-agent-gate.mdc` → Read `AGENTS.md` first; `code-before-edit.mdc` → Confirm before Write on source globs; `utils-reuse-gate.mdc` → Confirm + Verdict detail |
+| **AGENTS.md** | Single source of truth merged by `init` |
+| **Skill** | Shortlist / five-question flow when unsure |
+| **Hook** (secondary) | Default **`remind`**: allow + message on Write to `utilsDir` / app paths — **not** a hard deny |
+
+Open Cursor at the **project root** (where `package.json` lives) so rules and hooks resolve paths correctly.
+
+Optional **`hookMode: confirm`** (advanced): may deny Write until util sources were Read this session. See [Optional confirm mode](#optional-confirm-mode) below.
 
 ## Install
 
@@ -56,14 +69,15 @@ pnpm add -D file:../agent-utils-reuse
 | Path | Purpose |
 |------|---------|
 | `AGENTS.md` | **Auto-created or merged** with utils reuse section |
-| `.utils-bookrc.json` | Scan paths and JSDoc tag |
+| `.utils-bookrc.json` | Scan paths, hook mode, globs |
 | `docs/agent-catalog/placement-decision.md` | Reuse rules (five questions) |
 | `docs/agent-catalog/AGENTS.utils-reuse.snippet.md` | Manual-merge reference (usually not needed) |
 | `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
+| `.cursor/rules/workspace-agent-gate.mdc` | **Read AGENTS.md first** (alwaysApply) |
+| `.cursor/rules/code-before-edit.mdc` | Source globs — Confirm before Write |
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
-| `.cursor/hooks/` | Read audit + confirm deny (or remind mode) |
-| `.cursor/.utils-gate-reads.json` | Session read audit (gitignored) |
+| `.cursor/hooks/` | Remind Hook (confirm hooks kept for opt-in) |
 
 ## Commands
 
@@ -87,9 +101,34 @@ pnpm add -D file:../agent-utils-reuse
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `confirm` | `confirm` = deny until util source Read; `remind` = allow + message only |
-| `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook import detection |
-| `remindWritePaths` | `src/feature`, … | App paths that trigger confirm when adding utils imports |
+| `hookMode` | `remind` | `remind` = allow + message; `confirm` = optional deny until util Read |
+| `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook import detection (confirm mode) |
+| `remindWritePaths` | `src/feature`, … | App paths that trigger remind on Write |
+| `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Documented default for `code-before-edit.mdc` (edit rule frontmatter if needed) |
+
+### Optional confirm mode
+
+For teams that want Hook-level deny (experimental; may vary by Cursor version):
+
+1. Set `"hookMode": "confirm"` in `.utils-bookrc.json`
+2. Add to `.cursor/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "sessionStart": [{ "command": "node .cursor/hooks/track-utils-reads.mjs --reset" }],
+    "postToolUse": [{ "command": "node .cursor/hooks/track-utils-reads.mjs", "matcher": "Read" }],
+    "preToolUse": [{
+      "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",
+      "matcher": "Write|StrReplace|EditNotebook"
+    }]
+  }
+}
+```
+
+3. Add `.cursor/.utils-gate-reads.json` to `.gitignore` (init does this)
+
+Confirm mode does **not** replace chat Verdict — Rules still require Confirm + Verdict.
 
 ### Test Hook locally (Windows)
 
