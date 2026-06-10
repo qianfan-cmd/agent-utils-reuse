@@ -2,26 +2,30 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.1.5** ships a **Rules stack** (primary gate) via `init`; Hook defaults to **remind** (soft reminder on Write).
+Stop AI coding agents from silently forking your shared utilities. **v0.1.6** refines the **Rules stack**: understand task first, then **Identify → Read export(s) → Confirm + Verdict** before Write; Hook defaults to **remind**.
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
-- **Confirm gate** — mandatory Q1–Q5 + Verdict in chat; Shortlist optional
-- **Cursor templates** — workspace gate, code-before-edit glob, utils-reuse-gate, Skill, remind Hook
+- **Confirm gate** — substantive Q1–Q5 + Verdict per util; Shortlist / placement / Skill optional
+- **Cursor templates** — workspace gate, code-before-edit glob, utils-reuse-gate, optional Skill, remind Hook
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
-## How constraints work (v0.1.5)
+## How constraints work (v0.1.6)
 
 | Layer | Role |
 |-------|------|
-| **Rules** (primary) | `workspace-agent-gate.mdc` → Read `AGENTS.md` first; `code-before-edit.mdc` → Confirm before Write on source globs; `utils-reuse-gate.mdc` → Confirm + Verdict detail |
+| **Rules** (primary) | Read `AGENTS.md` → understand task/business code → Identify utils → Read **called export(s)** → Confirm + Verdict → Write |
 | **AGENTS.md** | Single source of truth merged by `init` |
-| **Skill** | Shortlist / five-question flow when unsure |
-| **Hook** (secondary) | Default **`remind`**: allow + message on Write to `utilsDir` / app paths — **not** a hard deny |
+| **Skill** | Optional procedural duplicate — **not required to Read each task** |
+| **Hook** (secondary) | Default **`remind`**: allow + message — **not** a hard deny |
+
+**Mandatory (utils validation)**: Read AGENTS → task context → Identify → Read export(s) you will call → substantive Confirm + Verdict before Write.
+
+**Optional**: utils-book Shortlist; read `placement-decision.md` for §1.5 edge cases; read Skill file.
 
 Open Cursor at the **project root** (where `package.json` lives) so rules and hooks resolve paths correctly.
 
-Optional **`hookMode: confirm`** (advanced): may deny Write until util sources were Read this session. See [Optional confirm mode](#optional-confirm-mode) below.
+Optional **`hookMode: confirm`** (advanced): may deny Write until util **files** were Read this session. See [Optional confirm mode](#optional-confirm-mode) below.
 
 ## Install
 

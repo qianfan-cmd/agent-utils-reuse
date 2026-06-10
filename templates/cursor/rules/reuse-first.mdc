@@ -1,18 +1,18 @@
 ---
-description: Utils 按需复用 — Shortlist → Confirm（五问）→ Verdict
+description: Utils 按需复用 — 先摸底 → Identify → Confirm（五问）→ Verdict
 alwaysApply: true
 ---
 
 # Utils 按需复用
 
-动手前 **先 Read `AGENTS.md`**（见 **`.cursor/rules/workspace-agent-gate.mdc`**）。涉及 **工具函数** 时：**Shortlist（可选）→ Confirm（五问）→ Verdict → Write**。强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**；触达源码时 **`code-before-edit.mdc`** 再锁顺序；细则 `docs/agent-catalog/placement-decision.md` §1、§1.5。
+动手前 **先 Read `AGENTS.md`**（见 **`.cursor/rules/workspace-agent-gate.mdc`**）。涉及 **工具函数** 时：**先读任务/业务代码** → **Identify** → **Read 将调用的 export** → **Confirm（五问）+ Verdict** → Write。Shortlist（utils-book）**可选**。强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**。
 
 ## Do（默认偏向 reuse）
 
 - **已实现勿重写** — 同语义用公共 utils，不在 feature 再抄纯函数
-- **子集 / 单 export** — 只 import 需要的一个
+- **子集 / 单 export** — 只 import 并 Read/调用需要的方法即可
 - **五问通过 + Q5=否** → **reuse**
-- **展示层细小差异且需求未写明** → **问用户**（§1.5）
+- **展示层细小差异且需求未写明** → **问用户**（placement §1.5，遇疑时再读该节）
 
 ## Verdict
 
@@ -28,6 +28,4 @@ alwaysApply: true
 
 ## 禁止
 
-- 无五问就 reuse · extend 旧 export · 展示层差异时静默 fork · 写 `.utils-discovery-cache.json`
-
-Skill：`.cursor/skills/reuse-before-create/SKILL.md`
+- 未 Read 将调用的 export 就 Verdict reuse · 无实质五问就 reuse · extend 旧 export · 写 `.utils-discovery-cache.json`

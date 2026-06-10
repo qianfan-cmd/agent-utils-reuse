@@ -1,5 +1,5 @@
 ---
-description: Before editing source files — mandatory Read AGENTS + Confirm order (pairs with workspace gate)
+description: Before editing source files — Read AGENTS, understand task, Confirm utils, then Write
 globs: src/**/*.{vue,ts,tsx}
 alwaysApply: false
 ---
@@ -13,18 +13,19 @@ Customize globs in this file's frontmatter if your layout differs (see `.utils-b
 ## Mandatory order
 
 1. **Read `AGENTS.md`** at the project root (see `.cursor/rules/workspace-agent-gate.mdc`).
-2. If **shared utils** may apply: optional Shortlist via `docs/agent-catalog/utils-book/index.md` + one chapter; then **Confirm (Q1–Q5) + Verdict（最终）** per `docs/agent-catalog/placement-decision.md` §3.
-3. **Read each util source file** under configured `utilsDir` (default `src/utils/`) — full file, not partial reads with limit/offset.
-4. **Output Confirm + Verdict in chat** before the first business Write / StrReplace on this task.
-5. **Then** Read / Grep / search related business code.
-6. **Last** Write / StrReplace.
+2. **Understand the task**: Read / Grep / search related **business code** and existing imports.
+3. If **shared utils** may apply:
+   - **Identify** each util `symbol @ path` (import / grep / plan / optional utils-book).
+   - **Read** each **export/method you will call** (offset/limit or Grep OK; whole file not required).
+   - **Output Confirm (Q1–Q5) + Verdict（最终）** in chat — substantive answers per util; compressed format OK if not empty.
+4. **Last** Write / StrReplace.
 
 ## Session checklist
 
 - [ ] Read `AGENTS.md` this session
-- [ ] Utils needed: Confirm (five questions) + Verdict (not copied from docs without reading source)
-- [ ] Cosmetic UI diff not specified in ticket: **ask the user** (placement §1.5)
-- [ ] Minimal scope design before editing
+- [ ] Understood task / business context before Confirm
+- [ ] Utils needed: Read called export(s), Confirm + Verdict (not copied from docs without source)
+- [ ] Cosmetic UI diff not specified in ticket: **ask the user** (placement §1.5 — optional read)
 - [ ] Run project typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
 
-Details: `.cursor/rules/utils-reuse-gate.mdc` · Skill: `.cursor/skills/reuse-before-create/SKILL.md`
+Details: `.cursor/rules/utils-reuse-gate.mdc`

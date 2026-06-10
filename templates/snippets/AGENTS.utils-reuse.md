@@ -4,35 +4,40 @@
 
 **Scope**: Only your configured utils directory (default `src/utils/`). Components/hooks use **featureLocal** when appropriate.
 
-**Mandatory gate**: `.cursor/rules/utils-reuse-gate.mdc` — **Confirm (Q1–Q5) + Verdict（最终） in chat** before first business Write when utils logic may apply. **WIP obvious reuse is NOT exempt.**
+**Mandatory gate**: `.cursor/rules/utils-reuse-gate.mdc` — before first business Write when utils may apply:
 
-**Optional**: Shortlist via `docs/agent-catalog/utils-book/index.md` + one chapter when unsure which util.
+1. Read `AGENTS.md`
+2. Understand task / read business code and existing imports
+3. **Identify** each util `symbol @ path`
+4. **Read** each export/method you will call (partial Read OK)
+5. **Confirm (Q1–Q5) + Verdict（最终）** in chat — substantive per util
+6. Then Write
 
-**Flow**: Identify utils → **Read util source** → **Confirm + Verdict in chat** → Write.
+**WIP obvious reuse is NOT exempt.**
 
-Details: `docs/agent-catalog/placement-decision.md` §1, §3.
+**Optional**: utils-book Shortlist; read `placement-decision.md` or Skill for edge cases (§1.5 ask-user).
 
 #### Reuse philosophy
 
 - Do not re-implement logic that already exists with the same semantics and storage/API contract.
-- Single-export import from a larger module is fine.
-- Summaries alone are not proof — answer Confirm after **reading util source**.
+- Single-export import from a larger module is fine — Read only what you call.
+- Summaries alone are not proof — Confirm after **reading called export(s)**.
 - Cosmetic UI copy diff alone does not forbid reuse; if the ticket is silent, **ask the user** (placement §1.5).
 - **No extend**: changing an existing export's default semantics → **newUtil**.
 
 #### Confirm (five questions) — mandatory
 
-For **each** util you will import or call, **Read** its source file, then answer in chat:
+For **each** util you will import or call, answer in chat (substantive; compressed OK):
 
 | # | Question |
 |---|----------|
 | Q1 | Input contract |
 | Q2 | Output / persistence / API (**exclude** UI copy) |
 | Q3 | Side effects |
-| Q4 | Substitution: does `util(x)` match the `f(x)` you would write? |
+| Q4 | Substitution: does `util(x)` match the `f(x)` you would write for **this task**? |
 | Q5 | Must you change the existing export? Yes → **newUtil**; no → prefer **reuse** |
 
-**Before Write**, output **Confirm** and **Verdict（最终）** — template in `placement-decision.md` §3.
+**Before Write**, output **Confirm** and **Verdict（最终）** per util. See `placement-decision.md` §3 for a recommended chat format (not mandatory).
 
 **Do NOT** write `.utils-discovery-cache.json` or gate cache files.
 
@@ -42,8 +47,8 @@ For **each** util you will import or call, **Read** its source file, then answer
 | **newUtil** | Hard failure and shared; or Q5 yes |
 | **featureLocal** | Hard failure, page-local only |
 
-**Plan → Implement**: First Implement assistant message must include Verdict when the plan touches `@/utils`.
+**Plan → Implement**: Verdict must appear **before the first business Write/StrReplace**; earlier Read/Search messages are allowed.
 
-**Hook** (default `hookMode: remind` in `.utils-bookrc.json`): Write shows a reminder on utils / app paths. Optional `confirm` mode may deny until util sources were Read — see package README.
+**Hook** (default `hookMode: remind`): reminder on Write. Optional `confirm` mode — see package README.
 
-After new utils exports → `pnpm gen:utils-book`. Skill: `.cursor/skills/reuse-before-create/SKILL.md`.
+After new utils exports → `pnpm gen:utils-book`.

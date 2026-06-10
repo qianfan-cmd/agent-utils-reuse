@@ -1,4 +1,4 @@
-# Utils 按需复用 — Shortlist → Confirm（五问）→ Verdict
+# Utils 按需复用 — Identify → Confirm（五问）→ Verdict
 
 > 配套：项目 `AGENTS.md` utils 复用节、[`.cursor/skills/reuse-before-create/SKILL.md`](../../.cursor/skills/reuse-before-create/SKILL.md)、[`.cursor/rules/utils-reuse-gate.mdc`](../../.cursor/rules/utils-reuse-gate.mdc)
 
@@ -24,7 +24,7 @@
 > **在不动已有 export 签名与默认语义的前提下，用该 util 替换 feature 里拟新写的同语义逻辑，业务契约与风险均可接受。**
 
 - 仅凭工具书摘要 → **不构成证明**（只能 Shortlist）。
-- 必须 **Read** utils 源码后，用 **五问** 书面 Confirm；**不得**从本文档抄针对某业务的 Verdict。
+- 必须 **Read** 将调用的 **export/方法** 源码后，用 **五问** 书面 Confirm；**不得**从本文档抄针对某业务的 Verdict。读整文件非必须（子集/单 export 即可）。
 
 ### 1.1 Confirm 五问
 
@@ -88,7 +88,9 @@
 
 ---
 
-## 2. Shortlist（候选，不是最终 reuse）
+## 2. Shortlist（可选 — 仅不确定候选时）
+
+通过 utils-book 查候选时的步骤（**不是**每次任务的必做环节；考古 / 现有 import / grep 同样有效）：
 
 | 步骤 | 动作 |
 |------|------|
@@ -101,18 +103,22 @@
 
 ---
 
-## 3. Write 前固定输出
+## 3. Write 前对话输出（推荐格式）
 
-**在对话中输出**（不要写入 cache JSON 文件）：
+**在对话中输出**（不要写入 cache JSON 文件）。**必做**：每个 util 有**实质** Q1–Q5 + Verdict。**不强制**下列完整模板；可压缩，但禁止空泛「Q1–Q5 通过」。
+
+**Identify（识别，必做）**：列出本任务将用的 `sym @ path`（来源：计划 / 现有 import / grep / Shortlist 均可，一行即可）。
+
+**Shortlist 痕迹（可选）**：若走了 §2，可写 `utils-book index + 章 X`。
 
 ```markdown
-**Discovery**：index + 章 X；候选 `sym` @ path
+**Identify**：`PromptUtils` @ src/utils/prompt/promptUtils.ts（现有 import）
 
 **Confirm（五问）**
 - Q1 输入：…
 - Q2 输出/存储/API：…
 - Q3 副作用：…
-- Q4 替换实验：`sym` ≡ 拟写 `f` because …（展示层差异：有/无，见下）
+- Q4 替换实验：`sym` ≡ 本任务拟写 `f` because …（展示层差异：有/无）
 - Q5 须改 util 内部？是/否
 
 **用户确认（仅当 §1.5 适用）**
@@ -169,6 +175,6 @@
 2. validate 入参不符 → **featureLocal**
 3. 无 export、需共享 → **newUtil** + regen
 4. 摘要像、实现要不同 IO → 禁止误 **reuse**
-5. 改 utils 前无 Discovery+五问 → Hook 提醒
+5. 改 utils 前无 Identify+实质五问 → Hook 提醒
 6. 任意新需求：**不得**从规范抄 Verdict；展示层未写明时须 **问用户** 或 reuse
 7. Agent 不得 Write gate cache JSON 文件

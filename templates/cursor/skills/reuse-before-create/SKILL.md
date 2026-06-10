@@ -1,29 +1,32 @@
 ---
 name: reuse-before-create
 description: >-
-  Mandatory Confirm gate before Write when using shared utils. Read util source,
-  output five questions + Verdict in chat. Shortlist from utils-book optional.
-  hookMode confirm denies Write until util source Read. No cache JSON files.
+  Utils reuse Confirm gate — optional procedural guide. Mandatory rules in
+  utils-reuse-gate.mdc and AGENTS.md; do not need to Read this file each task.
 ---
 
 # Reuse Before Create — Confirm gate
 
-**Identify → Read util source → Confirm（五问）→ Verdict → Write**
+**Read AGENTS.md → understand task/business code → Identify → Read export(s) → Confirm（五问）→ Verdict → Write**
 
-Optional when unsure: Shortlist from utils-book. Mandatory: **Confirm + Verdict in chat**.
+Mandatory rules: `.cursor/rules/utils-reuse-gate.mdc`, `AGENTS.md` utils section. This Skill is **optional** detail — Cursor may attach it by description; **no need to Read this file** if rules are followed.
 
-细则：`AGENTS.md` utils 节、`placement-decision.md` §1、§3、`.cursor/rules/utils-reuse-gate.mdc`。
+Optional when unsure: Shortlist from utils-book. Optional reference: `placement-decision.md` §1.5.
 
 ## When to Use
 
 - Implement / fix features that **import or call** `utilsDir` (default `src/utils/`)
 - Plan approved → Implement touching mention/upload/prompt/format/validate utils
 
-## Step 0 — Identify utils (mandatory)
+## Step 0 — Read AGENTS + understand task
 
-List each util file/symbol you will rely on (including **existing** imports in WIP — not exempt).
+Read `AGENTS.md`. Read / Grep **business code**, spec, **existing imports** so Confirm has context.
 
-## Step 1 — Shortlist (optional)
+## Step 1 — Identify utils (mandatory)
+
+List each util `symbol @ path` you will rely on (plan, import, grep, or Shortlist — source line optional).
+
+## Step 2 — Shortlist (optional)
 
 Only if candidates are unclear:
 
@@ -33,37 +36,36 @@ Only if candidates are unclear:
 | S2 | Read **1** chapter |
 | S3 | List candidates `name @ path` |
 
-## Step 2 — Confirm（五问）(mandatory)
+## Step 3 — Read source (mandatory)
 
-**Read** each util source under `utilsDir`:
+**Read** each **export/method you will call** (partial Read / Grep OK; whole file not required).
+
+## Step 4 — Confirm（五问）(mandatory)
+
+Substantive answers per util:
 
 | # | 核对 |
 |---|------|
 | Q1 | 输入契约 |
 | Q2 | 输出/存储/API（**不含**展示层文案） |
 | Q3 | 副作用 |
-| Q4 | 替换实验：`util(x)` ≡ 拟写 `f(x)`？ |
+| Q4 | 替换实验：`util(x)` ≡ 本任务拟写 `f(x)`？ |
 | Q5 | 须改 util 内部？是 → **newUtil**；否 → 倾向 **reuse** |
 
-## Step 2b — 展示层细小差异（问用户）
+## Step 4b — 展示层细小差异（问用户）
 
-Q1–Q4 通过、Q5=否，但用户可见文案不同且需求未写明 → AskQuestion（§1.5）。
+Q1–Q4 通过、Q5=否，但用户可见文案不同且需求未写明 → AskQuestion（placement §1.5）。
 
-## Step 3 — Verdict（Write 前必输出，对话内）
+## Step 5 — Verdict（Write 前必输出，对话内）
 
-```markdown
-**Confirm（五问）**
-- Q1 … Q5 …（每个 util）
-
-**Verdict（最终）**：reuse(`sym`) | newUtil | featureLocal
-```
+Each util: `reuse(sym)` | `newUtil` | `featureLocal`. Compressed format OK if Q1–Q5 are substantive.
 
 **禁止**写 `.utils-discovery-cache.json`。
 
-## Hook confirm mode
+## Hook confirm mode (optional)
 
-`hookMode: confirm` → Write denied until util sources **Read** this session. Read source, output Confirm+Verdict, then Write again.
+`hookMode: confirm` → may deny Write until util files Read this session. See README.
 
 ## Do Not
 
-- Skip Confirm because reuse is obvious · 无五问就 reuse · 写 cache JSON · extend 旧 export
+- Skip Confirm because reuse is obvious · 无实质五问就 reuse · 写 cache JSON · extend 旧 export

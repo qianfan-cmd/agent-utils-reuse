@@ -5,26 +5,31 @@ alwaysApply: true
 
 # Utils Confirm gate (mandatory)
 
-**Non-skippable**: For each util you will **import or call**, complete **Confirm (Q1–Q5) + Verdict（最终）** in **chat** before the first business **Write / StrReplace**.
+**Non-skippable**: For each util you will **import or call**, complete substantive **Confirm (Q1–Q5) + Verdict（最终）** in **chat** before the first business **Write / StrReplace**.
 
-**Optional** (when unsure which util): Shortlist via `docs/agent-catalog/utils-book/index.md` + one chapter, or read `placement-decision.md`.
+**Confirm confirms**: whether **this symbol**, for **this task's planned usage**, can replace what you would write **without changing the util** (Q1–Q5). Not an abstract "use utils?" decision.
 
-## Mandatory flow (Implement / first business Write)
+**Optional**: utils-book Shortlist; read `placement-decision.md` or Skill when unclear or §1.5 applies.
 
-1. **Identify** util symbols/paths (task, existing imports, planned code — **WIP obvious reuse is NOT exempt**).
-2. **Read** each util **source file** under `utilsDir` (default `src/utils/`). Utils-book catalog read is optional.
-3. **Output in chat** (never as a JSON cache file):
-   - **Confirm（五问）** Q1–Q5 per util
-   - **Verdict（最终）**: `reuse(symbol)` | `newUtil` | `featureLocal`
-   - Template: `docs/agent-catalog/placement-decision.md` §3
-4. **Then** Write / StrReplace.
+## Mandatory flow
+
+1. **Read `AGENTS.md`** (once per session/task).
+2. **Understand the task**: Read / Grep business code, plan, **existing imports** — **before** Confirm.
+3. **Identify** each util `symbol @ path` (WIP obvious reuse is **NOT** exempt).
+4. **Read** each **export/method you will call** under `utilsDir` (partial Read / Grep OK; not necessarily whole file).
+5. **Output in chat** (never as a JSON cache file):
+   - **Confirm（五问）** — substantive Q1–Q5 per util (compressed OK; not "Q1–Q5 pass" alone)
+   - **Verdict（最终）** per util: `reuse(symbol)` | `newUtil` | `featureLocal`
+   - Reference format: `placement-decision.md` §3 (recommended, not mandatory template)
+6. **Then** Write / StrReplace.
 
 ## Plan approved → Implement
 
-When implementing an approved plan that may use `@/utils` or shared util logic:
+When implementing a plan that may use `@/utils`:
 
-- The **first assistant message** of Implement must include **Verdict（最终）** (after Confirm).
-- **No** Write/StrReplace as the first tool call unless the prior assistant message already contains `Verdict（最终）` or `Verdict:`.
+- **Verdict（最终）** must appear in chat **before the first business Write / StrReplace** (same task).
+- Read/Search in earlier Implement messages is **allowed** before Confirm + Verdict.
+- **No** Write/StrReplace until the latest assistant message before that Write includes `Verdict（最终）` or `Verdict:`.
 
 ## When this gate applies
 
@@ -33,14 +38,13 @@ When implementing an approved plan that may use `@/utils` or shared util logic:
 
 ## Hook (default `remind`)
 
-Default `.utils-bookrc.json` uses `"hookMode": "remind"`: Write / StrReplace on `utilsDir` or `remindWritePaths` shows a **reminder only** — **Rules in this file and `workspace-agent-gate.mdc` are the primary gate**.
+Default `.utils-bookrc.json` uses `"hookMode": "remind"`: reminder only — **Rules above are the primary gate**.
 
-Optional **`hookMode: "confirm"`** (advanced): may **deny** Write until util source files were **Read** this session (`.cursor/.utils-gate-reads.json`). Does not replace chat Verdict. See package README to enable.
+Optional **`hookMode: "confirm"`** (advanced): may deny Write until util **files** were Read this session. Does not replace chat Verdict. See package README.
 
 ## Do NOT
 
 - Write `.utils-discovery-cache.json` or gate cache files
-- **reuse** without Confirm after reading source
+- **reuse** without Read of called export(s) + Confirm
 - Skip Confirm because reuse seems obvious
-
-Skill: `.cursor/skills/reuse-before-create/SKILL.md`
+- Require utils-book Shortlist or reading placement/Skill every task
