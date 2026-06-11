@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 *.log
 _smoke-init/
+.cursor/.utils-gate-reads.json
+.cursor/.utils-gate-verdict.json

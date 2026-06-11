@@ -2,7 +2,7 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.1.8**: **`init` upgrades any project automatically** — package-managed rules/hooks/docs refresh on every init; **`project-agent-gate.mdc`** (`alwaysApply`) for all projects; optional merge into your own core rule via `projectAgentCoreRule`.
+Stop AI coding agents from silently forking your shared utilities. **v0.1.9**: **`confirm` Hook now requires Read util files AND prior-chat `Verdict（最终）`** before Write — fixes agents skipping Confirm after Read.
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
 - **Confirm gate** — substantive Q1–Q5 + **`Verdict（最终）`** per util before Write
@@ -10,15 +10,17 @@ Stop AI coding agents from silently forking your shared utilities. **v0.1.8**: *
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
-## How constraints work (v0.1.8)
+## How constraints work (v0.1.9)
 
 | Layer | Role |
 |-------|------|
 | **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`init`** |
-| **Hook (default confirm)** | Deny Write until util files Read; merged disk + StrReplace `@/utils` detection |
+| **Hook (default confirm)** | **Deny Write until util files Read AND prior-chat Verdict recorded**; merged disk + StrReplace `@/utils` detection |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
-**Any project** gets the same stack after `pnpm agent-utils-reuse init` — test projects (e.g. ai-web) do not need hand-edited rules.
+**Two-phase workflow**: Message A = Confirm + Verdict (no Write tools); Message B = Write.
+
+**Any project** gets the same stack after init — test projects (e.g. ai-web) do not need hand-edited rules.
 
 **Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
 
@@ -42,20 +44,24 @@ Run at your **project root** (where `package.json` lives):
 
 ```bash
 # 1. Copy config, docs, Cursor templates, package scripts; merge AGENTS.md
-pnpm agent-utils-reuse init
+node node_modules/agent-utils-reuse/bin/cli.mjs init --force
 
 # 2. Ensure src/utils exists, then generate the book
 pnpm gen:utils-book
 ```
 
+If `pnpm agent-utils-reuse` is not on PATH (Windows `.bin` issues), always use:
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs init --force
+```
+
 ### Try with sample utils
 
 ```bash
-pnpm agent-utils-reuse init --with-examples
+node node_modules/agent-utils-reuse/bin/cli.mjs init --with-examples
 pnpm gen:utils-book
 ```
-
-Copies `sortAsc` / `uniqueByKey` into `src/utils/array/` so you can see output immediately.
 
 ### Windows note
 
@@ -76,14 +82,24 @@ pnpm add -D file:../agent-utils-reuse
 | `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
 | `.cursor/rules/workspace-agent-gate.mdc` | **Read AGENTS.md first** (alwaysApply) |
 | `.cursor/rules/code-before-edit.mdc` | Source globs — Confirm before Write |
-| `.cursor/rules/project-agent-gate.mdc` | **alwaysApply checklist** — any project (v0.1.8+) |
+| `.cursor/rules/project-agent-gate.mdc` | **alwaysApply checklist** — any project |
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
-| `.cursor/hooks/` | confirm Hook; refreshed every init |
+| `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
 
-### Upgrade / update
+### Upgrade v0.1.8 → v0.1.9
 
-Every **`pnpm agent-utils-reuse init`** refreshes **package-managed** files (rules, hooks, placement-decision, Skill). You do **not** need to copy from `node_modules` manually.
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.1.9   # or file:../agent-utils-reuse
+node node_modules/agent-utils-reuse/bin/cli.mjs init --force
+pnpm test:hooks
+```
+
+**Breaking behavior change**: `hookMode: confirm` now denies Write when util files were Read but chat **Verdict（最终）** was not recorded in a prior assistant message. New hook: `afterAgentResponse` → `track-utils-verdict.mjs`.
+
+### Upgrade / update (general)
+
+Every **`init`** refreshes **package-managed** files (rules, hooks, placement-decision, Skill). You do **not** need to copy from `node_modules` manually.
 
 - **`init --force`**: also refresh `AGENTS.md` utils snippet, workflow inject, and `projectAgentCoreRule` inject block
 - **`hookMode`** and other package keys merge into existing `.utils-bookrc.json` (`--force` overwrites package keys)
@@ -96,18 +112,18 @@ If you already have `.cursor/rules/my-agent-core.mdc` (`alwaysApply: true`), add
 "projectAgentCoreRule": ".cursor/rules/my-agent-core.mdc"
 ```
 
-Then `pnpm agent-utils-reuse init --force` injects a marked utils gate block (same content as `project-agent-gate.mdc`). **`project-agent-gate.mdc` remains installed** for redundancy.
+Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc` remains installed** for redundancy.
 
 ## Commands
 
 | Command | Action |
 |---------|--------|
-| `pnpm agent-utils-reuse init` | Install / **upgrade** package-managed rules, hooks, docs |
-| `pnpm agent-utils-reuse init --with-examples` | Setup + sample array utils |
-| `pnpm agent-utils-reuse init --force` | Also refresh AGENTS.md snippet + project-core inject |
+| `node node_modules/agent-utils-reuse/bin/cli.mjs init` | Install / **upgrade** package-managed rules, hooks, docs |
+| `… init --with-examples` | Setup + sample array utils |
+| `… init --force` | Also refresh AGENTS.md snippet + project-core inject |
 | `pnpm gen:utils-book` | Regenerate utils-book from `src/utils` |
 | `pnpm check:utils-book` | Regenerate + `git diff` (CI gate) |
-| `pnpm test:hooks` | Hook confirm smoke tests |
+| `pnpm test:hooks` | Hook confirm + Verdict smoke tests |
 
 `init` does **not** generate the book — run `gen` after you have `.ts` files under `utilsDir`.
 
@@ -121,7 +137,7 @@ Then `pnpm agent-utils-reuse init --force` injects a marked utils gate block (sa
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `confirm` | `confirm` = deny until util file Read (default); `remind` = message only |
+| `hookMode` | `confirm` | `confirm` = deny until util Read **and** prior-chat Verdict; `remind` = message only |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
@@ -129,14 +145,14 @@ Then `pnpm agent-utils-reuse init --force` injects a marked utils gate block (sa
 
 ### Optional remind mode (soft Hook)
 
-To disable Read deny and show reminders only:
+To disable Read/Verdict deny and show reminders only:
 
 1. Set `"hookMode": "remind"` in `.utils-bookrc.json`
-2. Run `init --force` or manually remove `sessionStart` / `postToolUse` from `.cursor/hooks.json` (keep `preToolUse` only)
+2. Run `init --force` or manually remove `sessionStart` / `postToolUse` / `afterAgentResponse` from `.cursor/hooks.json` (keep `preToolUse` only)
 
 Rules still require Confirm + **`Verdict（最终）`** in chat — remind does not enforce that.
 
-### confirm mode (default)
+### confirm mode (default, v0.1.9)
 
 `init --force` installs:
 
@@ -148,14 +164,22 @@ Rules still require Confirm + **`Verdict（最终）`** in chat — remind does 
     "preToolUse": [{
       "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",
       "matcher": "Write|StrReplace|EditNotebook"
+    }],
+    "afterAgentResponse": [{
+      "command": "node .cursor/hooks/track-utils-verdict.mjs"
     }]
   }
 }
 ```
 
-3. Add `.cursor/.utils-gate-reads.json` to `.gitignore` (init does this)
+Init adds `.cursor/.utils-gate-reads.json` and `.cursor/.utils-gate-verdict.json` to `.gitignore`.
 
-Confirm mode does **not** replace chat Verdict — Rules still require Confirm + Verdict.
+### Known limits
+
+- **Verdict detection is heuristic** — cannot verify substantive Q1–Q5; Rules + human retest still needed
+- **Same message Verdict + Write** — `preToolUse` runs before `afterAgentResponse` → denied; split into two messages (by design)
+- **Cloud Agent** — `afterAgentResponse` not wired in cloud; Rules only there
+- **Tab / non-Agent mode** — hooks do not apply
 
 ### Test Hook locally (Windows)
 
@@ -163,8 +187,7 @@ Git Bash `node` is often aliased to `winpty node.exe` — **pipe tests fail** wi
 
 ```powershell
 cd your-project
-'{"tool_input":{"path":"src/feature/foo.vue","content":"import { X } from \"@/utils/foo\""}}' |
-  node .cursor/hooks/check-discovery-before-shared-write.mjs
+node ../agent-utils-reuse/scripts/test-hook-confirm.mjs .
 ```
 
 Or Git Bash: `/c/nvm4w/nodejs/node.exe .cursor/hooks/check-discovery-before-shared-write.mjs < /tmp/in.json`

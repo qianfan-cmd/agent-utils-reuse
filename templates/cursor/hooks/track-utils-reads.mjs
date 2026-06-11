@@ -4,7 +4,7 @@ import {
   loadHookConfig,
   normalizeAuditPath,
   recordRead,
-  resetAudit
+  resetSessionAudits
 } from './read-audit-lib.mjs'
 
 async function readStdin() {
@@ -29,7 +29,7 @@ function extractReadPath(input) {
 async function main() {
   try {
     if (process.argv.includes('--reset')) {
-      resetAudit(process.cwd())
+      resetSessionAudits(process.cwd())
       process.stdout.write(JSON.stringify({ ok: true }))
       return
     }

@@ -16,6 +16,11 @@
         "command": "node .cursor/hooks/track-utils-reads.mjs",
         "matcher": "Read"
       }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "node .cursor/hooks/track-utils-verdict.mjs"
+      }
     ]
   }
 }

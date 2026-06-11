@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke tests for hookMode confirm + merged-file util detection.
+ * Smoke tests for hookMode confirm + merged-file util detection + Verdict audit (v0.1.9).
  * Usage: node scripts/test-hook-confirm.mjs [projectRoot]
  * Default projectRoot: ../ai-web if exists, else examples/minimal
  */
@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
 
+const SAMPLE_VERDICT = `Confirm uploadSingleFile: Q1 file input Q2 upload API Q3 side effects Q4 matches Q5 no
+Verdict（最终）: reuse(uploadSingleFile)`
+
 function resolveProjectRoot(arg) {
   if (arg) return path.resolve(arg)
   const aiWeb = path.resolve(pkgRoot, '../ai-web')
@@ -19,24 +22,20 @@ function resolveProjectRoot(arg) {
   return path.resolve(pkgRoot, 'examples/minimal')
 }
 
+function hookPath(_cwd, name) {
+  return path.join(pkgRoot, 'templates/cursor/hooks', name)
+}
+
 function hookScript(cwd) {
-  const inProject = path.join(cwd, '.cursor/hooks/check-discovery-before-shared-write.mjs')
-  if (fs.existsSync(inProject)) return inProject
-  return path.join(pkgRoot, 'templates/cursor/hooks/check-discovery-before-shared-write.mjs')
+  return hookPath(cwd, 'check-discovery-before-shared-write.mjs')
 }
 
 function runHook(cwd, input) {
   const script = hookScript(cwd)
-  const libDir = path.dirname(script)
-  const env = { ...process.env }
-  if (!fs.existsSync(path.join(cwd, '.cursor/hooks/read-audit-lib.mjs'))) {
-    env.NODE_PATH = libDir
-  }
   const r = spawnSync(process.execPath, [script], {
     cwd,
     input: JSON.stringify(input),
-    encoding: 'utf8',
-    env
+    encoding: 'utf8'
   })
   if (r.error) throw r.error
   const out = (r.stdout || '').trim()
@@ -47,19 +46,24 @@ function runHook(cwd, input) {
 }
 
 function resetAudit(cwd) {
-  const track = fs.existsSync(path.join(cwd, '.cursor/hooks/track-utils-reads.mjs'))
-    ? path.join(cwd, '.cursor/hooks/track-utils-reads.mjs')
-    : path.join(pkgRoot, 'templates/cursor/hooks/track-utils-reads.mjs')
-  spawnSync(process.execPath, [track, '--reset'], { cwd, encoding: 'utf8' })
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs'), '--reset'], {
+    cwd,
+    encoding: 'utf8'
+  })
 }
 
 function recordRead(cwd, filePath) {
-  const track = fs.existsSync(path.join(cwd, '.cursor/hooks/track-utils-reads.mjs'))
-    ? path.join(cwd, '.cursor/hooks/track-utils-reads.mjs')
-    : path.join(pkgRoot, 'templates/cursor/hooks/track-utils-reads.mjs')
-  spawnSync(process.execPath, [track], {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
     cwd,
     input: JSON.stringify({ tool_input: { path: filePath } }),
+    encoding: 'utf8'
+  })
+}
+
+function recordVerdict(cwd, text = SAMPLE_VERDICT) {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-verdict.mjs')], {
+    cwd,
+    input: JSON.stringify({ text }),
     encoding: 'utf8'
   })
 }
@@ -96,7 +100,7 @@ const hasFeature = fs.existsSync(featurePath)
 resetAudit(projectRoot)
 
 if (hasFeature) {
-  const deny = runHook(projectRoot, {
+  const denyRead = runHook(projectRoot, {
     tool_input: {
       path: featureVue,
       old_string: '// hook-test-marker',
@@ -104,15 +108,15 @@ if (hasFeature) {
     }
   })
   assert(
-    'StrReplace without import in patch but file has @/utils → deny',
-    deny.permission === 'deny',
-    JSON.stringify(deny)
+    'StrReplace without import in patch but file has @/utils → deny (read)',
+    denyRead.permission === 'deny',
+    JSON.stringify(denyRead)
   )
 
   recordRead(projectRoot, 'src/utils/prompt/promptUtils.ts')
   recordRead(projectRoot, 'src/utils/chatFile/imageUploadUtils.ts')
 
-  const allow = runHook(projectRoot, {
+  const denyVerdict = runHook(projectRoot, {
     tool_input: {
       path: featureVue,
       old_string: '// hook-test-marker-updated',
@@ -120,13 +124,30 @@ if (hasFeature) {
     }
   })
   assert(
-    'After Read util files → allow',
+    'After Read util files but no Verdict → deny',
+    denyVerdict.permission === 'deny',
+    JSON.stringify(denyVerdict)
+  )
+
+  recordVerdict(projectRoot)
+
+  const allow = runHook(projectRoot, {
+    tool_input: {
+      path: featureVue,
+      old_string: '// hook-test-marker',
+      new_string: '// hook-test-marker-updated'
+    }
+  })
+  assert(
+    'After Read util files + Verdict → allow',
     allow.permission === 'allow',
     JSON.stringify(allow)
   )
 } else {
   console.log('SKIP: feature vue fixture not found — run from ai-web or pass project root')
 }
+
+resetAudit(projectRoot)
 
 const writeDeny = runHook(projectRoot, {
   tool_input: {

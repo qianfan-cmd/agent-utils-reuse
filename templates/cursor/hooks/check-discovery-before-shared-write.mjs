@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   hasRead,
+  hasVerdict,
   isUnderUtils,
   loadHookConfig,
   matchesRemindPath,
@@ -42,9 +43,13 @@ function extractWriteContent(input) {
   return toolInput ?? {}
 }
 
-function denyMessage(missingPaths) {
+function denyReadMessage(missingPaths) {
   const list = missingPaths.map((p) => `\`${p}\``).join(', ')
   return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. WIP/existing import does NOT exempt. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+}
+
+function denyVerdictMessage() {
+  return `Denied: Read util source is NOT enough. Output substantive Confirm (Q1-Q5) + Verdict（最终） in chat in a **separate message before Write** (no Write/StrReplace tools in that message). Obvious reuse / WIP / existing @/utils does NOT exempt. See utils-reuse-gate.mdc.`
 }
 
 function remindUtilsMessage() {
@@ -139,7 +144,17 @@ async function main() {
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
-          agent_message: denyMessage(missing)
+          agent_message: denyReadMessage(missing)
+        })
+      )
+      return
+    }
+
+    if (!hasVerdict(cwd)) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          agent_message: denyVerdictMessage()
         })
       )
       return

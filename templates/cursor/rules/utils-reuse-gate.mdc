@@ -5,7 +5,16 @@ alwaysApply: true
 
 # Utils Confirm gate (mandatory)
 
-**Before first business Write / StrReplace** on an applicable task: assistant chat must include substantive **Confirm (Q1–Q5) per util** and **`Verdict（最终）`** (or `Verdict:`). **Forbidden**: empty "Q1–Q5 pass"; StrReplace feature files without Verdict.
+## HARD STOP — Read ≠ gate complete
+
+**Read util source does NOT complete the gate.** Confirm + **`Verdict（最终）`** in **chat** is a separate mandatory step with the same priority as Read.
+
+**Two-phase workflow (v0.1.9 confirm Hook enforces):**
+
+1. **Message A** — Confirm (Q1–Q5) + **`Verdict（最终）`** per util. **No** Write / StrReplace / EditNotebook tools in this message.
+2. **Message B** — Write / StrReplace after Message A was recorded.
+
+**Before first business Write / StrReplace** on an applicable task: assistant chat must include substantive **Confirm (Q1–Q5) per util** and **`Verdict（最终）`** (or `Verdict:`). **Forbidden**: empty "Q1–Q5 pass"; StrReplace feature files without Verdict; same message as first Write.
 
 **Non-skippable**: For each util you will **import or call**, complete Confirm + Verdict in **chat**, then Write.
 
@@ -33,26 +42,33 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
 2. **Understand the task**: Read / Grep business code, plan, **existing imports** — **before** Confirm.
 3. **Identify** each util `symbol @ path`.
 4. **Read** each **export/method you will call** (partial Read / Grep OK).
-5. **Output in chat** (never as JSON cache):
+5. **Output in chat** (never as JSON cache) — **Message A, no Write tools**:
    - Substantive **Confirm（五问）** per util
    - **`Verdict（最终）`** per util: `reuse(symbol)` | `newUtil` | `featureLocal`
-6. **Then** Write / StrReplace.
+6. **Then** Write / StrReplace — **Message B**.
 
 ## Plan approved → Implement
 
 - Read/Search in earlier Implement messages is **allowed**.
-- **`Verdict（最终）`** must appear in chat **before the first business Write / StrReplace** (same task).
-- **No** Write/StrReplace until the assistant message immediately before that Write includes `Verdict（最终）` or `Verdict:`.
+- **`Verdict（最终）`** must appear in a **prior assistant message** before the first business Write / StrReplace (same task).
+- **No** Write/StrReplace until a previous message includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `confirm`)
+## Hook (default `confirm`, v0.1.9)
 
-Default `hookMode` is **`confirm`**: may **deny** Write until util **files** were Read this session. Uses merged file content (disk + patch) to detect `@/utils` on StrReplace. Does **not** replace chat Verdict — Rules still require Confirm + Verdict in chat.
+Default `hookMode` is **`confirm`**: **deny** Write until **both**:
 
-Set `"hookMode": "remind"` in `.utils-bookrc.json` for reminder-only (see README).
+1. Util **files** Read this session (merged disk + StrReplace `@/utils` detection)
+2. **`Verdict（最终）`** recorded from a prior assistant message (`afterAgentResponse` hook)
+
+Heuristic Verdict detection — still require substantive Q1–Q5 in chat per Rules.
+
+Set `"hookMode": "remind"` in `.utils-bookrc.json` for reminder-only (see README). Cloud agents may not run `afterAgentResponse` — Rules still apply.
 
 ## Do NOT
 
+- Treat Read util as gate complete — **Verdict in chat is mandatory**
 - Write `.utils-discovery-cache.json` or gate cache files
 - **reuse** without Read of called export(s) + Confirm + Verdict in chat
 - Skip Confirm because reuse seems obvious or "no new import"
 - Read `AGENTS.md` with limit/offset only
+- Put Verdict and first Write in the same message (Hook will deny)

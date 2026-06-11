@@ -19,14 +19,14 @@ If the target file **already imports `@/utils`** or you will call util symbols: 
 3. When gate applies:
    - **Identify** each util `symbol @ path`
    - **Read** each export/method you will call
-   - **Output Confirm (Q1–Q5) + `Verdict（最终）`** in chat (substantive; compressed OK)
-4. **Last** Write / StrReplace.
+   - **Message A** (no Write tools): Confirm (Q1–Q5) + **`Verdict（最终）`** in chat (substantive; compressed OK)
+4. **Message B**: Write / StrReplace.
 
 ## Session checklist
 
 - [ ] Read full `AGENTS.md` this session
 - [ ] Understood task / business context before Confirm
-- [ ] Utils: Read called export(s), Confirm + **`Verdict（最终）`** in chat
+- [ ] Utils: Read called export(s), Confirm + **`Verdict（最终）`** in a prior message (no Write in that message)
 - [ ] Cosmetic UI diff not specified: ask user (placement §1.5)
 - [ ] Typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
 

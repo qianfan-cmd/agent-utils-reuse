@@ -5,7 +5,9 @@ alwaysApply: true
 
 # Utils 按需复用
 
-动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read export** → **Confirm + `Verdict（最终）`** → Write。
+动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read export** → **Message A: Confirm + `Verdict（最终）`（禁止 Write）** → **Message B: Write**。
+
+**Read util ≠ 门禁完成。** Hook（confirm）会拦缺 Verdict 的 Write。
 
 **已有 import / WIP 接线 / 无新 import — 不豁免。** 强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**。
 

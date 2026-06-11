@@ -12,12 +12,12 @@ Installed by **`agent-utils-reuse init`**. Works in **any** project root with `A
 1. Read **`AGENTS.md`** in **full** once per session/task — **no** `limit`/`offset`.
 2. Understand task: Read / Grep business code and **existing imports** before Confirm.
 3. **Utils gate applies** when target files have **`@/utils`** or call util symbols — **NOT exempt**: WIP wiring, no new import, obvious reuse.
-4. Before **first business Write / StrReplace**: **Identify** → Read export(s) → substantive **Confirm (Q1–Q5) + `Verdict（最终）`** in chat.
-5. Then Write / StrReplace.
+4. **Message A** (no Write tools): **Identify** → Read export(s) → substantive **Confirm (Q1–Q5) + `Verdict（最终）`** in chat.
+5. **Message B**: Write / StrReplace.
 
-## Hook
+## Hook (v0.1.9 confirm)
 
-Default **`hookMode: confirm`** in `.utils-bookrc.json`: deny Write until util **files** Read this session (merged disk + StrReplace detection). Chat Verdict still required — Hook cannot verify chat text.
+Default **`hookMode: confirm`**: **deny** Write until **both** util **files** Read this session **and** **`Verdict（最终）`** recorded from a prior assistant message. Read alone is NOT enough.
 
 ## Project-specific core rule
 
@@ -26,6 +26,7 @@ If your project has its own alwaysApply rule (e.g. `ai-web-agent-core.mdc`), set
 ## Do NOT
 
 - Skip gate because WIP or no new import
+- Assume **Read util = gate complete** — Verdict in chat is mandatory
 - Write feature files without **`Verdict（最终）`** when gate applies
 - Write `.utils-discovery-cache.json`
 

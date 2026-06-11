@@ -16,8 +16,8 @@ When the task will touch application source or project config:
 3. **When utils gate applies** (see `.cursor/rules/utils-reuse-gate.mdc` — **includes existing `@/utils` in target file, WIP wiring NOT exempt**):
    - **Identify** each util `symbol @ path`
    - **Read** export(s)/method(s) you will call (partial Read / Grep OK)
-   - **Output in chat** before first business Write / StrReplace: substantive **Confirm (Q1–Q5) per util** + **`Verdict（最终）`**
-4. **Last**: Write / StrReplace.
+   - **Message A** (no Write tools): substantive **Confirm (Q1–Q5) per util** + **`Verdict（最终）`**
+4. **Message B**: Write / StrReplace.
 
 ## Optional (not required every task)
 
@@ -29,13 +29,14 @@ When the task will touch application source or project config:
 
 Details: **`.cursor/rules/utils-reuse-gate.mdc`**.
 
-## Hook (default confirm)
+## Hook (default confirm, v0.1.9)
 
-Default `hookMode` is **`confirm`**: may deny Write until util files Read this session. Chat **Verdict（最终）** still required by Rules. Optional `"hookMode": "remind"` — see README.
+Default `hookMode` is **`confirm`**: deny Write until **Read util files AND prior-chat `Verdict（最终）`**. Optional `"hookMode": "remind"` — see README.
 
 ## Do NOT
 
 - Skip full `AGENTS.md` read (no limit-only reads)
+- Treat **Read util as gate complete** — Verdict in chat is mandatory
 - Write before Confirm + **`Verdict（最终）`** when gate applies
 - Assume gate does not apply because there is no new import
 - Write `.utils-discovery-cache.json` or gate cache files

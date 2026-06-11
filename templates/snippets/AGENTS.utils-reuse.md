@@ -12,8 +12,10 @@ Before first business Write when gate applies:
 2. Understand task / read business code and existing imports
 3. **Identify** each util `symbol @ path`
 4. **Read** each export/method you will call (partial Read OK)
-5. **Confirm (Q1–Q5) + `Verdict（最终）`** in chat — substantive per util
-6. Then Write
+5. **Confirm (Q1–Q5) + `Verdict（最终）`** in chat — substantive per util (**Message A, no Write tools**)
+6. Then Write (**Message B**)
+
+**Read util files does NOT complete the gate** — Verdict in chat is a separate hard step.
 
 **Optional**: utils-book Shortlist; `placement-decision.md` for §1.5 edge cases.
 
@@ -47,8 +49,8 @@ For **each** util you will import or call, answer in chat (substantive; compress
 | **newUtil** | Hard failure and shared; or Q5 yes |
 | **featureLocal** | Hard failure, page-local only |
 
-**Plan → Implement**: **`Verdict（最终）`** before first business Write/StrReplace; earlier Read/Search allowed.
+**Plan → Implement**: **`Verdict（最终）`** in a **prior assistant message** before first business Write/StrReplace; earlier Read/Search allowed. Do not combine Verdict and first Write in one message.
 
-**Hook** (default `hookMode: confirm`): deny Write until util files Read this session; chat Verdict still required.
+**Hook** (default `hookMode: confirm`, v0.1.9): deny Write until util files Read **and** prior-chat Verdict recorded.
 
 After new utils exports → `pnpm gen:utils-book`.

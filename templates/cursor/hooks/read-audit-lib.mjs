@@ -4,6 +4,7 @@ import path from 'node:path'
 
 export const CONFIG_FILENAME = '.utils-bookrc.json'
 export const AUDIT_FILENAME = '.utils-gate-reads.json'
+export const VERDICT_AUDIT_FILENAME = '.utils-gate-verdict.json'
 
 const DEFAULT_UTILS_DIR = 'src/utils'
 const DEFAULT_ALIASES = ['@/utils']
@@ -63,6 +64,83 @@ export function saveAudit(data, cwd = process.cwd()) {
 
 export function resetAudit(cwd = process.cwd()) {
   saveAudit({ reads: [] }, cwd)
+}
+
+export function verdictAuditPath(cwd = process.cwd()) {
+  return path.join(cwd, '.cursor', VERDICT_AUDIT_FILENAME)
+}
+
+export function loadVerdictAudit(cwd = process.cwd()) {
+  const filePath = verdictAuditPath(cwd)
+  if (!fs.existsSync(filePath)) return { recorded: false }
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    return {
+      recorded: Boolean(raw.recorded),
+      at: raw.at ?? null,
+      snippet: raw.snippet ?? null
+    }
+  } catch {
+    return { recorded: false }
+  }
+}
+
+export function saveVerdictAudit(data, cwd = process.cwd()) {
+  const filePath = verdictAuditPath(cwd)
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+}
+
+export function resetVerdictAudit(cwd = process.cwd()) {
+  saveVerdictAudit({ recorded: false }, cwd)
+}
+
+const VERDICT_MARKER_RES = [
+  /Verdict（最终）/,
+  /Verdict\s*[:：]/,
+  /Verdict（/
+]
+
+const VERDICT_SUBSTANCE_RES = [
+  /\bQ[1-5]\b/,
+  /\breuse\s*\(/i,
+  /\bnewUtil\b/i,
+  /\bfeatureLocal\b/i,
+  /\bConfirm\b/i
+]
+
+/**
+ * Heuristic: substantive Confirm + Verdict in assistant chat text.
+ */
+export function textHasVerdict(text) {
+  if (!text || typeof text !== 'string') return false
+  const hasMarker = VERDICT_MARKER_RES.some((re) => re.test(text))
+  const hasSubstance = VERDICT_SUBSTANCE_RES.some((re) => re.test(text))
+  return hasMarker && hasSubstance
+}
+
+export function recordVerdict(text, cwd = process.cwd()) {
+  if (!textHasVerdict(text)) return false
+  const snippet = String(text).replace(/\s+/g, ' ').trim().slice(0, 400)
+  saveVerdictAudit(
+    {
+      recorded: true,
+      at: new Date().toISOString(),
+      snippet
+    },
+    cwd
+  )
+  return true
+}
+
+export function hasVerdict(cwd = process.cwd()) {
+  return loadVerdictAudit(cwd).recorded === true
+}
+
+/** Reset read + verdict session audits (sessionStart). */
+export function resetSessionAudits(cwd = process.cwd()) {
+  resetAudit(cwd)
+  resetVerdictAudit(cwd)
 }
 
 export function normalizeAuditPath(p) {
