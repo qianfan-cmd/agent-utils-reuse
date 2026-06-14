@@ -90,8 +90,9 @@ pnpm add -D file:../agent-utils-reuse
 ### Upgrade v0.1.8 → v0.1.9
 
 ```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.1.9   # or file:../agent-utils-reuse
-node node_modules/agent-utils-reuse/bin/cli.mjs init --force
+pnpm update:utils-reuse
+# or pin a tag:
+node node_modules/agent-utils-reuse/bin/cli.mjs update --yes --tag v0.1.9
 pnpm test:hooks
 ```
 
@@ -99,9 +100,40 @@ pnpm test:hooks
 
 ### Upgrade / update (general)
 
-Every **`init`** refreshes **package-managed** files (rules, hooks, placement-decision, Skill). You do **not** need to copy from `node_modules` manually.
+**One command** (bump dependency + sync templates + remove deprecated files + refresh AGENTS.md):
+
+```bash
+pnpm update:utils-reuse
+# or
+node node_modules/agent-utils-reuse/bin/cli.mjs update --yes
+```
+
+What `update` does:
+
+1. `pnpm add -D` / `npm install --save-dev` (detects lockfile; GitHub sources keep `github:` URL)
+2. `init --force` — refreshes package-managed rules, hooks, skill, AGENTS.md
+3. Removes deprecated gate files (e.g. old `reuse-first-stop.mdc`, cache hooks)
+4. Writes `installedPackageVersion` to `.utils-bookrc.json`
+
+**Customized docs**: if `placement-decision.md` (or other package docs) differ from the template, `update` **skips** them and prints a diff hint. Use `--force-docs` to overwrite.
+
+| Flag | Action |
+|------|--------|
+| `--skip-bump` | Sync + cleanup only (offline / after manual `pnpm add`) |
+| `--dry-run` | Report planned changes without writing |
+| `--tag v0.1.9` | Pin GitHub tag or npm version on bump |
+| `--force-docs` | Overwrite customized package docs |
+
+Diagnose without updating:
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs status
+```
+
+Every **`init`** still refreshes **package-managed** rules/hooks (no manual copy from `node_modules`).
 
 - **`init --force`**: also refresh `AGENTS.md` utils snippet, workflow inject, and `projectAgentCoreRule` inject block
+- **`init --force-docs`**: overwrite package-managed docs even when customized
 - **`hookMode`** and other package keys merge into existing `.utils-bookrc.json` (`--force` overwrites package keys)
 
 ### Projects with an existing agent-core rule
@@ -118,12 +150,18 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 
 | Command | Action |
 |---------|--------|
-| `node node_modules/agent-utils-reuse/bin/cli.mjs init` | Install / **upgrade** package-managed rules, hooks, docs |
+| `pnpm update:utils-reuse` | **One-command upgrade** — bump, sync, cleanup deprecated files |
+| `node node_modules/agent-utils-reuse/bin/cli.mjs update --yes` | Same as above |
+| `… update --skip-bump --yes` | Sync + cleanup without network bump |
+| `… status` | Version drift, deprecated files, customized docs |
+| `node node_modules/agent-utils-reuse/bin/cli.mjs init` | Install / refresh package-managed rules, hooks, docs |
 | `… init --with-examples` | Setup + sample array utils |
 | `… init --force` | Also refresh AGENTS.md snippet + project-core inject |
+| `… init --force-docs` | Overwrite customized package docs |
 | `pnpm gen:utils-book` | Regenerate utils-book from `src/utils` |
 | `pnpm check:utils-book` | Regenerate + `git diff` (CI gate) |
 | `pnpm test:hooks` | Hook confirm + Verdict smoke tests |
+| `pnpm test:update` | Update command regression test (package dev) |
 
 `init` does **not** generate the book — run `gen` after you have `.ts` files under `utilsDir`.
 
@@ -142,6 +180,7 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
 | `projectAgentCoreRule` | `null` | Optional path to merge utils gate into your alwaysApply core rule |
+| `installedPackageVersion` | *(written by `update`)* | Last synced package version for drift detection |
 
 ### Optional remind mode (soft Hook)
 

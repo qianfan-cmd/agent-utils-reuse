@@ -35,6 +35,7 @@
   ],
   "scripts": {
     "test:hooks": "node scripts/test-hook-confirm.mjs",
+    "test:update": "node scripts/test-update.mjs",
     "gen:utils-book": "agent-utils-reuse gen",
     "check:utils-book": "agent-utils-reuse gen && git diff --exit-code docs/agent-catalog/utils-book/"
   }

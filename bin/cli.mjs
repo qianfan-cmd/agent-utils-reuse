@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { generateUtilsBook } from '../lib/generate-utils-book.mjs'
 import { loadConfig } from '../lib/load-config.mjs'
 import { printInitSummary, runInit } from '../lib/init.mjs'
+import { printStatusSummary, printUpdateSummary, runStatus, runUpdate } from '../lib/update.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_VERSION = JSON.parse(
@@ -20,13 +21,24 @@ function parseFlags(argv) {
   if (cwdIdx >= 0 && positionals[cwdIdx + 1]) {
     cwd = path.resolve(positionals[cwdIdx + 1])
   }
+
+  let tag = null
+  const tagIdx = positionals.indexOf('--tag')
+  if (tagIdx >= 0 && positionals[tagIdx + 1]) {
+    tag = positionals[tagIdx + 1]
+  }
+
   return {
     command: positionals[0],
     cwd,
     yes: flags.has('--yes') || flags.has('-y'),
     force: flags.has('--force'),
+    forceDocs: flags.has('--force-docs'),
     withExamples: flags.has('--with-examples'),
-    check: flags.has('--check')
+    check: flags.has('--check'),
+    dryRun: flags.has('--dry-run'),
+    skipBump: flags.has('--skip-bump'),
+    tag
   }
 }
 
@@ -50,20 +62,28 @@ function printHelp() {
   console.log(`agent-utils-reuse v${PACKAGE_VERSION} — Utils reuse gate for AI coding agents
 
 Usage:
-  agent-utils-reuse init [--yes] [--force] [--with-examples]
+  agent-utils-reuse init [--yes] [--force] [--force-docs] [--with-examples]
+  agent-utils-reuse update [--yes] [--tag <ref>] [--dry-run] [--skip-bump] [--force-docs]
+  agent-utils-reuse status
   agent-utils-reuse gen [--check]
   agent-utils-reuse check
 
 Commands:
-  init   Copy templates, merge AGENTS.md, write .utils-bookrc.json, patch package.json & hooks
-  gen    Scan utilsDir and generate utils-book
-  check  Regenerate utils-book and git diff (CI gate)
+  init    Copy templates, merge AGENTS.md, write .utils-bookrc.json, patch package.json & hooks
+  update  Bump dependency, init --force, remove deprecated files, write version stamp
+  status  Compare installed version, deprecated files, customized docs
+  gen     Scan utilsDir and generate utils-book
+  check   Regenerate utils-book and git diff (CI gate)
 
 Options:
-  --yes            Non-interactive init with defaults
+  --yes            Non-interactive init/update with defaults
   --force          Overwrite existing template files and refresh AGENTS.md snippet
-  --with-examples  Copy minimal array utils into utilsDir/array/
+  --force-docs     Overwrite package-managed docs even when customized
+  --with-examples  Copy minimal array utils into utilsDir/array
   --check          Fail gen if JSDoc coverage below 30%
+  --tag <ref>      Pin GitHub tag/commit or npm version for update bump
+  --dry-run        Report planned update actions without writing files
+  --skip-bump      Sync and cleanup only (skip pnpm/npm add)
   --version, -V    Print package version
 `)
 }
@@ -75,7 +95,8 @@ async function main() {
     return
   }
 
-  const { command, cwd, yes, force, withExamples, check } = parseFlags(argv)
+  const { command, cwd, yes, force, forceDocs, withExamples, check, dryRun, skipBump, tag } =
+    parseFlags(argv)
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp()
@@ -83,8 +104,20 @@ async function main() {
   }
 
   if (command === 'init') {
-    const result = runInit(cwd, { yes, force, withExamples })
+    const result = runInit(cwd, { yes, force, withExamples, forceDocs })
     printInitSummary(result)
+    return
+  }
+
+  if (command === 'update') {
+    const result = runUpdate(cwd, { yes, tag, dryRun, skipBump, forceDocs })
+    printUpdateSummary(result)
+    return
+  }
+
+  if (command === 'status') {
+    const result = runStatus(cwd)
+    printStatusSummary(result)
     return
   }
 
