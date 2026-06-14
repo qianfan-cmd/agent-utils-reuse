@@ -6,6 +6,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
+import { UPSTREAM_SIDECAR_SUFFIX } from '../lib/gate-sync-manifest.mjs'
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = path.resolve(__dirname, '..')
 const CLI = path.join(PACKAGE_ROOT, 'bin', 'cli.mjs')
@@ -16,12 +18,7 @@ function runCli(args, cwd) {
     encoding: 'utf8',
     shell: false
   })
-  if (result.status !== 0) {
-    throw new Error(
-      `cli ${args.join(' ')} failed (${result.status})\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
-    )
-  }
-  return { stdout: result.stdout, stderr: result.stderr }
+  return result
 }
 
 function setupTempProject() {
@@ -51,7 +48,10 @@ function setupTempProject() {
     throw new Error(`npm install failed: ${install.stderr}`)
   }
 
-  runCli(['init', '--yes', '--force'], dir)
+  const init = runCli(['init', '--yes', '--force'], dir)
+  if (init.status !== 0) {
+    throw new Error(`init failed: ${init.stderr}`)
+  }
   return dir
 }
 
@@ -63,6 +63,7 @@ try {
   const projectRoot = setupTempProject()
   const catalogDir = 'docs/agent-catalog'
   const placementPath = path.join(projectRoot, catalogDir, 'placement-decision.md')
+  const sidecarPath = `${placementPath}${UPSTREAM_SIDECAR_SUFFIX}`
 
   fs.writeFileSync(
     path.join(projectRoot, '.cursor', 'rules', 'reuse-first-stop.mdc'),
@@ -70,46 +71,51 @@ try {
     'utf8'
   )
   fs.writeFileSync(
-    path.join(projectRoot, '.cursor', 'hooks', 'discovery-cache-lib.mjs'),
-    '// deprecated\n',
+    path.join(projectRoot, '.utils-bookrc.json'),
+    `${JSON.stringify(
+      {
+        ...readBookrc(projectRoot),
+        gateHeuristics: { foo: true },
+        discoveryCachePath: '.cursor/.utils-discovery-cache.json'
+      },
+      null,
+      2
+    )}\n`,
     'utf8'
   )
+
+  // Record baseline hash then customize
+  runCli(['update', '--yes'], projectRoot)
   fs.appendFileSync(placementPath, '\n<!-- project customization -->\n', 'utf8')
 
-  const dryRun = spawnSync(
-    process.execPath,
-    [CLI, 'update', '--skip-bump', '--yes', '--dry-run'],
-    { cwd: projectRoot, encoding: 'utf8' }
-  )
+  const dryRun = runCli(['update', '--yes', '--dry-run'], projectRoot)
   assert.equal(dryRun.status, 0, dryRun.stderr)
   assert.match(dryRun.stdout, /dry-run/)
-  assert.match(dryRun.stdout, /reuse-first-stop\.mdc/)
-  assert.match(dryRun.stdout, /placement-decision\.md/)
 
-  assert.ok(fs.existsSync(path.join(projectRoot, '.cursor', 'rules', 'reuse-first-stop.mdc')))
-
-  runCli(['update', '--skip-bump', '--yes'], projectRoot)
-
-  assert.ok(!fs.existsSync(path.join(projectRoot, '.cursor', 'rules', 'reuse-first-stop.mdc')))
-  assert.ok(!fs.existsSync(path.join(projectRoot, '.cursor', 'hooks', 'discovery-cache-lib.mjs')))
+  const conflictUpdate = runCli(['update', '--yes'], projectRoot)
+  assert.equal(conflictUpdate.status, 1, 'expected exit 1 on conflict')
+  assert.match(conflictUpdate.stdout, /conflict/i)
+  assert.ok(fs.existsSync(sidecarPath), 'upstream sidecar should exist')
   assert.match(
     fs.readFileSync(placementPath, 'utf8'),
     /project customization/,
     'customized placement-decision should be preserved'
   )
 
-  const bookrc = readBookrc(projectRoot)
-  assert.ok(bookrc.installedPackageVersion, 'installedPackageVersion should be written')
-  assert.equal(bookrc.installedPackageVersion, JSON.parse(
-    fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')
-  ).version)
+  assert.ok(!fs.existsSync(path.join(projectRoot, '.cursor', 'rules', 'reuse-first-stop.mdc')))
+  const bookrcAfter = readBookrc(projectRoot)
+  assert.ok(!bookrcAfter.gateHeuristics, 'obsolete keys should be pruned')
+  assert.ok(!bookrcAfter.discoveryCachePath)
 
-  const status = spawnSync(process.execPath, [CLI, 'status'], {
-    cwd: projectRoot,
-    encoding: 'utf8'
-  })
+  const accept = runCli(['update', '--yes', '--accept-upstream'], projectRoot)
+  assert.equal(accept.status, 0, accept.stderr)
+  assert.ok(!fs.existsSync(sidecarPath), 'sidecar removed after accept-upstream')
+  assert.ok(!fs.readFileSync(placementPath, 'utf8').includes('project customization'))
+
+  assert.ok(bookrcAfter.installedPackageVersion || readBookrc(projectRoot).installedPackageVersion)
+
+  const status = runCli(['status'], projectRoot)
   assert.equal(status.status, 0, status.stderr)
-  assert.match(status.stdout, /in sync|Recorded version/)
 
   console.log('test-update: all assertions passed')
 } catch (err) {

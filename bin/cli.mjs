@@ -28,15 +28,19 @@ function parseFlags(argv) {
     tag = positionals[tagIdx + 1]
   }
 
+  const acceptUpstream = flags.has('--accept-upstream') || flags.has('--force-docs')
+
   return {
     command: positionals[0],
     cwd,
     yes: flags.has('--yes') || flags.has('-y'),
     force: flags.has('--force'),
+    acceptUpstream,
     forceDocs: flags.has('--force-docs'),
     withExamples: flags.has('--with-examples'),
     check: flags.has('--check'),
     dryRun: flags.has('--dry-run'),
+    bump: flags.has('--bump'),
     skipBump: flags.has('--skip-bump'),
     tag
   }
@@ -62,29 +66,31 @@ function printHelp() {
   console.log(`agent-utils-reuse v${PACKAGE_VERSION} — Utils reuse gate for AI coding agents
 
 Usage:
-  agent-utils-reuse init [--yes] [--force] [--force-docs] [--with-examples]
-  agent-utils-reuse update [--yes] [--tag <ref>] [--dry-run] [--skip-bump] [--force-docs]
+  agent-utils-reuse init [--yes] [--force] [--accept-upstream] [--with-examples]
+  agent-utils-reuse update [--yes] [--dry-run] [--bump] [--tag <ref>] [--accept-upstream]
   agent-utils-reuse status
   agent-utils-reuse gen [--check]
   agent-utils-reuse check
 
 Commands:
-  init    Copy templates, merge AGENTS.md, write .utils-bookrc.json, patch package.json & hooks
-  update  Bump dependency, init --force, remove deprecated files, write version stamp
-  status  Compare installed version, deprecated files, customized docs
+  init    First-time install — templates, AGENTS.md merge, .utils-bookrc.json, hooks
+  update  Reinstall gate files from node_modules (no lockfile churn by default)
+  status  Version drift, deprecated files, merge conflicts
   gen     Scan utilsDir and generate utils-book
   check   Regenerate utils-book and git diff (CI gate)
 
 Options:
-  --yes            Non-interactive init/update with defaults
-  --force          Overwrite existing template files and refresh AGENTS.md snippet
-  --force-docs     Overwrite package-managed docs even when customized
-  --with-examples  Copy minimal array utils into utilsDir/array
-  --check          Fail gen if JSDoc coverage below 30%
-  --tag <ref>      Pin GitHub tag/commit or npm version for update bump
-  --dry-run        Report planned update actions without writing files
-  --skip-bump      Sync and cleanup only (skip pnpm/npm add)
-  --version, -V    Print package version
+  --yes              Non-interactive defaults
+  --force            Init: refresh AGENTS.md snippet + project-core inject
+  --accept-upstream  Take package version for mergeable docs (skip manual merge)
+  --force-docs       Alias for --accept-upstream
+  --with-examples    Copy sample array utils into utilsDir/array
+  --check            Fail gen if JSDoc coverage below 30%
+  --bump             Run pnpm/npm add before gate reinstall (optional)
+  --tag <ref>        Pin version when using --bump
+  --dry-run          Report planned gate reinstall without writing
+  --skip-bump        No-op (bump is already off by default; kept for compatibility)
+  --version, -V      Print package version
 `)
 }
 
@@ -95,8 +101,20 @@ async function main() {
     return
   }
 
-  const { command, cwd, yes, force, forceDocs, withExamples, check, dryRun, skipBump, tag } =
-    parseFlags(argv)
+  const {
+    command,
+    cwd,
+    yes,
+    force,
+    acceptUpstream,
+    forceDocs,
+    withExamples,
+    check,
+    dryRun,
+    bump,
+    skipBump,
+    tag
+  } = parseFlags(argv)
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp()
@@ -104,14 +122,25 @@ async function main() {
   }
 
   if (command === 'init') {
-    const result = runInit(cwd, { yes, force, withExamples, forceDocs })
+    const result = runInit(cwd, { yes, force, withExamples, acceptUpstream, forceDocs })
     printInitSummary(result)
     return
   }
 
   if (command === 'update') {
-    const result = runUpdate(cwd, { yes, tag, dryRun, skipBump, forceDocs })
+    const result = runUpdate(cwd, {
+      yes,
+      tag,
+      dryRun,
+      bump,
+      skipBump,
+      acceptUpstream,
+      forceDocs
+    })
     printUpdateSummary(result)
+    if (result.exitCode) {
+      process.exit(result.exitCode)
+    }
     return
   }
 
