@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 import {
+  hasDiscovery,
   hasRead,
   hasVerdict,
   isUnderUtils,
   loadHookConfig,
   matchesRemindPath,
   normalizeAuditPath,
+  patchAddsLocalHelper,
   resolveContentUtilPaths,
   resolveTargetUtilPaths
 } from './read-audit-lib.mjs'
 
-const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md section 3'
+const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md section 2'
 
 async function readStdin() {
   const chunks = []
@@ -49,7 +51,11 @@ function denyReadMessage(missingPaths) {
 }
 
 function denyVerdictMessage() {
-  return `Denied: Read util source is NOT enough. Output substantive Confirm (Q1-Q5) + Verdict（最终） in chat in a **separate message before Write** (no Write/StrReplace tools in that message). Obvious reuse / WIP / existing @/utils does NOT exempt. See utils-reuse-gate.mdc.`
+  return `Denied: Read util source is NOT enough. Output substantive Confirm (Q1-Q5) + Verdict（最终） in chat in a **separate message before Write** (no Write/StrReplace tools in that message). Include Discovery + Local helpers table when adding feature helpers. Obvious reuse / WIP / existing @/utils does NOT exempt. See utils-reuse-gate.mdc.`
+}
+
+function denyDiscoveryMessage() {
+  return `Denied: Read \`docs/agent-catalog/utils-book/index.md\` (D1) OR Grep/SemanticSearch under configured utilsDir (D2) before adding local function helpers in feature code. Then output Discovery + Local helpers table in Message A. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
 function remindUtilsMessage() {
@@ -134,6 +140,19 @@ async function main() {
     }
 
     // hookMode: confirm
+    const addsHelper =
+      isRemind && patchAddsLocalHelper(payload) && !isUtils
+
+    if (addsHelper && !hasDiscovery(cwd)) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          agent_message: denyDiscoveryMessage()
+        })
+      )
+      return
+    }
+
     if (requiredReads.size === 0) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return

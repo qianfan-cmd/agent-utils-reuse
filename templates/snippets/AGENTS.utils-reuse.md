@@ -10,20 +10,23 @@ Before first business Write when gate applies:
 
 1. Read `AGENTS.md` in full
 2. Understand task / read business code and existing imports
-3. **Identify** each util `symbol @ path`
-4. **Read** each export/method you will call (partial Read OK)
-5. **Confirm (Q1–Q5) + `Verdict（最终）`** in chat — substantive per util (**Message A, no Write tools**)
-6. Then Write (**Message B**)
+3. **Discovery (when triggered)**: D1 Read `utils-book/index.md` → 1 chapter, **or** D2 Grep/SemanticSearch `utilsDir` — required when gate applies **or** adding local pure helpers (FileReader, dataUrl, validate, convert, base64, mime, etc.)
+4. **Identify** each util `symbol @ path`
+5. **Read** each export/method you will call in the **util source file** (`utilsDir` / `@/utils` path) — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked when reading any export from that file
+6. **Message A**: Discovery line + **Local helpers** table (one row per planned feature helper) + Confirm (Q1–Q5) + **`Verdict（最终）`** — no Write tools
+7. Then Write (**Message B** — a **later message** than Message A; do not StrReplace in the same message as Verdict)
 
 **Read util files does NOT complete the gate** — Verdict in chat is a separate hard step.
 
-**Optional**: utils-book Shortlist; `placement-decision.md` for §1.5 edge cases.
+**Cross-feature copy**: Before copying pure functions from another feature component, run Discovery D1/D2. If only in a component, featureLocal OK — note **placement debt** in Message A.
+
+`placement-decision.md` for §1.5 edge cases and Local helpers table format.
 
 #### Reuse philosophy
 
 - Do not re-implement logic that already exists with the same semantics and storage/API contract.
 - Single-export import from a larger module is fine — Read only what you call.
-- Summaries alone are not proof — Confirm after **reading called export(s)**.
+- Summaries alone are not proof — Confirm after **reading called export(s) in util source**, not only call sites in feature files.
 - Cosmetic UI copy diff alone does not forbid reuse; if the ticket is silent, **ask the user** (placement §1.5).
 - **No extend**: changing an existing export's default semantics → **newUtil**.
 
@@ -51,7 +54,7 @@ For **each** util you will import or call, answer in chat (substantive; compress
 
 **Plan → Implement**: **`Verdict（最终）`** in a **prior assistant message** before first business Write/StrReplace; earlier Read/Search allowed. Do not combine Verdict and first Write in one message.
 
-**Hook** (default `hookMode: confirm`, v0.1.9): deny Write until util files Read **and** prior-chat Verdict recorded.
+**Hook** (default `hookMode: confirm`, v0.2.0): deny Write until util files Read **and** prior-chat Verdict recorded; adding new local helpers under feature paths requires Discovery (Read `utils-book/index.md` or Grep `utilsDir`) this session.
 
 #### Export JSDoc (utilsDir — mandatory)
 

@@ -16,17 +16,21 @@ If the target file **already imports `@/utils`** or you will call util symbols: 
 
 1. **Read `AGENTS.md`** in full (no limit/offset).
 2. **Understand the task**: Read / Grep business code and existing imports.
-3. When gate applies:
+3. When gate applies or adding local pure helpers:
+   - **Discovery**: D1 (`utils-book/index.md` → 1 chapter) or D2 (Grep/SemanticSearch `utilsDir`)
    - **Identify** each util `symbol @ path`
-   - **Read** each export/method you will call
-   - **Message A** (no Write tools): Confirm (Q1–Q5) + **`Verdict（最终）`** in chat (substantive; compressed OK)
-4. **Message B**: Write / StrReplace.
+   - **Read** each export/method you will call **in the util source file** (not only how another feature imports it); **Grep same util file** for sibling exports
+   - **Message A** (no Write tools): Discovery + **Local helpers** table + Confirm (Q1–Q5) + **`Verdict（最终）`** in chat (substantive; compressed OK)
+4. **Message B**: Write / StrReplace — **later message** than Message A.
 
 ## Session checklist
 
 - [ ] Read full `AGENTS.md` this session
 - [ ] Understood task / business context before Confirm
-- [ ] Utils: Read called export(s), Confirm + **`Verdict（最终）`** in a prior message (no Write in that message)
+- [ ] Utils: Discovery D1/D2 when adding local helpers or gate applies
+- [ ] Utils: Local helpers table in Message A (one row per planned helper)
+- [ ] Utils: Read **util source** export(s) you will call (feature call sites alone do not count)
+- [ ] Utils: Confirm + **`Verdict（最终）`** in a **prior** message (no Write/StrReplace in that message)
 - [ ] New/changed **exported** functions, classes, or consts: **`/** */`** immediately above export (utilsDir: include `@utils-book` when possible)
 - [ ] Cosmetic UI diff not specified: ask user (placement §1.5)
 - [ ] Typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)

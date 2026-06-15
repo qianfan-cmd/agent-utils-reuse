@@ -2,29 +2,30 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.1.9**: **`confirm` Hook now requires Read util files AND prior-chat `Verdict（最终）`** before Write — fixes agents skipping Confirm after Read.
+Stop AI coding agents from silently forking your shared utilities. **v0.2.0**: **Discovery gate** — deny Write of new feature local helpers until `utils-book/index.md` Read or `utilsDir` Grep/SemanticSearch this session; Message A requires Discovery + Local helpers table.
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
 - **Confirm gate** — substantive Q1–Q5 + **`Verdict（最终）`** per util before Write
+- **Discovery gate (v0.2.0)** — mandatory Shortlist/Grep before adding util-semantics local helpers in feature code
 - **Cursor templates** — full Rules stack + confirm Hook; **no manual per-project edits**
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
-## How constraints work (v0.1.9)
+## How constraints work (v0.2.0)
 
 | Layer | Role |
 |-------|------|
-| **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`init`** |
-| **Hook (default confirm)** | **Deny Write until util files Read AND prior-chat Verdict recorded**; merged disk + StrReplace `@/utils` detection |
+| **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`update:utils-reuse`** |
+| **Hook (default confirm)** | **Deny Write until util files Read AND prior-chat Verdict recorded** (when `@/utils` in target); **deny new local helpers** without Discovery (Read `utils-book/index.md` or Grep `utilsDir`) |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
-**Two-phase workflow**: Message A = Confirm + Verdict (no Write tools); Message B = Write.
+**Two-phase workflow**: Message A = Discovery (when triggered) + Local helpers table + Confirm + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
 
 **Any project** gets the same stack after init — test projects (e.g. ai-web) do not need hand-edited rules.
 
 **Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
 
-Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]`.
+Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]` and `pnpm test:hook-discovery [projectRoot]`.
 
 ## Install
 
@@ -86,6 +87,17 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
+
+### Upgrade v0.1.9 → v0.2.0
+
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.2.0
+pnpm update:utils-reuse
+pnpm test:hooks
+pnpm test:hook-discovery
+```
+
+**Behavior change**: **Discovery gate** — Write under feature paths that **adds new local function helpers** requires this session: Read `utils-book/index.md` (D1) **or** Grep/SemanticSearch under `utilsDir` (D2). Rules require **Discovery + Local helpers table** in Message A. New audit: `.cursor/.utils-gate-discovery.json`; new hook: `track-utils-discovery.mjs` on Grep/SemanticSearch.
 
 ### Upgrade v0.1.8 → v0.1.9
 
@@ -208,7 +220,7 @@ To disable Read/Verdict deny and show reminders only:
 
 Rules still require Confirm + **`Verdict（最终）`** in chat — remind does not enforce that.
 
-### confirm mode (default, v0.1.9)
+### confirm mode (default, v0.2.0)
 
 `init --force` installs:
 
@@ -216,7 +228,10 @@ Rules still require Confirm + **`Verdict（最终）`** in chat — remind does 
 {
   "hooks": {
     "sessionStart": [{ "command": "node .cursor/hooks/track-utils-reads.mjs --reset" }],
-    "postToolUse": [{ "command": "node .cursor/hooks/track-utils-reads.mjs", "matcher": "Read" }],
+    "postToolUse": [
+      { "command": "node .cursor/hooks/track-utils-reads.mjs", "matcher": "Read" },
+      { "command": "node .cursor/hooks/track-utils-discovery.mjs", "matcher": "Grep|SemanticSearch" }
+    ],
     "preToolUse": [{
       "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",
       "matcher": "Write|StrReplace|EditNotebook"
@@ -228,11 +243,12 @@ Rules still require Confirm + **`Verdict（最终）`** in chat — remind does 
 }
 ```
 
-Init adds `.cursor/.utils-gate-reads.json` and `.cursor/.utils-gate-verdict.json` to `.gitignore`.
+Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, and `.cursor/.utils-gate-discovery.json` to `.gitignore`.
 
 ### Known limits
 
-- **Verdict detection is heuristic** — cannot verify substantive Q1–Q5; Rules + human retest still needed
+- **Verdict detection is heuristic** — cannot verify substantive Q1–Q5 or Local helpers table; Rules + human retest still needed
+- **Discovery detection is heuristic** — matches new `function` / `const fn =` in Write patches under feature paths; may miss or false-positive edge cases
 - **Same message Verdict + Write** — `preToolUse` runs before `afterAgentResponse` → denied; split into two messages (by design)
 - **Cloud Agent** — `afterAgentResponse` not wired in cloud; Rules only there
 - **Tab / non-Agent mode** — hooks do not apply

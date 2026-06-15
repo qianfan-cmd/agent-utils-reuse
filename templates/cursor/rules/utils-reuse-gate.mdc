@@ -9,7 +9,7 @@ alwaysApply: true
 
 **Read util source does NOT complete the gate.** Confirm + **`Verdict（最终）`** in **chat** is a separate mandatory step with the same priority as Read.
 
-**Two-phase workflow (v0.1.9 confirm Hook enforces):**
+**Two-phase workflow (v0.2.0 confirm Hook enforces):**
 
 1. **Message A** — Confirm (Q1–Q5) + **`Verdict（最终）`** per util. **No** Write / StrReplace / EditNotebook tools in this message.
 2. **Message B** — Write / StrReplace after Message A was recorded.
@@ -20,7 +20,21 @@ alwaysApply: true
 
 **Confirm confirms**: whether **this symbol**, for **this task's planned usage**, can replace what you would write **without changing the util** (Q1–Q5).
 
-**Optional**: utils-book Shortlist; read `placement-decision.md` or Skill when unclear or §1.5 applies.
+**Discovery (mandatory when triggered)** — see § Discovery below; Message A must state **D1** or **D2** used.
+
+## Discovery (mandatory when triggered)
+
+**Trigger Discovery** when **any** of:
+
+- Gate applies (below)
+- You will **add or materially rewrite** a **local pure helper** in feature code (FileReader, dataUrl, validate, convert, base64, mime, DOM text extraction, etc.)
+
+**Discovery action** (pick **one**; state in Message A):
+
+- **D1**: Read `docs/agent-catalog/utils-book/index.md` → Read **1 chapter** → list candidate `sym @ path`
+- **D2**: `Grep` / `SemanticSearch` under configured `utilsDir` (keywords from planned helpers, e.g. `base64`, `dataUrl`, `validateFile`)
+
+**Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Message A (composable extraction candidate).
 
 ## Gate applies — NOT exempt
 
@@ -41,11 +55,17 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
 1. **Read `AGENTS.md`** in full once per session/task — **no** `limit`/`offset`.
 2. **Understand the task**: Read / Grep business code, plan, **existing imports** — **before** Confirm.
 3. **Identify** each util `symbol @ path`.
-4. **Read** each **export/method you will call** (partial Read / Grep OK).
-5. **Output in chat** (never as JSON cache) — **Message A, no Write tools**:
+4. **Discovery** (when triggered): D1 or D2 above — before writing local helpers or when gate applies.
+5. **Read** each **export/method you will call** in the **util source file** under `utilsDir` / `@/utils` (partial Read of that file, or Grep **within that util file**, is OK).
+   - **Understand the task** by Read/Grep **feature/business code** — that does **not** substitute for Read of the util export you will call.
+   - **Forbidden**: Confirm from only reading another feature's `import` / call sites (e.g. `ai-promptInput.vue`) without Read of `promptUtils.ts` (or the util path you identified).
+   - **Same-file siblings**: When you Read **any** export in a util file, **Grep that file** for related sibling exports before writing a local helper (e.g. Read `uploadSingleFile` in `imageUploadUtils.ts` → also check `fileToBase64` in the same file).
+6. **Output in chat** (never as JSON cache) — **Message A, no Write tools**:
+   - **Discovery** line (D1 or D2) when triggered
+   - **Local helpers** table — one row per planned/retained feature helper vs utils candidate (see `placement-decision.md` §3)
    - Substantive **Confirm（五问）** per util
    - **`Verdict（最终）`** per util: `reuse(symbol)` | `newUtil` | `featureLocal`
-6. **Then** Write / StrReplace — **Message B**.
+7. **Then** Write / StrReplace — **Message B** (must be a **later assistant message** than Message A; Hook denies same-message Verdict + Write).
 
 ## Export JSDoc (utilsDir — mandatory)
 
@@ -69,12 +89,14 @@ export function formatDateLocal(iso: string): string { ... }
 - **`Verdict（最终）`** must appear in a **prior assistant message** before the first business Write / StrReplace (same task).
 - **No** Write/StrReplace until a previous message includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `confirm`, v0.1.9)
+## Hook (default `confirm`, v0.2.0)
 
-Default `hookMode` is **`confirm`**: **deny** Write until **both**:
+Default `hookMode` is **`confirm`**: **deny** Write until **both** (when `@/utils` in target):
 
 1. Util **files** Read this session (merged disk + StrReplace `@/utils` detection)
 2. **`Verdict（最终）`** recorded from a prior assistant message (`afterAgentResponse` hook)
+
+**Discovery heuristic (v0.2.0)**: Write/StrReplace under `remindWritePaths` that **adds a new local function/helper** requires this session: Read `utils-book/index.md` **or** Grep/SemanticSearch under `utilsDir`. See `placement-decision.md` §2.
 
 Heuristic Verdict detection — still require substantive Q1–Q5 in chat per Rules.
 
@@ -85,7 +107,11 @@ Set `"hookMode": "remind"` in `.utils-bookrc.json` for reminder-only (see README
 - Treat Read util as gate complete — **Verdict in chat is mandatory**
 - Write `.utils-discovery-cache.json` or gate cache files
 - **reuse** without Read of called export(s) + Confirm + Verdict in chat
+- **Confirm** from feature consumer usage only — must Read **util source** export(s) you will call
 - Skip Confirm because reuse seems obvious or "no new import"
 - Read `AGENTS.md` with limit/offset only
 - Put Verdict and first Write in the same message (Hook will deny)
 - Add or change a utils **export** without **`/** */`** immediately above it (see Export JSDoc)
+- Add util-semantics **local helpers** without Discovery (D1/D2) + Local helpers table in Message A
+- **Rewrite** a whole helper when a **same-file sibling export** already covers the core logic — prefer reuse or thin featureLocal wrapper
+- Copy pure functions from another feature component without Discovery — note **placement debt** if featureLocal

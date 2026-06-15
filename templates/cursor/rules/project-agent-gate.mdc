@@ -12,10 +12,10 @@ Installed by **`agent-utils-reuse init`**. Works in **any** project root with `A
 1. Read **`AGENTS.md`** in **full** once per session/task — **no** `limit`/`offset`.
 2. Understand task: Read / Grep business code and **existing imports** before Confirm.
 3. **Utils gate applies** when target files have **`@/utils`** or call util symbols — **NOT exempt**: WIP wiring, no new import, obvious reuse.
-4. **Message A** (no Write tools): **Identify** → Read export(s) → substantive **Confirm (Q1–Q5) + `Verdict（最终）`** in chat.
-5. **Message B**: Write / StrReplace.
+4. **Message A** (no Write tools): **Identify** → Read export(s) **in util source** (not only feature call sites) → substantive **Confirm (Q1–Q5) + `Verdict（最终）`** in chat.
+5. **Message B**: Write / StrReplace — **later message** than Message A.
 
-## Hook (v0.1.9 confirm)
+## Hook (v0.2.0 confirm)
 
 Default **`hookMode: confirm`**: **deny** Write until **both** util **files** Read this session **and** **`Verdict（最终）`** recorded from a prior assistant message. Read alone is NOT enough.
 

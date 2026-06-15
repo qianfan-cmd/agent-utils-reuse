@@ -5,14 +5,17 @@ import path from 'node:path'
 export const CONFIG_FILENAME = '.utils-bookrc.json'
 export const AUDIT_FILENAME = '.utils-gate-reads.json'
 export const VERDICT_AUDIT_FILENAME = '.utils-gate-verdict.json'
+export const DISCOVERY_AUDIT_FILENAME = '.utils-gate-discovery.json'
 
 const DEFAULT_UTILS_DIR = 'src/utils'
+const DEFAULT_UTILS_BOOK_DIR = 'docs/agent-catalog/utils-book'
 const DEFAULT_ALIASES = ['@/utils']
 const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src/views']
 
 export function loadHookConfig(cwd = process.cwd()) {
   const base = {
     utilsDir: DEFAULT_UTILS_DIR,
+    utilsBookDir: DEFAULT_UTILS_BOOK_DIR,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
     hookMode: 'confirm'
@@ -22,6 +25,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     if (!fs.existsSync(configPath)) return base
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     if (raw.utilsDir) base.utilsDir = String(raw.utilsDir).replace(/\\/g, '/')
+    if (raw.utilsBookDir) base.utilsBookDir = String(raw.utilsBookDir).replace(/\\/g, '/')
     if (Array.isArray(raw.utilsImportAliases)) {
       base.utilsImportAliases = raw.utilsImportAliases.map((a) => String(a).replace(/\\/g, '/'))
     }
@@ -137,10 +141,11 @@ export function hasVerdict(cwd = process.cwd()) {
   return loadVerdictAudit(cwd).recorded === true
 }
 
-/** Reset read + verdict session audits (sessionStart). */
+/** Reset read + verdict + discovery session audits (sessionStart). */
 export function resetSessionAudits(cwd = process.cwd()) {
   resetAudit(cwd)
   resetVerdictAudit(cwd)
+  resetDiscoveryAudit(cwd)
 }
 
 export function normalizeAuditPath(p) {
@@ -296,4 +301,135 @@ export function mergeWritePayload(filePath, payload, cwd = process.cwd()) {
 export function resolveTargetUtilPaths(filePath, payload, config, cwd = process.cwd()) {
   const merged = mergeWritePayload(filePath, payload, cwd)
   return resolveContentUtilPaths(merged, config, cwd)
+}
+
+export function discoveryAuditPath(cwd = process.cwd()) {
+  return path.join(cwd, '.cursor', DISCOVERY_AUDIT_FILENAME)
+}
+
+export function loadDiscoveryAudit(cwd = process.cwd()) {
+  const filePath = discoveryAuditPath(cwd)
+  if (!fs.existsSync(filePath)) return { recorded: false, via: null, at: null }
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    return {
+      recorded: Boolean(raw.recorded),
+      via: raw.via ?? null,
+      at: raw.at ?? null
+    }
+  } catch {
+    return { recorded: false, via: null, at: null }
+  }
+}
+
+export function saveDiscoveryAudit(data, cwd = process.cwd()) {
+  const filePath = discoveryAuditPath(cwd)
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+}
+
+export function resetDiscoveryAudit(cwd = process.cwd()) {
+  saveDiscoveryAudit({ recorded: false, via: null, at: null }, cwd)
+}
+
+export function recordDiscovery(via, cwd = process.cwd()) {
+  saveDiscoveryAudit(
+    {
+      recorded: true,
+      via,
+      at: new Date().toISOString()
+    },
+    cwd
+  )
+}
+
+export function hasDiscovery(cwd = process.cwd()) {
+  return loadDiscoveryAudit(cwd).recorded === true
+}
+
+export function utilsBookDirRe(utilsBookDir) {
+  const escaped = utilsBookDir.replace(/\\/g, '/').replace(/\/+$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?:^|[/\\\\])${escaped}(?:[/\\\\]|$)`, 'i')
+}
+
+export function isUnderUtilsBookDir(filePath, utilsBookDir) {
+  return utilsBookDirRe(utilsBookDir).test(normalizeAuditPath(filePath))
+}
+
+/** Read of utils-book index.md or any chapter .md counts as discovery (D1). */
+export function isUtilsBookDiscoveryRead(filePath, utilsBookDir) {
+  const normalized = normalizeAuditPath(filePath)
+  if (!isUnderUtilsBookDir(normalized, utilsBookDir)) return false
+  return normalized.endsWith('.md')
+}
+
+export function pathUnderConfiguredDir(filePath, dir) {
+  const normalized = normalizeAuditPath(filePath)
+  const prefix = dir.replace(/\\/g, '/').replace(/\/+$/, '')
+  return normalized === prefix || normalized.startsWith(`${prefix}/`)
+}
+
+const NEW_FN_DECL_RE = /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)\s*\(/g
+const NEW_CONST_FN_RE = /(?:^|\n)\s*const\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s*)?\(/g
+
+function extractFunctionNames(text) {
+  const names = new Set()
+  if (!text || typeof text !== 'string') return names
+  let m
+  NEW_FN_DECL_RE.lastIndex = 0
+  while ((m = NEW_FN_DECL_RE.exec(text)) !== null) {
+    names.add(m[1])
+  }
+  NEW_CONST_FN_RE.lastIndex = 0
+  while ((m = NEW_CONST_FN_RE.exec(text)) !== null) {
+    names.add(m[1])
+  }
+  return names
+}
+
+/**
+ * Heuristic: Write/StrReplace patch introduces a new local function/helper.
+ */
+export function patchAddsLocalHelper(payload) {
+  if (!payload || typeof payload !== 'object') return false
+  const content = payload.content != null ? String(payload.content) : ''
+  const newStr = payload.new_string ?? payload.newString ?? ''
+  const oldStr = payload.old_string ?? payload.oldString ?? ''
+
+  if (content) {
+    return extractFunctionNames(content).size > 0
+  }
+
+  const added = String(newStr)
+  if (!added.trim()) return false
+
+  const newNames = extractFunctionNames(added)
+  if (newNames.size === 0) return false
+
+  const oldNames = extractFunctionNames(String(oldStr))
+  for (const name of newNames) {
+    if (!oldNames.has(name)) return true
+  }
+  return false
+}
+
+/**
+ * Grep / SemanticSearch payload targets configured utilsDir (D2).
+ */
+export function toolInputTargetsUtilsDir(toolInput, config) {
+  if (!toolInput || typeof toolInput !== 'object') return false
+  const utilsDir = config.utilsDir.replace(/\\/g, '/')
+  const candidates = []
+
+  for (const key of ['path', 'glob', 'target_directory', 'targetDirectory']) {
+    if (toolInput[key]) candidates.push(String(toolInput[key]))
+  }
+  if (Array.isArray(toolInput.target_directories)) {
+    candidates.push(...toolInput.target_directories.map(String))
+  }
+  if (Array.isArray(toolInput.paths)) {
+    candidates.push(...toolInput.paths.map(String))
+  }
+
+  return candidates.some((p) => pathUnderConfiguredDir(p, utilsDir))
 }

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Utils 按需复用
 
-动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read export** → **Message A: Confirm + `Verdict（最终）`（禁止 Write）** → **Message B: Write**。
+动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read util 源码 export**（不能只看 feature 调用处）→ **Message A: Confirm + `Verdict（最终）`（禁止 Write）** → **Message B: Write**（须晚于 Message A）。
 
 **Read util ≠ 门禁完成。** Hook（confirm）会拦缺 Verdict 的 Write。
 
@@ -28,4 +28,4 @@ alwaysApply: true
 
 ## 禁止
 
-- 无 **`Verdict（最终）`** 就 Write feature 文件 · 无实质五问 · 因 WIP/无新 import 跳过门禁 · 写 cache JSON
+- 无 **`Verdict（最终）`** 就 Write feature 文件 · 无实质五问 · 因 WIP/无新 import 跳过门禁 · **仅读 feature 调用处、未 Read util 源码 export** · 写 cache JSON

@@ -2,7 +2,7 @@
 
 本目录帮助 Cursor Agent **在公共 utils 目录中按需复用工具函数**：先 Shortlist（index → 1 章），再 **Confirm（五问）**，必要时 **问用户**（展示层细小差异），最后 Verdict。
 
-**强制总闸（v0.1.4）**：`utils-reuse-gate.mdc` — **Confirm（五问）+ Verdict 对话输出** 不可跳过；Shortlist 可选。`hookMode: confirm` 时未 Read util 源码会 **deny** Write。
+**强制总闸（v0.2.0）**：`utils-reuse-gate.mdc` — **Discovery（§2）** 在门禁适用或拟写 feature 本地 helper 时必做；**Confirm（五问）+ Verdict** 不可跳过；Message A 须含 **Local helpers** 对照表。`hookMode: confirm` 时：未 Read util 源码会 **deny** Write（有 `@/utils`）；新增本地 helper 未 Discovery 会 **deny** Write。
 
 ## 文件说明
 
@@ -16,11 +16,12 @@
 
 ## 工作流
 
-1. Read **`utils-book/index.md`** → Read **1 章** → **Shortlist**
-2. **Confirm（五问）**：Read utils 源码；**不得**从文档抄 Verdict
-3. 逻辑可 reuse、仅展示层差异且需求未写明 → **问用户**（placement §1.5）
-4. 输出 **Discovery + Confirm + Verdict**（reuse / newUtil / featureLocal）
-5. **newUtil** 后 **`pnpm gen:utils-book`**
+1. **Discovery（D1 index → 1 章，或 D2 Grep `utilsDir`）** — 触发时必做；见 [`placement-decision.md`](placement-decision.md) §2
+2. **Local helpers 对照表** — 每个拟写 feature helper 一行（Message A）
+3. **Confirm（五问）**：Read utils 源码；**不得**从文档抄 Verdict
+4. 逻辑可 reuse、仅展示层差异且需求未写明 → **问用户**（placement §1.5）
+5. 输出 **Discovery + Confirm + Verdict**（reuse / newUtil / featureLocal）
+6. **newUtil** 后 **`pnpm gen:utils-book`**
 
 细则：[`placement-decision.md`](placement-decision.md)、项目 `AGENTS.md` 中的 utils 复用节。
 
