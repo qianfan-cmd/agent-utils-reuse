@@ -1,0 +1,41 @@
+{
+  "utilsDir": "src/utils",
+  "catalogDir": "docs/agent-catalog",
+  "utilsBookDir": "docs/agent-catalog/utils-book",
+  "skillsDir": ".cursor/skills",
+  "agentsFile": "AGENTS.md",
+  "jsdocTag": "@utils-book",
+  "remindWritePaths": [
+    "src/feature",
+    "src/components",
+    "src/hooks",
+    "src/views"
+  ],
+  "utilsImportAliases": [
+    "@/utils"
+  ],
+  "hookMode": "confirm",
+  "sourceGlobs": [
+    "src/**/*.{vue,ts,tsx}"
+  ],
+  "projectRoot": ".",
+  "gateFileHashes": {
+    "docs/agent-catalog/placement-decision.md": "sha256:d9188bafe072d3761e3e671e43d353c96bc9deb332cfac803401e3bd8860e708",
+    "docs/agent-catalog/MERGE-AGENTS.md": "sha256:7c715b38b022ee8fb8643e3ea418bfbcaeb6e21ad3e90e161d9067f52dceb6cf",
+    "docs/agent-catalog/README.md": "sha256:825a0330e87fbf475e241122eb612ab81d4671bb5306005cfd9572fd7c39fb86"
+  },
+  "gateOverwriteHashes": {
+    ".cursor/rules/workspace-agent-gate.mdc": "sha256:b7507a5ca0f4010d453477c3d8f306e09391ce689f42928127b5db662dd8070b",
+    ".cursor/rules/utils-reuse-gate.mdc": "sha256:138affb793f6ae8c21baf263951301d52e97fa327ebc6da08ca1efe265c4cd04",
+    ".cursor/rules/code-before-edit.mdc": "sha256:9b84b9cf95210b41864a180dec07cb2950afffb3349d289ba30e286f11c7b553",
+    ".cursor/rules/reuse-first.mdc": "sha256:0af4c9f304a4d24ef5f5effccbfd0ade60e345b7779e349f97476b36f394d440",
+    ".cursor/rules/project-agent-gate.mdc": "sha256:6c7693e723217299dee4343a4f9abc4370636801cf1236ab29f2accf48c77097",
+    ".cursor/hooks/check-discovery-before-shared-write.mjs": "sha256:2160543ccd96d7a13cf5f289f1b5345f61e43800ef5bd3dd0a5f26f43d1ddeb4",
+    ".cursor/hooks/read-audit-lib.mjs": "sha256:6407b4154c5bc4084607674d88d6cdb1284a4b43cc0c17ab6b87a6e399494630",
+    ".cursor/hooks/track-utils-reads.mjs": "sha256:3da8e45124b2997f77e4e4724202a9cc727d74a92a12ade1a8f27871c9d390ec",
+    ".cursor/hooks/track-utils-verdict.mjs": "sha256:2887cf7810e9a4db25d1389caea87c8eb444d05e4793bd30c6d1ac5d4add5fc8",
+    ".cursor/skills/reuse-before-create/SKILL.md": "sha256:8a89e73f6606eb21fad230c48721405606948a8414376080b42102516cc49216",
+    ".cursor/hooks.json": "sha256:85bb53c2c91d3be2a5b0341c7af4b29bec909c15c275d16690dc280005b768f4"
+  },
+  "installedPackageVersion": "0.1.9"
+}

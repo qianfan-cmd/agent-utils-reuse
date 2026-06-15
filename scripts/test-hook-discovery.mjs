@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke tests for discovery heuristic (v0.2.0).
+ * Smoke tests for discovery + local helpers table heuristic (v0.2.1).
  * Usage: node scripts/test-hook-discovery.mjs [projectRoot]
  */
 import { spawnSync } from 'node:child_process'
@@ -10,6 +10,16 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
+
+const SAMPLE_VERDICT_WITH_TABLE = `Local helpers
+| 本地函数 | utils 候选 | 对照结论 |
+| readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |
+
+Confirm readFileAsDataUrl: Q1 File Q2 data URL Q3 FileReader Q4 same as fileToBase64 Q5 no
+Verdict（最终）: reuse(fileToBase64)`
+
+const SAMPLE_VERDICT_NO_TABLE = `Confirm readFileAsDataUrl: Q1 File Q2 data URL Q3 FileReader Q4 same Q5 no
+Verdict（最终）: reuse(fileToBase64)`
 
 function resolveProjectRoot(arg) {
   if (arg) return path.resolve(arg)
@@ -60,6 +70,14 @@ function recordUtilsGrep(cwd) {
   })
 }
 
+function recordVerdict(cwd, text) {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-verdict.mjs')], {
+    cwd,
+    input: JSON.stringify({ text }),
+    encoding: 'utf8'
+  })
+}
+
 function assert(name, cond, detail = '') {
   if (!cond) {
     console.error(`FAIL: ${name}${detail ? ` — ${detail}` : ''}`)
@@ -106,12 +124,14 @@ const helperPatch = `function readFileAsDataUrl(file: File): Promise<string> {
   })
 }`
 
-const denyNoDiscovery = runHook(projectRoot, {
+const helperWrite = {
   tool_input: {
     path: 'src/feature/test-discovery.vue',
     content: `<script setup lang="ts">\n${helperPatch}\n</script>\n`
   }
-})
+}
+
+const denyNoDiscovery = runHook(projectRoot, helperWrite)
 assert(
   'Write new local helper without Discovery → deny',
   denyNoDiscovery.permission === 'deny',
@@ -121,29 +141,42 @@ assert(
 resetAudit(projectRoot)
 recordIndexRead(projectRoot)
 
-const allowAfterIndex = runHook(projectRoot, {
-  tool_input: {
-    path: 'src/feature/test-discovery.vue',
-    content: `<script setup lang="ts">\n${helperPatch}\n</script>\n`
-  }
-})
+const denyNoVerdict = runHook(projectRoot, helperWrite)
 assert(
-  'After Read utils-book index → allow (no @/utils in file)',
-  allowAfterIndex.permission === 'allow',
-  JSON.stringify(allowAfterIndex)
+  'After Read index but no Verdict → deny',
+  denyNoVerdict.permission === 'deny',
+  JSON.stringify(denyNoVerdict)
+)
+
+resetAudit(projectRoot)
+recordIndexRead(projectRoot)
+recordVerdict(projectRoot, SAMPLE_VERDICT_NO_TABLE)
+
+const denyNoTable = runHook(projectRoot, helperWrite)
+assert(
+  'Discovery + Verdict without Local helpers table → deny',
+  denyNoTable.permission === 'deny',
+  JSON.stringify(denyNoTable)
+)
+
+resetAudit(projectRoot)
+recordIndexRead(projectRoot)
+recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
+
+const allowFull = runHook(projectRoot, helperWrite)
+assert(
+  'Discovery + substantive Verdict + Local helpers table → allow',
+  allowFull.permission === 'allow',
+  JSON.stringify(allowFull)
 )
 
 resetAudit(projectRoot)
 recordUtilsGrep(projectRoot)
+recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
 
-const allowAfterGrep = runHook(projectRoot, {
-  tool_input: {
-    path: 'src/feature/test-discovery.vue',
-    content: `<script setup lang="ts">\n${helperPatch}\n</script>\n`
-  }
-})
+const allowAfterGrep = runHook(projectRoot, helperWrite)
 assert(
-  'After Grep src/utils → allow (no @/utils in file)',
+  'After Grep src/utils + Verdict + table → allow',
   allowAfterGrep.permission === 'allow',
   JSON.stringify(allowAfterGrep)
 )

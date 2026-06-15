@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke tests for hookMode confirm + merged-file util detection + Verdict audit (v0.1.9).
+ * Smoke tests for hookMode confirm + merged-file util detection + Verdict audit (v0.2.1).
  * Usage: node scripts/test-hook-confirm.mjs [projectRoot]
  * Default projectRoot: ../ai-web if exists, else examples/minimal
  */
@@ -13,6 +13,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
 
 const SAMPLE_VERDICT = `Confirm uploadSingleFile: Q1 file input Q2 upload API Q3 side effects Q4 matches Q5 no
+Verdict（最终）: reuse(uploadSingleFile)`
+
+const HOLLOW_VERDICT = `Confirm: Q1-Q5 通过
 Verdict（最终）: reuse(uploadSingleFile)`
 
 function resolveProjectRoot(arg) {
@@ -61,11 +64,18 @@ function recordRead(cwd, filePath) {
 }
 
 function recordVerdict(cwd, text = SAMPLE_VERDICT) {
-  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-verdict.mjs')], {
+  const r = spawnSync(process.execPath, [hookPath(cwd, 'track-utils-verdict.mjs')], {
     cwd,
     input: JSON.stringify({ text }),
     encoding: 'utf8'
   })
+  const out = (r.stdout || '').trim()
+  if (!out) return { recorded: false }
+  try {
+    return JSON.parse(out)
+  } catch {
+    return { recorded: false }
+  }
 }
 
 function assert(name, cond, detail = '') {
@@ -96,6 +106,13 @@ if (fs.existsSync(bookrcPath)) {
 const featureVue = 'src/feature/ai-art/components/art-generate-input.vue'
 const featurePath = path.join(projectRoot, featureVue)
 const hasFeature = fs.existsSync(featurePath)
+
+resetAudit(projectRoot)
+
+assert(
+  'hollow Q1-Q5 通过 not recorded as Verdict',
+  recordVerdict(projectRoot, HOLLOW_VERDICT).recorded !== true
+)
 
 resetAudit(projectRoot)
 
@@ -139,7 +156,7 @@ if (hasFeature) {
     }
   })
   assert(
-    'After Read util files + Verdict → allow',
+    'After Read util files + substantive Verdict → allow',
     allow.permission === 'allow',
     JSON.stringify(allow)
   )

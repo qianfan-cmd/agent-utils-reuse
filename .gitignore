@@ -4,3 +4,5 @@ node_modules/
 _smoke-init/
 .cursor/.utils-gate-reads.json
 .cursor/.utils-gate-verdict.json
+.cursor/.utils-gate-discovery.json
+*.utils-reuse-upstream

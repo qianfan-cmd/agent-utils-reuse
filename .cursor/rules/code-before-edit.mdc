@@ -1,0 +1,33 @@
+---
+description: Before editing source files — Read AGENTS, understand task, Confirm utils, then Write
+globs: src/**/*.{vue,ts,tsx}
+alwaysApply: false
+---
+
+# Before editing source — mandatory order
+
+You are about to read or modify **application source** (default globs: `src/**/*.{vue,ts,tsx}`).
+
+## Gate applies here
+
+If the target file **already imports `@/utils`** or you will call util symbols: **Confirm + Verdict required** — even for WIP wiring, no new import, or obvious reuse. See `utils-reuse-gate.mdc`.
+
+## Mandatory order
+
+1. **Read `AGENTS.md`** in full (no limit/offset).
+2. **Understand the task**: Read / Grep business code and existing imports.
+3. When gate applies:
+   - **Identify** each util `symbol @ path`
+   - **Read** each export/method you will call
+   - **Message A** (no Write tools): Confirm (Q1–Q5) + **`Verdict（最终）`** in chat (substantive; compressed OK)
+4. **Message B**: Write / StrReplace.
+
+## Session checklist
+
+- [ ] Read full `AGENTS.md` this session
+- [ ] Understood task / business context before Confirm
+- [ ] Utils: Read called export(s), Confirm + **`Verdict（最终）`** in a prior message (no Write in that message)
+- [ ] Cosmetic UI diff not specified: ask user (placement §1.5)
+- [ ] Typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
+
+Details: `.cursor/rules/utils-reuse-gate.mdc`

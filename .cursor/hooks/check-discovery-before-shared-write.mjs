@@ -1,19 +1,16 @@
 #!/usr/bin/env node
 import {
-  hasDiscovery,
-  hasLocalHelpersTableInVerdict,
   hasRead,
   hasVerdict,
   isUnderUtils,
   loadHookConfig,
   matchesRemindPath,
   normalizeAuditPath,
-  patchAddsLocalHelper,
   resolveContentUtilPaths,
   resolveTargetUtilPaths
 } from './read-audit-lib.mjs'
 
-const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md §1.6 and §3'
+const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md section 3'
 
 async function readStdin() {
   const chunks = []
@@ -52,23 +49,15 @@ function denyReadMessage(missingPaths) {
 }
 
 function denyVerdictMessage() {
-  return `Denied: Read util source is NOT enough. Output substantive Confirm in a **separate message before Write** (no Write/StrReplace tools in that message): **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. See ${PLACEMENT_SECTION}.`
-}
-
-function denyDiscoveryMessage() {
-  return `Denied: Read \`docs/agent-catalog/utils-book/index.md\` (D1) OR Grep/SemanticSearch under configured utilsDir (D2) before adding local function helpers in feature code. Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Message A. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
-}
-
-function denyLocalHelpersTableMessage() {
-  return `Denied: Message A must include a **Local helpers** table (header + at least one data row) with per-row Confirm (individual Q1-Q4) and Verdict（最终） in a prior assistant message before Write. See ${PLACEMENT_SECTION}.`
+  return `Denied: Read util source is NOT enough. Output substantive Confirm (Q1-Q5) + Verdict（最终） in chat in a **separate message before Write** (no Write/StrReplace tools in that message). Obvious reuse / WIP / existing @/utils does NOT exempt. See utils-reuse-gate.mdc.`
 }
 
 function remindUtilsMessage() {
-  return `Reminder: Before writing shared utils, Read source, output per-symbol Confirm (Q1-Q4) + Verdict（最终） in chat. See utils-reuse-gate.mdc.`
+  return `Reminder: Before writing shared utils, Read source, output Confirm (Q1-Q5) + Verdict（最终） in chat. See utils-reuse-gate.mdc.`
 }
 
 function remindAppMessage() {
-  return `Reminder: Utils gate applies (existing @/utils counts). Read util source, output per-symbol Confirm + Verdict（最终） in chat before Write. See utils-reuse-gate.mdc.`
+  return `Reminder: Utils gate applies (existing @/utils counts). Read util source, output Confirm + Verdict（最终） in chat before Write. See utils-reuse-gate.mdc.`
 }
 
 function collectRequiredReads(normalized, payload, config, cwd) {
@@ -86,6 +75,7 @@ function collectRequiredReads(normalized, payload, config, cwd) {
     }
   }
 
+  // Also scan patch-only imports (new files / import line in diff)
   const patchContent = [
     payload.content,
     payload.new_string,
@@ -144,41 +134,6 @@ async function main() {
     }
 
     // hookMode: confirm
-    const addsHelper =
-      isRemind && patchAddsLocalHelper(payload) && !isUtils
-
-    if (addsHelper) {
-      if (!hasDiscovery(cwd)) {
-        process.stdout.write(
-          JSON.stringify({
-            permission: 'deny',
-            agent_message: denyDiscoveryMessage()
-          })
-        )
-        return
-      }
-
-      if (!hasVerdict(cwd)) {
-        process.stdout.write(
-          JSON.stringify({
-            permission: 'deny',
-            agent_message: denyVerdictMessage()
-          })
-        )
-        return
-      }
-
-      if (!hasLocalHelpersTableInVerdict(cwd)) {
-        process.stdout.write(
-          JSON.stringify({
-            permission: 'deny',
-            agent_message: denyLocalHelpersTableMessage()
-          })
-        )
-        return
-      }
-    }
-
     if (requiredReads.size === 0) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return

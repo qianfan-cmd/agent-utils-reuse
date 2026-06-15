@@ -4,23 +4,27 @@
 
 **Scope**: Only your configured utils directory (default `src/utils/`). Components/hooks use **featureLocal** when appropriate.
 
-**Mandatory gate** (`.cursor/rules/utils-reuse-gate.mdc`) — **NOT exempt**: existing `@/utils` in file, WIP wiring, no new import.
+**Mandatory gate** (`.cursor/rules/utils-reuse-gate.mdc`) — **NOT exempt**: existing `@/utils` in file, WIP wiring, no new import, **existing local helpers still in use**.
 
 Before first business Write when gate applies:
 
 1. Read `AGENTS.md` in full
 2. Understand task / read business code and existing imports
-3. **Discovery (when triggered)**: D1 Read `utils-book/index.md` → 1 chapter, **or** D2 Grep/SemanticSearch `utilsDir` — required when gate applies **or** adding local pure helpers (FileReader, dataUrl, validate, convert, base64, mime, etc.)
-4. **Identify** each util `symbol @ path`
-5. **Read** each export/method you will call in the **util source file** (`utilsDir` / `@/utils` path) — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked when reading any export from that file
-6. **Message A**: Discovery line + **Local helpers** table (one row per planned feature helper) + Confirm (Q1–Q5) + **`Verdict（最终）`** — no Write tools
-7. Then Write (**Message B** — a **later message** than Message A; do not StrReplace in the same message as Verdict)
+3. **Discovery (when triggered)**: D1 Read `utils-book/index.md` → 1 chapter, **or** D2 Grep/SemanticSearch `utilsDir`
+4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
+5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
+6. **Message A** (no Write tools):
+   - Discovery line (when triggered)
+   - **Local helpers** table — one row per planned/**retained** helper
+   - **Confirm (Q1–Q5 per symbol)** — **Q1, Q2, Q3, Q4 must appear separately**; forbidden: `Q1-Q5 通过`
+   - **`Verdict（最终）`** per row — five types below
+7. Then Write (**Message B** — a **later message** than Message A)
 
-**Read util files does NOT complete the gate** — Verdict in chat is a separate hard step.
+**Read util files does NOT complete the gate** — post-selection proof (Confirm + Verdict) is a separate hard step.
 
-**Cross-feature copy**: Before copying pure functions from another feature component, run Discovery D1/D2. If only in a component, featureLocal OK — note **placement debt** in Message A.
+**Cross-feature copy**: Before copying pure functions from another feature component, run Discovery D1/D2. If only in a component, featureLocal OK — **placement debt** + convergence candidate in Message A.
 
-`placement-decision.md` for §1.5 edge cases and Local helpers table format.
+`placement-decision.md` §1.6 judgment tree, §3 Message A format, §1.5 edge cases.
 
 #### Reuse philosophy
 
@@ -30,31 +34,33 @@ Before first business Write when gate applies:
 - Cosmetic UI copy diff alone does not forbid reuse; if the ticket is silent, **ask the user** (placement §1.5).
 - **No extend**: changing an existing export's default semantics → **newUtil**.
 
-#### Confirm (five questions) — mandatory
+#### Confirm (five questions) — mandatory per symbol
 
-For **each** util you will import or call, answer in chat (substantive; compressed OK):
+For **each** util you will import or call **and each Local helpers table row**, answer in chat:
 
 | # | Question |
 |---|----------|
 | Q1 | Input contract |
 | Q2 | Output / persistence / API (**exclude** UI copy) |
 | Q3 | Side effects |
-| Q4 | Substitution: does `util(x)` match the `f(x)` you would write for **this task**? |
+| Q4 | Substitution: does `util(x)` match the `f(x)` you would write? If no utils export, state "no importable reuse object" |
 | Q5 | Must you change the existing export? Yes → **newUtil**; no → prefer **reuse** |
 
-**Before Write**, output **Confirm** and **`Verdict（最终）`** per util.
+**Forbidden**: `Q1-Q5 通过`, `五问通过`, or Verdict without individual Q1–Q4 lines.
 
 **Do NOT** write `.utils-discovery-cache.json` or gate cache files.
 
 | Verdict | Meaning |
 |---------|---------|
-| **reuse** | Five questions pass, Q5 no |
-| **newUtil** | Hard failure and shared; or Q5 yes |
-| **featureLocal** | Hard failure, page-local only |
+| **reuse(sym)** | Q1–Q4 pass, Q5 no |
+| **partialReuse(sym)+featureLocal(wrapper)** | Util covers core; page wraps types/messages/fields |
+| **newUtil(name)** | Hard failure and shared; or Q5 yes |
+| **featureLocal(reason)** | Page-local only; strong UI/state coupling |
+| **featureLocal+placement debt** | Copied from component; note extraction candidate |
 
 **Plan → Implement**: **`Verdict（最终）`** in a **prior assistant message** before first business Write/StrReplace; earlier Read/Search allowed. Do not combine Verdict and first Write in one message.
 
-**Hook** (default `hookMode: confirm`, v0.2.0): deny Write until util files Read **and** prior-chat Verdict recorded; adding new local helpers under feature paths requires Discovery (Read `utils-book/index.md` or Grep `utilsDir`) this session.
+**Hook** (default `hookMode: confirm`, v0.2.1): deny Write until util files Read **and** prior-chat Verdict with **individual Q1–Q4**; adding new local helpers requires Discovery **and** Local helpers table in Message A.
 
 #### Export JSDoc (utilsDir — mandatory)
 

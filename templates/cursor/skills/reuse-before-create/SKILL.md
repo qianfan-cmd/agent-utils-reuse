@@ -7,11 +7,11 @@ description: >-
 
 # Reuse Before Create — Confirm gate
 
-**Read AGENTS.md → understand task → Discovery (when triggered) → Identify → Read export(s) in util source → Confirm（五问）→ Verdict → Write (later message)**
+**Read AGENTS.md → understand task → Identify → Read util source → Confirm（五问 per symbol）→ Verdict → Write (later message)**
 
 Mandatory rules: `.cursor/rules/utils-reuse-gate.mdc`, `AGENTS.md` utils section. This Skill is **optional** detail — Cursor may attach it by description; **no need to Read this file** if rules are followed.
 
-Reference: `placement-decision.md` §1.5, §2 Discovery, Local helpers table.
+Reference: `placement-decision.md` §1.6 post-selection proof, §3 Message A, §1.5 edge cases.
 
 ## When to Use
 
@@ -32,11 +32,11 @@ Read `AGENTS.md`. Read / Grep **business code**, spec, **existing imports** so C
 | **D1** | Read `docs/agent-catalog/utils-book/index.md` → Read **1 chapter** → list candidates |
 | **D2** | Grep / SemanticSearch under `utilsDir` (keywords from planned helpers) |
 
-State D1 or D2 in Message A. Hook (v0.2.0) may deny Write of new local helpers without Discovery this session.
+State D1 or D2 in Message A. Hook may deny Write of new local helpers without Discovery this session.
 
-## Step 2 — Identify utils (mandatory)
+## Step 2 — Identify (mandatory)
 
-List each util `symbol @ path` you will rely on (plan, import, grep, or Discovery).
+List each util `symbol @ path` **and** each planned/**retained** feature helper.
 
 ## Step 3 — Read source (mandatory)
 
@@ -44,20 +44,22 @@ List each util `symbol @ path` you will rely on (plan, import, grep, or Discover
 
 **Same-file siblings**: Grep the util file for related exports (e.g. `fileToBase64` when reading `uploadSingleFile` in `imageUploadUtils.ts`).
 
+For component-only candidates: Read component + Grep utilsDir before Verdict.
+
 ## Step 4 — Local helpers table (mandatory when triggered)
 
-One row per planned feature helper vs utils candidate. See `placement-decision.md` §3.
+One row per planned/**retained** feature helper vs utils/component candidate. See `placement-decision.md` §3. Hook requires table header + at least one data row when adding helpers.
 
-## Step 5 — Confirm（五问）(mandatory)
+## Step 5 — Confirm（五问）(mandatory per symbol)
 
-Substantive answers per util:
+**Each util + each Local helpers row** — Q1, Q2, Q3, Q4 must appear **separately**. Forbidden: `Q1-Q5 通过`.
 
 | # | 核对 |
 |---|------|
 | Q1 | 输入契约 |
 | Q2 | 输出/存储/API（**不含**展示层文案） |
 | Q3 | 副作用 |
-| Q4 | 替换实验：`util(x)` ≡ 本任务拟写 `f(x)`？ |
+| Q4 | 替换实验：`util(x)` ≡ 拟写 `f(x)`？无 export → 写明无可 import reuse 对象 |
 | Q5 | 须改 util 内部？是 → **newUtil**；否 → 倾向 **reuse** |
 
 ## Step 5b — 展示层细小差异（问用户）
@@ -66,16 +68,22 @@ Q1–Q4 通过、Q5=否，但用户可见文案不同且需求未写明 → AskQ
 
 ## Step 6 — Verdict（Write 前必输出，对话内）
 
-Each util: `reuse(sym)` | `newUtil` | `featureLocal`. Compressed format OK if Q1–Q5 are substantive.
+Per row:
 
-**newUtil**: each new export needs **`/** */`** immediately above (prefer `@utils-book` one-line summary) → `pnpm gen:utils-book`.
+- `reuse(sym)`
+- `partialReuse(sym)+featureLocal(wrapper)`
+- `newUtil(name)`
+- `featureLocal(reason)`
+- `featureLocal+placement debt(ref→candidate)`
+
+**newUtil**: each new export needs **`/** */`** immediately above (prefer `@utils-book`) → `pnpm gen:utils-book`.
 
 **禁止**写 `.utils-discovery-cache.json`。
 
-## Hook confirm mode (v0.2.0)
+## Hook confirm mode (v0.2.1)
 
-`hookMode: confirm` → deny Write until util files Read + prior Verdict (when `@/utils`); deny new local helpers without Discovery. See README.
+`hookMode: confirm` → deny Write until util files Read + prior Verdict with **individual Q1–Q4**; deny new local helpers without Discovery **and** Local helpers table. See README.
 
 ## Do Not
 
-- Skip Discovery when adding local helpers · 无 Local helpers 表 · 无实质五问就 reuse · 写 cache JSON · extend 旧 export · utils 新 export 无 **`/** */`** · 抄组件纯函数未 Grep utils
+- Skip Discovery when adding local helpers · 无 Local helpers 表 · 空泛五问 · 写 cache JSON · extend 旧 export · utils 新 export 无 **`/** */`** · 抄组件纯函数未标 placement debt · 跳过文件中已有 helper 的重 Confirm

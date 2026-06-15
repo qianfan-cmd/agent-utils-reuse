@@ -2,30 +2,30 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.2.0**: **Discovery gate** — deny Write of new feature local helpers until `utils-book/index.md` Read or `utilsDir` Grep/SemanticSearch this session; Message A requires Discovery + Local helpers table.
+Stop AI coding agents from silently forking your shared utilities. **v0.2.1**: **Post-selection proof** — Message A requires **individual Q1–Q4 per symbol** (Hook rejects hollow `Q1-Q5 通过`); adding local helpers requires Discovery + **Local helpers** table + prior Verdict.
 
 - **utils-book generator** — scan utils, write index + chapters + line numbers
-- **Confirm gate** — substantive Q1–Q5 + **`Verdict（最终）`** per util before Write
-- **Discovery gate (v0.2.0)** — mandatory Shortlist/Grep before adding util-semantics local helpers in feature code
+- **Confirm gate** — substantive Q1–Q5 **per util and per Local helpers row** + **`Verdict（最终）`** before Write
+- **Discovery gate (v0.2.0+)** — mandatory Shortlist/Grep before adding util-semantics local helpers in feature code
 - **Cursor templates** — full Rules stack + confirm Hook; **no manual per-project edits**
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
-## How constraints work (v0.2.0)
+## How constraints work (v0.2.1)
 
 | Layer | Role |
 |-------|------|
 | **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`update:utils-reuse`** |
-| **Hook (default confirm)** | **Deny Write until util files Read AND prior-chat Verdict recorded** (when `@/utils` in target); **deny new local helpers** without Discovery (Read `utils-book/index.md` or Grep `utilsDir`) |
+| **Hook (default confirm)** | **Deny Write** until util files Read **and** prior-chat Verdict with **individual Q1–Q4** (when `@/utils` in target); **deny new local helpers** without Discovery **and** Local helpers table **and** substantive Verdict |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
-**Two-phase workflow**: Message A = Discovery (when triggered) + Local helpers table + Confirm + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
+**Two-phase workflow**: Message A = Identify + Discovery (when triggered) + Local helpers table + **per-symbol Confirm (Q1–Q4 separately)** + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
 
 **Any project** gets the same stack after init — test projects (e.g. ai-web) do not need hand-edited rules.
 
 **Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
 
-Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]` and `pnpm test:hook-discovery [projectRoot]`.
+Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]`, `pnpm test:hook-discovery [projectRoot]`, and `pnpm test:verdict-substance`.
 
 ## Install
 
@@ -87,6 +87,18 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
+
+### Upgrade v0.2.0 → v0.2.1
+
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.2.1
+pnpm update:utils-reuse
+pnpm test:hooks
+pnpm test:hook-discovery
+pnpm test:verdict-substance
+```
+
+**Behavior change**: **Post-selection proof** — Hook rejects hollow Confirm (`Q1-Q5 通过` without individual Q1–Q4). Adding local helpers requires prior Message A with **Local helpers** table + substantive Verdict (Discovery still required). See `placement-decision.md` §1.6.
 
 ### Upgrade v0.1.9 → v0.2.0
 
@@ -261,7 +273,8 @@ Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, 
 
 ### Known limits
 
-- **Verdict detection is heuristic** — cannot verify substantive Q1–Q5 or Local helpers table; Rules + human retest still needed
+- **Verdict detection is heuristic** — Hook requires individual Q1–Q4 tokens and Verdict outcome; cannot verify Q4 equivalence correctness or placement debt accuracy
+- **Local helpers table detection** — markdown header + at least one data row; cannot verify table completeness vs planned helpers
 - **Discovery detection is heuristic** — matches new `function` / `const fn =` in Write patches under feature paths
 - **Update verify** — overwrite-tier files must match templates after `update`; run `verify` if unsure; may miss or false-positive edge cases
 - **Same message Verdict + Write** — `preToolUse` runs before `afterAgentResponse` → denied; split into two messages (by design)
