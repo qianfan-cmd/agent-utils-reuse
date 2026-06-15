@@ -27,6 +27,7 @@ If the target file **already imports `@/utils`** or you will call util symbols: 
 - [ ] Read full `AGENTS.md` this session
 - [ ] Understood task / business context before Confirm
 - [ ] Utils: Read called export(s), Confirm + **`Verdict（最终）`** in a prior message (no Write in that message)
+- [ ] New/changed **exported** functions, classes, or consts: **`/** */`** immediately above export (utilsDir: include `@utils-book` when possible)
 - [ ] Cosmetic UI diff not specified: ask user (placement §1.5)
 - [ ] Typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
 

@@ -31,10 +31,17 @@ pnpm gen:utils-book
 pnpm check:utils-book   # 可选 CI 门禁
 ```
 
-## 提高摘要质量（可选）
+## 提高摘要质量（新建 export 必填）
+
+在 **`src/utils/`**（或 `.utils-bookrc.json` 中的 `utilsDir`）里，**每个 export 上方必须有**块注释 `/** ... */`（紧贴 export，中间仅空行）。**推荐**：
 
 ```ts
 /** @utils-book 本符号做什么（一句话） */
+export function myUtil(...) { ... }
 ```
 
-无摘要时：`(无简介 — Confirm 前须 Read 实现)`。`@utils-book` 只描述功能，不写 reuse 判决。
+- 只写功能，不写 reuse 判决或业务场景绑定。
+- 不用单行 `//` 代替（生成器不读）。
+- **newUtil** 或新增 export 后执行 **`pnpm gen:utils-book`**。
+
+无摘要时 utils-book 显示 `(无简介 — Confirm 前须 Read 实现)`，Shortlist 质量下降。

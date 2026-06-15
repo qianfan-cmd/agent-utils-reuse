@@ -47,6 +47,22 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
    - **`Verdict（最终）`** per util: `reuse(symbol)` | `newUtil` | `featureLocal`
 6. **Then** Write / StrReplace — **Message B**.
 
+## Export JSDoc (utilsDir — mandatory)
+
+When **creating or materially changing** an export under configured `utilsDir` (default `src/utils/`):
+
+- Place a block comment **`/** ... */` immediately above** each `export` (only whitespace/newlines between comment and export).
+- **Prefer** `@utils-book 一句话功能描述` — what the symbol does; **not** reuse Verdict or business scenario.
+- Without `@utils-book`, the first non-`@` line in `/** */` is used for utils-book Shortlist.
+- After **newUtil** or new exports: run **`pnpm gen:utils-book`** (and commit utils-book if your project tracks it).
+
+```ts
+/** @utils-book 将 ISO 日期格式化为 YYYY-MM-DD（本地时区） */
+export function formatDateLocal(iso: string): string { ... }
+```
+
+**Forbidden**: new/changed utils export with no `/** */`; single-line `//` only (generator ignores it); `@utils-book` text that says "reuse" instead of describing behavior.
+
 ## Plan approved → Implement
 
 - Read/Search in earlier Implement messages is **allowed**.
@@ -72,3 +88,4 @@ Set `"hookMode": "remind"` in `.utils-bookrc.json` for reminder-only (see README
 - Skip Confirm because reuse seems obvious or "no new import"
 - Read `AGENTS.md` with limit/offset only
 - Put Verdict and first Write in the same message (Hook will deny)
+- Add or change a utils **export** without **`/** */`** immediately above it (see Export JSDoc)

@@ -248,7 +248,9 @@ node ../agent-utils-reuse/scripts/test-hook-confirm.mjs .
 
 Or Git Bash: `/c/nvm4w/nodejs/node.exe .cursor/hooks/check-discovery-before-shared-write.mjs < /tmp/in.json`
 
-## JSDoc summaries (recommended)
+## JSDoc on exports (required in utilsDir)
+
+Every **new or changed export** under `utilsDir` must have **`/** */`** immediately above the export. Prefer `@utils-book` for a one-line behavior summary, then run `pnpm gen:utils-book`.
 
 ```ts
 /** @utils-book 数字数组升序排序，返回新数组 */
@@ -257,7 +259,7 @@ export function sortAsc(nums: number[]): number[] {
 }
 ```
 
-Without `@utils-book`, the script uses the first description line in `/** */` above the export, or `(无简介 — Confirm 前须 Read 实现)`.
+Without `@utils-book`, the generator uses the first description line in `/** */`, or `(无简介 — Confirm 前须 Read 实现)`.
 
 ## Preview output
 

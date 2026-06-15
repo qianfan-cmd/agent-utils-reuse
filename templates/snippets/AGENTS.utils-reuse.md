@@ -53,4 +53,17 @@ For **each** util you will import or call, answer in chat (substantive; compress
 
 **Hook** (default `hookMode: confirm`, v0.1.9): deny Write until util files Read **and** prior-chat Verdict recorded.
 
+#### Export JSDoc (utilsDir — mandatory)
+
+When you **add or materially change** an export under utilsDir (default `src/utils/`):
+
+- **`/** ... */` block comment immediately above** each export (generator does not use `//`).
+- Prefer **`@utils-book 一句话功能描述`** — behavior only, not reuse Verdict.
+- After **newUtil** / new exports: **`pnpm gen:utils-book`**.
+
+```ts
+/** @utils-book 按 key 对对象数组去重，保留首次出现 */
+export function uniqueByKey<T>(...) { ... }
+```
+
 After new utils exports → `pnpm gen:utils-book`.

@@ -60,6 +60,8 @@ Q1–Q4 通过、Q5=否，但用户可见文案不同且需求未写明 → AskQ
 
 Each util: `reuse(sym)` | `newUtil` | `featureLocal`. Compressed format OK if Q1–Q5 are substantive.
 
+**newUtil**: each new export needs **`/** */`** immediately above (prefer `@utils-book` one-line summary) → `pnpm gen:utils-book`.
+
 **禁止**写 `.utils-discovery-cache.json`。
 
 ## Hook confirm mode (optional)
@@ -68,4 +70,4 @@ Each util: `reuse(sym)` | `newUtil` | `featureLocal`. Compressed format OK if Q1
 
 ## Do Not
 
-- Skip Confirm because reuse is obvious · 无实质五问就 reuse · 写 cache JSON · extend 旧 export
+- Skip Confirm because reuse is obvious · 无实质五问就 reuse · 写 cache JSON · extend 旧 export · utils 新 export 无 **`/** */`**

@@ -63,7 +63,7 @@
 | Verdict | 条件 |
 |---------|------|
 | **reuse** | 五问通过 + Q5=否；`import`；不改已有 export |
-| **newUtil** | A 或 B；`pnpm gen:utils-book` |
+| **newUtil** | A 或 B；`pnpm gen:utils-book`；每个新 export 上方 **`/** */`**（推荐 `@utils-book`） |
 | **featureLocal** | A 且仅本页；或强绑 UI/state |
 
 ### 1.5 细小差异 — 向用户确认
@@ -137,7 +137,7 @@
 | Verdict | 条件 | 动作 |
 |---------|------|------|
 | **reuse** | 五问通过 + Q5=否（含用户选 A） | `import` |
-| **newUtil** | A/B；或无 export 要共享 | 新符号 + `pnpm gen:utils-book` |
+| **newUtil** | A/B；或无 export 要共享 | 新符号 + 每个 export 上方 **`/** */`**（推荐 `@utils-book`）+ `pnpm gen:utils-book` |
 | **featureLocal** | A 且仅本页；或用户选 B 且仅本页 | 不写/不改公共 utils |
 
 ---
@@ -166,6 +166,7 @@
 | 展示层差异时静默 fork | **reuse** 或 **§1.5 问用户** |
 | 必须改 util 内部才能用 | **newUtil**，No extend |
 | 写 `.utils-discovery-cache.json` 等 cache 文件 | **对话**输出 D/C/V；软门禁无 cache 环节 |
+| newUtil 但 export 无 `/** */` 或 utils-book 未 regen | 补 JSDoc + `pnpm gen:utils-book` |
 
 ---
 
