@@ -6,7 +6,14 @@ import { spawnSync } from 'node:child_process'
 import { generateUtilsBook } from '../lib/generate-utils-book.mjs'
 import { loadConfig } from '../lib/load-config.mjs'
 import { printInitSummary, runInit } from '../lib/init.mjs'
-import { printStatusSummary, printUpdateSummary, runStatus, runUpdate } from '../lib/update.mjs'
+import {
+  printStatusSummary,
+  printUpdateSummary,
+  printVerifySummary,
+  runStatus,
+  runUpdate,
+  runVerify
+} from '../lib/update.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_VERSION = JSON.parse(
@@ -69,13 +76,15 @@ Usage:
   agent-utils-reuse init [--yes] [--force] [--accept-upstream] [--with-examples]
   agent-utils-reuse update [--yes] [--dry-run] [--bump] [--tag <ref>] [--accept-upstream]
   agent-utils-reuse status
+  agent-utils-reuse verify
   agent-utils-reuse gen [--check]
   agent-utils-reuse check
 
 Commands:
   init    First-time install — templates, AGENTS.md merge, .utils-bookrc.json, hooks
-  update  Reinstall gate files from node_modules (no lockfile churn by default)
-  status  Version drift, deprecated files, merge conflicts
+  update  Reinstall gate files from node_modules or file: link (no lockfile churn by default)
+  status  Version drift, gate verify, deprecated files, merge conflicts
+  verify  Check overwrite-tier gate files match templates
   gen     Scan utilsDir and generate utils-book
   check   Regenerate utils-book and git diff (CI gate)
 
@@ -147,6 +156,15 @@ async function main() {
   if (command === 'status') {
     const result = runStatus(cwd)
     printStatusSummary(result)
+    return
+  }
+
+  if (command === 'verify') {
+    const result = runVerify(cwd)
+    printVerifySummary(result)
+    if (!result.verifyResult?.ok) {
+      process.exit(1)
+    }
     return
   }
 

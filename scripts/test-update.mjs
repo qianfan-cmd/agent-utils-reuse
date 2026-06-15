@@ -114,8 +114,52 @@ try {
 
   assert.ok(bookrcAfter.installedPackageVersion || readBookrc(projectRoot).installedPackageVersion)
 
+  // --- Gate completeness: simulate ai-web partial upgrade (stale hooks) ---
+  const hooksJsonPath = path.join(projectRoot, '.cursor', 'hooks.json')
+  const discoveryHookPath = path.join(
+    projectRoot,
+    '.cursor',
+    'hooks',
+    'track-utils-discovery.mjs'
+  )
+  const hooksBefore = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+  hooksBefore.hooks.postToolUse = (hooksBefore.hooks.postToolUse ?? []).filter(
+    (e) => !String(e.command).includes('track-utils-discovery')
+  )
+  fs.writeFileSync(hooksJsonPath, `${JSON.stringify(hooksBefore, null, 2)}\n`, 'utf8')
+  if (fs.existsSync(discoveryHookPath)) {
+    fs.unlinkSync(discoveryHookPath)
+  }
+
+  const verifyDrift = runCli(['verify'], projectRoot)
+  assert.equal(verifyDrift.status, 1, 'verify should fail on drift')
+  assert.match(verifyDrift.stdout, /FAILED|Stale|Missing/i)
+
+  const nmPkgPath = path.join(projectRoot, 'node_modules', 'agent-utils-reuse', 'package.json')
+  const nmPkg = JSON.parse(fs.readFileSync(nmPkgPath, 'utf8'))
+  nmPkg.version = '0.1.9'
+  fs.writeFileSync(nmPkgPath, `${JSON.stringify(nmPkg, null, 2)}\n`, 'utf8')
+
+  const repairUpdate = runCli(['update', '--yes'], projectRoot)
+  assert.equal(repairUpdate.status, 0, repairUpdate.stderr)
+  assert.match(repairUpdate.stdout, /Gate verify: OK/)
+
+  const hooksAfter = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+  assert.equal(hooksAfter.hooks.postToolUse?.length, 2, 'hooks.json should have Read + Grep postToolUse')
+  assert.ok(fs.existsSync(discoveryHookPath), 'track-utils-discovery.mjs should be restored')
+
+  const verifyOk = runCli(['verify'], projectRoot)
+  assert.equal(verifyOk.status, 0, verifyOk.stderr)
+
+  const bookrcFinal = readBookrc(projectRoot)
+  assert.ok(
+    bookrcFinal.gateOverwriteHashes,
+    'gateOverwriteHashes should be persisted after successful verify'
+  )
+
   const status = runCli(['status'], projectRoot)
   assert.equal(status.status, 0, status.stderr)
+  assert.match(status.stdout, /gate OK|in sync/i)
 
   console.log('test-update: all assertions passed')
 } catch (err) {

@@ -111,33 +111,51 @@ pnpm test:hooks
 
 ### Upgrade / update (general)
 
-**Two steps** — upgrade the npm package separately from reinstalling gate files:
+**Two steps** — upgrade the npm package separately from reinstalling gate files (`update` does **not** run `pnpm add` or touch other dependencies):
 
 ```bash
-# 1. Upgrade package (optional — only when node_modules should change)
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#vX.Y.Z
+# 1. Upgrade devDependency only (when you want a new published version in node_modules)
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.2.0
+# or local dev: pnpm add -D file:../agent-utils-reuse
 
-# 2. Reinstall gate (default — does NOT run pnpm add; does not touch element-plus etc.)
+# 2. One-command full gate sync (overwrite tier + verify)
 pnpm update:utils-reuse
 ```
 
+**`file:` local dev**: if your linked package is **newer** than `node_modules`, `update` syncs templates from the **link** without re-running `pnpm add`. Run `agent-utils-reuse status` or `verify` to check drift.
+
 What **`update`** (gate reinstall) does:
 
-1. Sync **gate files only** from `node_modules/agent-utils-reuse/templates` — rules, hooks, skill, gate docs, AGENTS.md utils block
-2. Remove deprecated gate files (e.g. old `reuse-first-stop.mdc`)
-3. Prune obsolete keys from `.utils-bookrc.json` (`gateHeuristics`, cache keys, …)
-4. Write `installedPackageVersion` + `gateFileHashes`
+1. Sync **overwrite-tier gate files** from templates — rules, hooks, skill, `hooks.json`, AGENTS snippet, gitignore audit lines
+2. **Verify** overwrite files match templates (exit 1 if not — no silent partial success)
+3. Remove deprecated gate files; prune obsolete `.utils-bookrc.json` keys
+4. Write `installedPackageVersion`, `gateFileHashes`, `gateOverwriteHashes`
+5. Merge-tier docs (`placement-decision.md`, …) still use hash conflict sidecars
 
-What it **does not** do: `pnpm add`, lockfile changes, or modifying `src/**` / `utils-book/`.
+What it **does not** do: `pnpm add` (unless `--bump`), lockfile changes, or modifying `src/**` / `utils-book/`.
 
 | Flag | Action |
 |------|--------|
-| *(default)* | Reinstall gate from installed package |
+| *(default)* | Reinstall + verify gate from node_modules or newer `file:` link |
 | `--bump` | Also run `pnpm add -D` first (optional) |
-| `--tag v0.1.9` | Pin version when using `--bump` |
-| `--dry-run` | Report planned gate reinstall without writing |
+| `--tag v0.2.0` | Pin version when using `--bump` |
+| `--dry-run` | Report drift + planned reinstall without writing |
 | `--accept-upstream` | Take package version for mergeable docs (like `git checkout --theirs`) |
 | `--force-docs` | Alias for `--accept-upstream` |
+
+Diagnose:
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs status
+node node_modules/agent-utils-reuse/bin/cli.mjs verify
+```
+
+**ai-web acceptance** after update:
+
+- `.cursor/hooks.json` → 2 `postToolUse` entries (Read + Grep/SemanticSearch)
+- `.cursor/hooks/track-utils-discovery.mjs` exists
+- `agent-utils-reuse verify` → `Gate verify: OK`
+- `pnpm test:hook-discovery .` (from agent-utils-reuse repo)
 
 ### Merge conflicts (like git pull)
 
@@ -152,12 +170,6 @@ docs/agent-catalog/placement-decision.md.utils-reuse-upstream
 ```
 
 Resolve manually (`diff` the two files), delete the sidecar, run `pnpm update:utils-reuse` again — or use `--accept-upstream` to discard local doc changes.
-
-Diagnose:
-
-```bash
-node node_modules/agent-utils-reuse/bin/cli.mjs status
-```
 
 Every **`init`** still refreshes package-managed rules/hooks on first install.
 
@@ -179,10 +191,11 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 
 | Command | Action |
 |---------|--------|
-| `pnpm update:utils-reuse` | **Reinstall gate** from node_modules (no pnpm add) |
+| `pnpm update:utils-reuse` | **Reinstall + verify** gate from templates (no pnpm add) |
 | `… update --yes --bump` | Optional: bump package then reinstall gate |
 | `… update --accept-upstream` | Take package docs; discard local doc customizations |
-| `… status` | Version drift, deprecated files, pending merge conflicts |
+| `… status` | Version drift, **gate verify**, deprecated files, merge conflicts |
+| `… verify` | Detailed overwrite-tier gate file check (exit 1 on drift) |
 | `node node_modules/agent-utils-reuse/bin/cli.mjs init` | First-time install |
 | `… init --with-examples` | Setup + sample array utils |
 | `… init --force` | Also refresh AGENTS.md snippet + project-core inject |
@@ -208,8 +221,9 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
 | `projectAgentCoreRule` | `null` | Optional path to merge utils gate into your alwaysApply core rule |
-| `installedPackageVersion` | *(written by `update`)* | Last synced package version |
+| `installedPackageVersion` | *(written by `update`)* | Last synced template/package version |
 | `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
+| `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
 
 ### Optional remind mode (soft Hook)
 
@@ -248,7 +262,8 @@ Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, 
 ### Known limits
 
 - **Verdict detection is heuristic** — cannot verify substantive Q1–Q5 or Local helpers table; Rules + human retest still needed
-- **Discovery detection is heuristic** — matches new `function` / `const fn =` in Write patches under feature paths; may miss or false-positive edge cases
+- **Discovery detection is heuristic** — matches new `function` / `const fn =` in Write patches under feature paths
+- **Update verify** — overwrite-tier files must match templates after `update`; run `verify` if unsure; may miss or false-positive edge cases
 - **Same message Verdict + Write** — `preToolUse` runs before `afterAgentResponse` → denied; split into two messages (by design)
 - **Cloud Agent** — `afterAgentResponse` not wired in cloud; Rules only there
 - **Tab / non-Agent mode** — hooks do not apply
