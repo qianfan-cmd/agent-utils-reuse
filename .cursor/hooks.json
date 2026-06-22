@@ -16,6 +16,10 @@
       {
         "command": "node .cursor/hooks/track-utils-reads.mjs",
         "matcher": "Read"
+      },
+      {
+        "command": "node .cursor/hooks/track-utils-discovery.mjs",
+        "matcher": "Grep|SemanticSearch|Shell"
       }
     ],
     "afterAgentResponse": [

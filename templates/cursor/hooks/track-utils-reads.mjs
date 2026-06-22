@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 import {
   isUnderUtils,
-  isUtilsBookDiscoveryRead,
   loadHookConfig,
   normalizeAuditPath,
-  recordDiscovery,
   recordRead,
   resetSessionAudits
 } from './read-audit-lib.mjs'
@@ -53,9 +51,6 @@ async function main() {
     const normalized = normalizeAuditPath(filePath)
     if (isUnderUtils(normalized, config.utilsDir)) {
       recordRead(normalized, process.cwd())
-    }
-    if (isUtilsBookDiscoveryRead(normalized, config.utilsBookDir)) {
-      recordDiscovery('index', process.cwd())
     }
 
     process.stdout.write(JSON.stringify({ ok: true, recorded: normalized }))

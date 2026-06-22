@@ -29,8 +29,10 @@ Read `AGENTS.md`. Read / Grep **business code**, spec, **existing imports** so C
 
 | 代号 | 动作 |
 |------|------|
-| **D1** | Read `docs/agent-catalog/utils-book/index.md` → Read **1 chapter** → list candidates |
+| **D1** | **Preferred**: `agent-utils-reuse search "<keywords>" --limit 8` — **or** Grep `docs/agent-catalog/utils-index.json` → list candidates |
 | **D2** | Grep / SemanticSearch under `utilsDir` (keywords from planned helpers) |
+
+**Forbidden for Shortlist**: Read/Grep `utils-book/*.md` (human-only, v0.3.0).
 
 State D1 or D2 in Message A. Hook may deny Write of new local helpers without Discovery this session.
 

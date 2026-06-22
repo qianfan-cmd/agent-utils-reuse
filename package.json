@@ -1,7 +1,7 @@
 {
   "name": "agent-utils-reuse",
-  "version": "0.2.1",
-  "description": "Agent utils reuse gate: utils-book generator, five-question Confirm flow, Cursor templates",
+  "version": "0.3.0",
+  "description": "Agent utils reuse gate: utils-index KV search, five-question Confirm flow, Cursor templates",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -35,11 +35,12 @@
   ],
   "scripts": {
     "test:hooks": "node scripts/test-hook-confirm.mjs",
+    "test:search-utils-index": "node scripts/test-search-utils-index.mjs",
     "test:hook-discovery": "node scripts/test-hook-discovery.mjs",
     "test:verdict-substance": "node scripts/test-verdict-substance.mjs",
     "test:update": "node scripts/test-update.mjs",
     "gen:utils-book": "agent-utils-reuse gen",
-    "check:utils-book": "agent-utils-reuse gen && git diff --exit-code docs/agent-catalog/utils-book/",
+    "check:utils-book": "agent-utils-reuse gen && git diff --exit-code docs/agent-catalog/utils-book/ docs/agent-catalog/utils-index.json",
     "update:utils-reuse": "agent-utils-reuse update --yes"
   }
 }

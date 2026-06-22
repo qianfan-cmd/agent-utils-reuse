@@ -37,8 +37,10 @@ alwaysApply: true
 
 **Discovery action** (pick **one**; state in Message A):
 
-- **D1**: Read `docs/agent-catalog/utils-book/index.md` → Read **1 chapter** → list candidate `sym @ path`
+- **D1 (KV — preferred)**: `agent-utils-reuse search "<task keywords>" --limit 8` **or** `Grep` `docs/agent-catalog/utils-index.json` → list candidate `sym @ path`
 - **D2**: `Grep` / `SemanticSearch` under configured `utilsDir` (keywords from planned helpers, e.g. `base64`, `dataUrl`, `validateFile`)
+
+**Forbidden for Shortlist (D1)**: Read `utils-book/index.md`, Read `utils-book/{章}.md`, or Grep entire `utils-book/` — Markdown is **human-only** (v0.3.0).
 
 **Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Message A (composable or newUtil extraction candidate).
 
@@ -80,7 +82,7 @@ When **creating or materially changing** an export under configured `utilsDir` (
 
 - Place a block comment **`/** ... */` immediately above** each `export` (only whitespace/newlines between comment and export).
 - **Prefer** `@utils-book 一句话功能描述` — what the symbol does; **not** reuse Verdict or business scenario.
-- Without `@utils-book`, the first non-`@` line in `/** */` is used for utils-book Shortlist.
+- Without `@utils-book`, the first non-`@` line in `/** */` is used for utils-index search.
 - After **newUtil** or new exports: run **`pnpm gen:utils-book`** (and commit utils-book if your project tracks it).
 
 ```ts
@@ -107,7 +109,7 @@ Default `hookMode` is **`confirm`**: **deny** Write until:
 
 **When patch adds new local function/helper under `remindWritePaths`:**
 
-1. Discovery this session (Read `utils-book/index.md` or Grep/SemanticSearch `utilsDir`)
+1. Discovery this session (`agent-utils-reuse search` or Grep `utils-index.json` or Grep/SemanticSearch `utilsDir`)
 2. Prior-chat Verdict with **individual Q1–Q4**
 3. **Local helpers** table in that Verdict message
 

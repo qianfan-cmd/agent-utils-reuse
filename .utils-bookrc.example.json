@@ -3,6 +3,7 @@
   "utilsDir": "src/utils",
   "catalogDir": "docs/agent-catalog",
   "utilsBookDir": "docs/agent-catalog/utils-book",
+  "utilsIndexFile": "docs/agent-catalog/utils-index.json",
   "skillsDir": ".cursor/skills",
   "agentsFile": "AGENTS.md",
   "jsdocTag": "@utils-book",

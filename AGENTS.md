@@ -20,7 +20,7 @@ Before first business Write when gate applies:
 
 **Read util files does NOT complete the gate** — Verdict in chat is a separate hard step.
 
-**Optional**: utils-book Shortlist; `placement-decision.md` for §1.5 edge cases.
+**Optional**: `agent-utils-reuse search` on `utils-index.json`; `placement-decision.md` for §1.5 edge cases. **Do not** Read `utils-book/*.md` for Shortlist.
 
 #### Reuse philosophy
 

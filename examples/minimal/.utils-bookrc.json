@@ -6,5 +6,6 @@
   "skillsDir": ".cursor/skills",
   "agentsFile": "AGENTS.md",
   "jsdocTag": "@utils-book",
-  "hookMode": "confirm"
+  "hookMode": "confirm",
+  "utilsIndexFile": "docs/agent-catalog/utils-index.json"
 }

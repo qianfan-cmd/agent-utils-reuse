@@ -17,7 +17,7 @@ If the target file **already imports `@/utils`** or you will call util symbols: 
 1. **Read `AGENTS.md`** in full (no limit/offset).
 2. **Understand the task**: Read / Grep business code and existing imports.
 3. When gate applies or adding local pure helpers:
-   - **Discovery**: D1 (`utils-book/index.md` → 1 chapter) or D2 (Grep/SemanticSearch `utilsDir`)
+   - **Discovery**: D1 (`agent-utils-reuse search` or Grep `utils-index.json`; **forbidden**: Read `utils-book/*.md`) or D2 (Grep/SemanticSearch `utilsDir`)
    - **Identify** each util `symbol @ path` **and** each planned/retained feature helper
    - **Read** each export/method you will call **in the util source file** (not only how another feature imports it); **Grep same util file** for sibling exports
    - **Message A** (no Write tools): Discovery + **Local helpers** table + Confirm (**Q1–Q4 per symbol, separately**) + **`Verdict（最终）`** in chat

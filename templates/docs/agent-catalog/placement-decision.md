@@ -159,12 +159,14 @@ flowchart TD
 
 | 代号 | 动作 |
 |------|------|
-| **D1** | **只 Read** [`utils-book/index.md`](utils-book/index.md) → 按 index **只 Read 1 章** → 列出候选 `name @ path` |
+| **D1** | **首选** `agent-utils-reuse search "<任务关键词>" --limit 8`；**备选** `Grep` [`utils-index.json`](utils-index.json)（按符号名/摘要关键词）。列出候选 `name @ path` |
 | **D2** | `Grep` / `SemanticSearch` **`utilsDir`**（关键词来自计划 helper 语义，如 `base64`、`dataUrl`、`validateFile`） |
 
-**Hook（v0.2.0 confirm）**：Write 到 `remindWritePaths` 且补丁 **新增本地 function/helper** 时，本会话须已有 D1（Read index 或 utils-book 章）或 D2（Grep/SemanticSearch 命中 `utilsDir`）证据。
+**Agent 禁止（Shortlist）**：Read `utils-book/index.md`、Read `utils-book/{章}.md`、Grep 整个 `utils-book/` — Markdown 仅供人类浏览（v0.3.0）。
 
-**禁止**：仅凭摘要写 **Verdict: reuse**。同名见 index **附录**。
+**Hook（v0.3.0 confirm）**：Write 到 `remindWritePaths` 且补丁 **新增本地 function/helper** 时，本会话须已有 D1（Shell `agent-utils-reuse search` 或 Grep `utils-index.json`）或 D2（Grep/SemanticSearch 命中 `utilsDir`）证据。
+
+**禁止**：仅凭摘要写 **Verdict: reuse**。同名见 `utils-index.json` 的 `ambiguous` 或 utils-book 附录（人类查阅）。
 
 **从其他 feature 组件复制纯函数前**：须 D1/D2；逻辑仅在组件内、utils 无 export → 可 **featureLocal**，Message A 标注 **placement debt**（建议 composable）。
 
@@ -176,7 +178,7 @@ flowchart TD
 
 **Identify（识别，必做）**：列出本任务将 import/调用的 util + 拟写/保留的 feature helper（含文件中已有、本次仍依赖者）。
 
-**Discovery（触发时必写）**：`D1: utils-book index + 章 chatFile` | `D2: Grep src/utils "base64|dataUrl"`
+**Discovery（触发时必写）**：`D1: search "数组 排序"` 或 `D1: Grep utils-index.json "sortAsc"` | `D2: Grep src/utils "base64|dataUrl"`
 
 **Local helpers（拟写或保留 — 每个 helper 至少一行；Hook 检测表头 + 至少一行数据）**
 

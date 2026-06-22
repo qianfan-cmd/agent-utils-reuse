@@ -2,11 +2,12 @@
 
 **Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
 
-Stop AI coding agents from silently forking your shared utilities. **v0.2.1**: **Post-selection proof** — Message A requires **individual Q1–Q4 per symbol** (Hook rejects hollow `Q1-Q5 通过`); adding local helpers requires Discovery + **Local helpers** table + prior Verdict.
+Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: **KV utils retrieval** — Agent Discovery D1 uses `utils-index.json` + `agent-utils-reuse search` (not Markdown utils-book). **v0.2.1**: post-selection proof with individual Q1–Q4 per symbol.
 
-- **utils-book generator** — scan utils, write index + chapters + line numbers
+- **utils-index + search CLI** — keyword search over generated KV index (Agent Discovery D1)
+- **utils-book generator** — human-readable Markdown + `utils-index.json` from same scan
 - **Confirm gate** — substantive Q1–Q5 **per util and per Local helpers row** + **`Verdict（最终）`** before Write
-- **Discovery gate (v0.2.0+)** — mandatory Shortlist/Grep before adding util-semantics local helpers in feature code
+- **Discovery gate** — search / Grep index or Grep `utilsDir` before adding util-semantics local helpers
 - **Cursor templates** — full Rules stack + confirm Hook; **no manual per-project edits**
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
@@ -25,7 +26,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.2.1**: *
 
 **Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
 
-Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]`, `pnpm test:hook-discovery [projectRoot]`, and `pnpm test:verdict-substance`.
+Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]`, `pnpm test:hook-discovery [projectRoot]`, `pnpm test:search-utils-index [projectRoot]`, and `pnpm test:verdict-substance`.
 
 ## Install
 
@@ -47,8 +48,10 @@ Run at your **project root** (where `package.json` lives):
 # 1. Copy config, docs, Cursor templates, package scripts; merge AGENTS.md
 node node_modules/agent-utils-reuse/bin/cli.mjs init --force
 
-# 2. Ensure src/utils exists, then generate the book
+# 2. Ensure src/utils exists, then generate index + book
 pnpm gen:utils-book
+# Agent Discovery D1 (from project root):
+node node_modules/agent-utils-reuse/bin/cli.mjs search "数组 排序" --limit 8
 ```
 
 If `pnpm agent-utils-reuse` is not on PATH (Windows `.bin` issues), always use:
@@ -80,13 +83,28 @@ pnpm add -D file:../agent-utils-reuse
 | `.utils-bookrc.json` | Scan paths, hook mode, globs |
 | `docs/agent-catalog/placement-decision.md` | Reuse rules (five questions) |
 | `docs/agent-catalog/AGENTS.utils-reuse.snippet.md` | Manual-merge reference (usually not needed) |
-| `docs/agent-catalog/utils-book/` | **Generated** by `gen` (do not hand-edit) |
+| `docs/agent-catalog/utils-index.json` | **Generated** KV index — **Agent Discovery D1** |
+| `docs/agent-catalog/utils-book/` | **Generated** human-readable book (Agent **must not** Read for Shortlist) |
 | `.cursor/rules/workspace-agent-gate.mdc` | **Read AGENTS.md first** (alwaysApply) |
 | `.cursor/rules/code-before-edit.mdc` | Source globs — Confirm before Write |
 | `.cursor/rules/project-agent-gate.mdc` | **alwaysApply checklist** — any project |
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
+
+### Upgrade v0.2.1 → v0.3.0
+
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.3.0
+pnpm update:utils-reuse
+pnpm gen:utils-book
+pnpm test:hooks
+pnpm test:hook-discovery
+pnpm test:search-utils-index
+pnpm test:verdict-substance
+```
+
+**Behavior change**: **KV retrieval** — Agent Discovery D1 is `agent-utils-reuse search` or Grep `utils-index.json`. **Read `utils-book/*.md` no longer counts as Discovery.** Markdown utils-book is human-only. New file: `docs/agent-catalog/utils-index.json`. Hook adds `Shell` postToolUse for search command.
 
 ### Upgrade v0.2.0 → v0.2.1
 
@@ -211,8 +229,10 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `node node_modules/agent-utils-reuse/bin/cli.mjs init` | First-time install |
 | `… init --with-examples` | Setup + sample array utils |
 | `… init --force` | Also refresh AGENTS.md snippet + project-core inject |
-| `pnpm gen:utils-book` | Regenerate utils-book from `src/utils` |
-| `pnpm check:utils-book` | Regenerate + `git diff` (CI gate) |
+| `pnpm gen:utils-book` | Regenerate utils-index.json + utils-book from `src/utils` |
+| `… search "<query>" [--limit N] [--json]` | Keyword search utils-index (Agent D1) |
+| `pnpm check:utils-book` | Regenerate + git diff index + book (CI gate) |
+| `pnpm test:search-utils-index` | Search CLI smoke tests |
 | `pnpm test:hooks` | Hook confirm + Verdict smoke tests |
 | `pnpm test:update` | Update command regression test (package dev) |
 
@@ -224,7 +244,8 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 |-------|---------|-------------|
 | `utilsDir` | `src/utils` | Directory to scan |
 | `catalogDir` | `docs/agent-catalog` | Agent catalog root |
-| `utilsBookDir` | `docs/agent-catalog/utils-book` | Generated book output |
+| `utilsBookDir` | `docs/agent-catalog/utils-book` | Generated human-readable book |
+| `utilsIndexFile` | `docs/agent-catalog/utils-index.json` | Generated KV index (Agent D1) |
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
@@ -256,7 +277,7 @@ Rules still require Confirm + **`Verdict（最终）`** in chat — remind does 
     "sessionStart": [{ "command": "node .cursor/hooks/track-utils-reads.mjs --reset" }],
     "postToolUse": [
       { "command": "node .cursor/hooks/track-utils-reads.mjs", "matcher": "Read" },
-      { "command": "node .cursor/hooks/track-utils-discovery.mjs", "matcher": "Grep|SemanticSearch" }
+      { "command": "node .cursor/hooks/track-utils-discovery.mjs", "matcher": "Grep|SemanticSearch|Shell" }
     ],
     "preToolUse": [{
       "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",

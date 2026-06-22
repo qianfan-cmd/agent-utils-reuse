@@ -4,3 +4,4 @@
 
 | Skill | 说明 | 路径 |
 |-------|------|------|
+| `reuse-before-create` | >- | `.cursor/skills/reuse-before-create/SKILL.md` |

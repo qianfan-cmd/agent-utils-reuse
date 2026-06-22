@@ -55,8 +55,9 @@ function denyVerdictMessage() {
   return `Denied: Read util source is NOT enough. Output substantive Confirm in a **separate message before Write** (no Write/StrReplace tools in that message): **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. See ${PLACEMENT_SECTION}.`
 }
 
-function denyDiscoveryMessage() {
-  return `Denied: Read \`docs/agent-catalog/utils-book/index.md\` (D1) OR Grep/SemanticSearch under configured utilsDir (D2) before adding local function helpers in feature code. Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Message A. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+function denyDiscoveryMessage(config) {
+  const indexFile = config.utilsIndexFile || 'docs/agent-catalog/utils-index.json'
+  return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1 preferred) OR Grep \`${indexFile}\` before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir. Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Message A. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
 function denyLocalHelpersTableMessage() {
@@ -152,7 +153,7 @@ async function main() {
         process.stdout.write(
           JSON.stringify({
             permission: 'deny',
-            agent_message: denyDiscoveryMessage()
+            agent_message: denyDiscoveryMessage(config)
           })
         )
         return

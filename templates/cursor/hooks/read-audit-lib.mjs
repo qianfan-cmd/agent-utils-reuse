@@ -9,6 +9,7 @@ export const DISCOVERY_AUDIT_FILENAME = '.utils-gate-discovery.json'
 
 const DEFAULT_UTILS_DIR = 'src/utils'
 const DEFAULT_UTILS_BOOK_DIR = 'docs/agent-catalog/utils-book'
+const DEFAULT_UTILS_INDEX_FILE = 'docs/agent-catalog/utils-index.json'
 const DEFAULT_ALIASES = ['@/utils']
 const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src/views']
 
@@ -16,6 +17,7 @@ export function loadHookConfig(cwd = process.cwd()) {
   const base = {
     utilsDir: DEFAULT_UTILS_DIR,
     utilsBookDir: DEFAULT_UTILS_BOOK_DIR,
+    utilsIndexFile: DEFAULT_UTILS_INDEX_FILE,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
     hookMode: 'confirm'
@@ -26,6 +28,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     if (raw.utilsDir) base.utilsDir = String(raw.utilsDir).replace(/\\/g, '/')
     if (raw.utilsBookDir) base.utilsBookDir = String(raw.utilsBookDir).replace(/\\/g, '/')
+    if (raw.utilsIndexFile) base.utilsIndexFile = String(raw.utilsIndexFile).replace(/\\/g, '/')
     if (Array.isArray(raw.utilsImportAliases)) {
       base.utilsImportAliases = raw.utilsImportAliases.map((a) => String(a).replace(/\\/g, '/'))
     }
@@ -403,11 +406,58 @@ export function isUnderUtilsBookDir(filePath, utilsBookDir) {
   return utilsBookDirRe(utilsBookDir).test(normalizeAuditPath(filePath))
 }
 
-/** Read of utils-book index.md or any chapter .md counts as discovery (D1). */
-export function isUtilsBookDiscoveryRead(filePath, utilsBookDir) {
+/** @deprecated v0.3.0 — utils-book md no longer counts as Discovery */
+export function isUtilsBookDiscoveryRead() {
+  return false
+}
+
+export function isUtilsIndexPath(filePath, utilsIndexFile) {
   const normalized = normalizeAuditPath(filePath)
-  if (!isUnderUtilsBookDir(normalized, utilsBookDir)) return false
-  return normalized.endsWith('.md')
+  const indexNorm = String(utilsIndexFile).replace(/\\/g, '/').replace(/^\.\/+/, '')
+  return (
+    normalized === indexNorm ||
+    normalized.endsWith(`/${indexNorm}`) ||
+    normalized.endsWith('/utils-index.json')
+  )
+}
+
+export function toolInputTargetsUtilsIndex(toolInput, config) {
+  if (!toolInput || typeof toolInput !== 'object') return false
+  const indexFile = config.utilsIndexFile.replace(/\\/g, '/')
+
+  if (toolInput.glob && String(toolInput.glob).includes('utils-index.json')) {
+    return true
+  }
+
+  const candidates = []
+  for (const key of ['path', 'glob', 'target_directory', 'targetDirectory']) {
+    if (toolInput[key]) candidates.push(String(toolInput[key]))
+  }
+  if (Array.isArray(toolInput.paths)) {
+    candidates.push(...toolInput.paths.map(String))
+  }
+
+  return candidates.some((p) => isUtilsIndexPath(p, indexFile))
+}
+
+const UTILS_SEARCH_CMD_RES = [
+  /\bagent-utils-reuse(?:\.mjs)?\s+search\b/i,
+  /\bcli\.mjs\s+search\b/i,
+  /node\s+\S*agent-utils-reuse\S*\s+search\b/i
+]
+
+export function shellCommandIsUtilsSearch(command) {
+  if (!command || typeof command !== 'string') return false
+  const normalized = command.replace(/\s+/g, ' ').trim()
+  return UTILS_SEARCH_CMD_RES.some((re) => re.test(normalized))
+}
+
+export function extractShellCommand(toolInput) {
+  if (!toolInput || typeof toolInput !== 'object') return ''
+  for (const key of ['command', 'cmd', 'script']) {
+    if (toolInput[key]) return String(toolInput[key])
+  }
+  return ''
 }
 
 export function pathUnderConfiguredDir(filePath, dir) {

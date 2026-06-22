@@ -10,7 +10,7 @@ Before first business Write when gate applies:
 
 1. Read `AGENTS.md` in full
 2. Understand task / read business code and existing imports
-3. **Discovery (when triggered)**: D1 Read `utils-book/index.md` → 1 chapter, **or** D2 Grep/SemanticSearch `utilsDir`
+3. **Discovery (when triggered)**: D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`, **or** D2 Grep/SemanticSearch `utilsDir`. **Forbidden**: Read/Grep `utils-book/*.md` for Shortlist (v0.3.0)
 4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
 5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
 6. **Message A** (no Write tools):

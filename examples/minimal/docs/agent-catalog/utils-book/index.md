@@ -2,17 +2,12 @@
 
 > **DO NOT EDIT** — 由 `pnpm gen:utils-book` 生成。
 
-## 怎么用（像书本：先目录，再读一章）
+> **HUMAN ONLY** — Cursor Agent **禁止** Read 本文件或 `utils-book/` 下章 md 做 Shortlist。
+> Agent Discovery D1：`docs/agent-catalog/utils-index.json` + `agent-utils-reuse search "<keywords>"`（见 placement-decision.md §2）。
 
-**不要**把 `utils-book/` 下所有章 md 全文 Read 一遍。
+## 人类浏览（Code Review / 文档）
 
-1. **只 Read 本文件 `index.md`**（目录 + 章链接）
-2. 按任务 **只 Read 1 个相关章**
-3. 在该章内 **Shortlist** 候选符号
-4. **Confirm（五问）**：Read 源码 — 见 [`placement-decision.md`](../placement-decision.md) §1
-5. **最终 Verdict**：reuse / newUtil / featureLocal
-
-不确定选哪章：`Grep docs/agent-catalog/utils-book/`；仍只展开命中的章。
+本目录 Markdown 仅供人类浏览；Agent 检索请用 **`utils-index.json` + search CLI**。
 
 ### 章导航
 

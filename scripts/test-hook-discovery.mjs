@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Smoke tests for discovery + local helpers table heuristic (v0.2.1).
+ * Smoke tests for discovery + local helpers table heuristic (v0.3.0 KV D1).
  * Usage: node scripts/test-hook-discovery.mjs [projectRoot]
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { generateUtilsBook } from '../lib/generate-utils-book.mjs'
+import { loadConfig } from '../lib/load-config.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
@@ -50,7 +52,29 @@ function resetAudit(cwd) {
   })
 }
 
-function recordIndexRead(cwd) {
+function recordIndexGrep(cwd, indexPath) {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-discovery.mjs')], {
+    cwd,
+    input: JSON.stringify({
+      tool_input: { pattern: 'sortAsc', path: indexPath }
+    }),
+    encoding: 'utf8'
+  })
+}
+
+function recordShellSearch(cwd) {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-discovery.mjs')], {
+    cwd,
+    input: JSON.stringify({
+      tool_input: {
+        command: 'node node_modules/agent-utils-reuse/bin/cli.mjs search "数组 排序"'
+      }
+    }),
+    encoding: 'utf8'
+  })
+}
+
+function recordLegacyIndexRead(cwd) {
   spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
     cwd,
     input: JSON.stringify({
@@ -91,10 +115,14 @@ function assert(name, cond, detail = '') {
 const projectRoot = resolveProjectRoot(process.argv[2])
 console.log(`Project root: ${projectRoot}`)
 
+generateUtilsBook(loadConfig(projectRoot))
+
 const bookrcPath = path.join(projectRoot, '.utils-bookrc.json')
+const indexPath = 'docs/agent-catalog/utils-index.json'
 if (fs.existsSync(bookrcPath)) {
   const rc = JSON.parse(fs.readFileSync(bookrcPath, 'utf8'))
   rc.hookMode = 'confirm'
+  rc.utilsIndexFile = rc.utilsIndexFile || indexPath
   fs.writeFileSync(bookrcPath, `${JSON.stringify(rc, null, 2)}\n`)
 } else {
   fs.writeFileSync(
@@ -104,6 +132,7 @@ if (fs.existsSync(bookrcPath)) {
         hookMode: 'confirm',
         utilsDir: 'src/utils',
         utilsBookDir: 'docs/agent-catalog/utils-book',
+        utilsIndexFile: indexPath,
         utilsImportAliases: ['@/utils'],
         remindWritePaths: ['src/feature', 'src/components', 'src/hooks', 'src/views']
       },
@@ -139,17 +168,27 @@ assert(
 )
 
 resetAudit(projectRoot)
-recordIndexRead(projectRoot)
+recordLegacyIndexRead(projectRoot)
+
+const denyLegacyMd = runHook(projectRoot, helperWrite)
+assert(
+  'Read utils-book index.md no longer counts as Discovery → deny',
+  denyLegacyMd.permission === 'deny',
+  JSON.stringify(denyLegacyMd)
+)
+
+resetAudit(projectRoot)
+recordIndexGrep(projectRoot, indexPath)
 
 const denyNoVerdict = runHook(projectRoot, helperWrite)
 assert(
-  'After Read index but no Verdict → deny',
+  'After Grep utils-index but no Verdict → deny',
   denyNoVerdict.permission === 'deny',
   JSON.stringify(denyNoVerdict)
 )
 
 resetAudit(projectRoot)
-recordIndexRead(projectRoot)
+recordIndexGrep(projectRoot, indexPath)
 recordVerdict(projectRoot, SAMPLE_VERDICT_NO_TABLE)
 
 const denyNoTable = runHook(projectRoot, helperWrite)
@@ -160,12 +199,23 @@ assert(
 )
 
 resetAudit(projectRoot)
-recordIndexRead(projectRoot)
+recordShellSearch(projectRoot)
+recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
+
+const allowShellSearch = runHook(projectRoot, helperWrite)
+assert(
+  'Shell search + Verdict + Local helpers table → allow',
+  allowShellSearch.permission === 'allow',
+  JSON.stringify(allowShellSearch)
+)
+
+resetAudit(projectRoot)
+recordIndexGrep(projectRoot, indexPath)
 recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
 
 const allowFull = runHook(projectRoot, helperWrite)
 assert(
-  'Discovery + substantive Verdict + Local helpers table → allow',
+  'Grep utils-index + substantive Verdict + Local helpers table → allow',
   allowFull.permission === 'allow',
   JSON.stringify(allowFull)
 )

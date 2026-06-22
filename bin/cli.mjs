@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { generateUtilsBook } from '../lib/generate-utils-book.mjs'
 import { loadConfig } from '../lib/load-config.mjs'
+import { runSearch } from '../lib/search-utils-index.mjs'
 import { printInitSummary, runInit } from '../lib/init.mjs'
 import {
   printStatusSummary,
@@ -23,16 +24,17 @@ const PACKAGE_VERSION = JSON.parse(
 function parseFlags(argv) {
   const flags = new Set(argv.filter((a) => a.startsWith('--')))
   const positionals = argv.filter((a) => !a.startsWith('--'))
-  const cwdIdx = positionals.indexOf('--cwd')
+
   let cwd = process.cwd()
-  if (cwdIdx >= 0 && positionals[cwdIdx + 1]) {
-    cwd = path.resolve(positionals[cwdIdx + 1])
+  const cwdFlagIdx = argv.indexOf('--cwd')
+  if (cwdFlagIdx >= 0 && argv[cwdFlagIdx + 1]) {
+    cwd = path.resolve(argv[cwdFlagIdx + 1])
   }
 
   let tag = null
-  const tagIdx = positionals.indexOf('--tag')
-  if (tagIdx >= 0 && positionals[tagIdx + 1]) {
-    tag = positionals[tagIdx + 1]
+  const tagIdx = argv.indexOf('--tag')
+  if (tagIdx >= 0 && argv[tagIdx + 1]) {
+    tag = argv[tagIdx + 1]
   }
 
   const acceptUpstream = flags.has('--accept-upstream') || flags.has('--force-docs')
@@ -49,7 +51,16 @@ function parseFlags(argv) {
     dryRun: flags.has('--dry-run'),
     bump: flags.has('--bump'),
     skipBump: flags.has('--skip-bump'),
-    tag
+    tag,
+    json: flags.has('--json'),
+    limit: (() => {
+      const idx = positionals.indexOf('--limit')
+      if (idx >= 0 && positionals[idx + 1]) {
+        const n = parseInt(positionals[idx + 1], 10)
+        return Number.isFinite(n) && n > 0 ? n : 8
+      }
+      return 8
+    })()
   }
 }
 
@@ -58,14 +69,19 @@ function runCheck(cwd) {
   generateUtilsBook(config, { check: false })
 
   const bookDirRel = path.relative(config.projectRoot, config.bookDir).replace(/\\/g, '/')
-  const result = spawnSync('git', ['diff', '--exit-code', `${bookDirRel}/`], {
-    cwd: config.projectRoot,
-    stdio: 'inherit',
-    shell: process.platform === 'win32'
-  })
+  const indexRel = path
+    .relative(config.projectRoot, config.indexFilePath)
+    .replace(/\\/g, '/')
 
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
+  for (const rel of [bookDirRel, indexRel]) {
+    const result = spawnSync('git', ['diff', '--exit-code', rel], {
+      cwd: config.projectRoot,
+      stdio: 'inherit',
+      shell: process.platform === 'win32'
+    })
+    if (result.status !== 0) {
+      process.exit(result.status ?? 1)
+    }
   }
 }
 
@@ -78,6 +94,7 @@ Usage:
   agent-utils-reuse status
   agent-utils-reuse verify
   agent-utils-reuse gen [--check]
+  agent-utils-reuse search "<query>" [--limit N] [--json]
   agent-utils-reuse check
 
 Commands:
@@ -85,8 +102,9 @@ Commands:
   update  Reinstall gate files from node_modules or file: link (no lockfile churn by default)
   status  Version drift, gate verify, deprecated files, merge conflicts
   verify  Check overwrite-tier gate files match templates
-  gen     Scan utilsDir and generate utils-book
-  check   Regenerate utils-book and git diff (CI gate)
+  gen     Scan utilsDir and generate utils-book + utils-index.json
+  search  Keyword search utils-index.json (Agent Discovery D1)
+  check   Regenerate utils-book/index and git diff (CI gate)
 
 Options:
   --yes              Non-interactive defaults
@@ -95,6 +113,8 @@ Options:
   --force-docs       Alias for --accept-upstream
   --with-examples    Copy sample array utils into utilsDir/array
   --check            Fail gen if JSDoc coverage below 30%
+  --limit <N>        search: max results (default 8)
+  --json             search: JSON output
   --bump             Run pnpm/npm add before gate reinstall (optional)
   --tag <ref>        Pin version when using --bump
   --dry-run          Report planned gate reinstall without writing
@@ -122,7 +142,9 @@ async function main() {
     dryRun,
     bump,
     skipBump,
-    tag
+    tag,
+    json,
+    limit
   } = parseFlags(argv)
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
@@ -176,6 +198,26 @@ async function main() {
 
   if (command === 'check') {
     runCheck(cwd)
+    return
+  }
+
+  if (command === 'search') {
+    const queryParts = process.argv.slice(2).filter((a) => {
+      if (a === 'search') return false
+      if (a.startsWith('--')) return false
+      return true
+    })
+    const query = queryParts.join(' ').trim()
+    if (!query) {
+      console.error('Usage: agent-utils-reuse search "<query>" [--limit N] [--json]')
+      process.exit(1)
+    }
+    try {
+      console.log(runSearch(cwd, query, { limit, json }))
+    } catch (err) {
+      console.error(err.message || err)
+      process.exit(1)
+    }
     return
   }
 
