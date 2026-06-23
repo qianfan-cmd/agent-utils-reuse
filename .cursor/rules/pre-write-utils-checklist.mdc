@@ -1,5 +1,5 @@
 ---
-description: HARD STOP before Write under feature paths — Confirm + Verdict in prior message (Message A/B)
+description: HARD STOP before Write — Confirm + Verdict in chat before first Write (same turn OK)
 alwaysApply: true
 ---
 
@@ -9,12 +9,12 @@ When you are about to **Write / StrReplace / EditNotebook** under **`remindWrite
 
 ## HARD STOP — Read / search / gen index ≠ gate complete
 
-**Do not call Write tools in this turn** unless **all** are true from a **prior assistant message** (Message A):
+**Do not call Write tools** until **all** are true in chat **before the first Write in this response**:
 
 1. **Individual Q1, Q2, Q3, Q4** (and Q5) per util / Local helpers row — **not** `Q1-Q5 通过`
 2. **`Verdict（最终）`** with reuse / newUtil / featureLocal / partialReuse
-3. That Message A had **no** Write / StrReplace / EditNotebook tools
+3. Verdict is **before** the first Write tool call (same assistant turn OK)
 
-If any is false → **output Message A only** (Discovery when triggered + Local helpers table + Confirm + Verdict), **stop**, wait for user/next turn for Message B.
+If any is false → output Discovery + Local helpers + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
 
 Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6. Hook (`hookMode: confirm`) will **deny** Write if you skip this.

@@ -155,7 +155,7 @@ flowchart TD
 - 门禁适用（现有 `@/utils`、语义任务 mention/upload/validate 等、将 import utils）
 - 拟在 feature **新增/改写** 纯函数 helper（FileReader、dataUrl、validate、convert、base64、mime 等）
 
-**动作**（二选一，Message A 须写明）：
+**动作**（二选一，Confirm 阶段须写明）：
 
 | 代号 | 动作 |
 |------|------|
@@ -172,7 +172,7 @@ flowchart TD
 
 ---
 
-## 3. Write 前对话输出（Message A — 必做格式）
+## 3. Write 前对话输出（Confirm 阶段 — 必做格式；可与 Implement 同轮）
 
 **在对话中输出**（不要写入 cache JSON 文件）。**必做**：**每个 util + Local helpers 表每一行** 各有一组 **分项 Q1–Q5** + 行级 Verdict。**禁止**空泛「Q1–Q5 通过」（Hook v0.2.1 deny）。
 

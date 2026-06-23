@@ -13,16 +13,13 @@ import {
   patchAddsLocalHelper,
   resolveContentUtilPaths,
   resolveTargetUtilPaths,
-  sessionHasUtilReads
+  sessionHasUtilReads,
+  parseHookJson,
+  readHookStdin,
+  tryEagerRecordVerdict
 } from './read-audit-lib.mjs'
 
 const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md §1.6 and §3'
-
-async function readStdin() {
-  const chunks = []
-  for await (const chunk of process.stdin) chunks.push(chunk)
-  return Buffer.concat(chunks).toString('utf8')
-}
 
 function extractPath(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
@@ -55,16 +52,16 @@ function denyReadMessage(missingPaths) {
 }
 
 function denyVerdictMessage() {
-  return `Denied: Read util source is NOT enough. Read util / search / gen index do NOT complete the gate. Output substantive Confirm in a **separate message before Write** (no Write/StrReplace tools in that message): **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. See ${PLACEMENT_SECTION}.`
+  return `Denied: Read util / search / gen index do NOT complete the gate. Output substantive Confirm in chat **before** the first Write in this response: **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. If you already output Verdict, run pnpm update:utils-reuse and check .cursor/.utils-gate-verdict.json. See ${PLACEMENT_SECTION}.`
 }
 
 function denyDiscoveryMessage(config) {
   const indexFile = config.utilsIndexFile || 'docs/agent-catalog/utils-index.json'
-  return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1 preferred) OR Grep \`${indexFile}\` before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir. Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Message A. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+  return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1 preferred) OR Grep \`${indexFile}\` before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir. Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Confirm phase (same turn before Write). See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
 function denyLocalHelpersTableMessage() {
-  return `Denied: Message A must include a **Local helpers** table (header + at least one data row) with per-row Confirm (individual Q1-Q4) and Verdict（最终） in a prior assistant message before Write. See ${PLACEMENT_SECTION}.`
+  return `Denied: Message A must include a **Local helpers** table (header + at least one data row) with per-row Confirm (individual Q1-Q4) and Verdict（最终） in chat before Write (same assistant turn OK). See ${PLACEMENT_SECTION}.`
 }
 
 function remindUtilsMessage() {
@@ -119,13 +116,13 @@ async function main() {
   const cwd = process.cwd()
 
   try {
-    const raw = await readStdin()
+    const raw = await readHookStdin()
     if (!raw.trim()) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
 
-    const input = JSON.parse(raw)
+    const input = parseHookJson(raw)
     config = loadHookConfig(cwd)
     const filePath = extractPath(input)
     if (!filePath) {
@@ -159,7 +156,9 @@ async function main() {
       return
     }
 
-    // hookMode: confirm
+    // hookMode: confirm — same-turn Verdict in hook payload counts
+    tryEagerRecordVerdict(input, cwd)
+
     const addsHelper = isRemind && patchAddsLocalHelper(payload) && !isUtils
 
     if (addsHelper) {

@@ -2,17 +2,17 @@
 
 本目录帮助 Cursor Agent **在公共 utils 目录中按需复用工具函数**：先 **KV 检索（search / Grep index）**，再 **Confirm（五问）**，必要时 **问用户**（展示层细小差异），最后 Verdict。
 
-**强制总闸（v0.3.3）**：`utils-reuse-gate.mdc` + `pre-write-utils-checklist.mdc` — **选中后证明**（§1.6）：每个 util + Local helpers 行须 **分项 Q1–Q4** + Verdict；禁止空泛「Q1–Q5 通过」。`hookMode: confirm` 时 Hook **fail-closed**：会话已 Read util 后对 `remindWritePaths` Write **无 prior Verdict → deny**；异常不再 silent allow。
+**强制总闸（v0.3.4）**：`utils-reuse-gate.mdc` + `pre-write-utils-checklist.mdc` — **选中后证明**（§1.6）：每个 util + Local helpers 行须 **分项 Q1–Q4** + Verdict；禁止空泛「Q1–Q5 通过」。`hookMode: confirm` 时 Hook **fail-closed**：会话已 Read util 后对 `remindWritePaths` Write **无 prior Verdict → deny**；异常不再 silent allow。
 
 ## 两类任务，勿混淆
 
 | 任务 | 典型操作 | Message A 五问？ |
 |------|----------|------------------|
-| **业务实现** | `src/views` 等接 `@/utils`、改 feature 代码 | **必须** — Discovery（触发时）+ Local helpers + 分项 Q1–Q4 + `Verdict（最终）` → **下一条**消息再 Write |
+| **业务实现** | `src/views` 等接 `@/utils`、改 feature 代码 | **必须** — Confirm 阶段（Discovery + Local helpers + 分项 Q1–Q4 + `Verdict（最终）`）→ **同轮** Implement（Write） |
 | **索引维护** | 补 `@utils-book` → `pnpm gen:utils-book` → search 自测 | **不要** Write feature；见 [BACKFILL](./BACKFILL-UTILS-BOOK.zh.md) |
 
 ```text
-业务 Write：Message A（仅 chat，禁止 Write 工具）→ Message B（Write/StrReplace）
+业务 Write：Confirm 阶段（chat）→ Implement 阶段（Write/StrReplace，**同一 assistant 轮**）
 Read util / search / gen index 均 ≠ gate complete
 ```
 
@@ -47,7 +47,7 @@ Read util / search / gen index 均 ≠ gate complete
 Cursor 开在**项目根**，`.utils-bookrc.json` 中 `hookMode: confirm`：
 
 1. Agent **Read** 某 `utilsDir` 文件 → `.cursor/.utils-gate-reads.json` 应出现该路径
-2. assistant 输出分项 Q1–Q4 + `Verdict（最终）`（**该条消息无 Write**）→ `.cursor/.utils-gate-verdict.json` 中 `recorded: true`
+2. assistant 在**首个 Write 工具之前**输出分项 Q1–Q4 + `Verdict（最终）` → `.cursor/.utils-gate-verdict.json` 中 `recorded: true`（同轮 preToolUse 亦可记录）
 3. 随后 Write `remindWritePaths` 下文件 → **allow**；若跳过步骤 2 直接 Write → **deny**
 
 ```bash

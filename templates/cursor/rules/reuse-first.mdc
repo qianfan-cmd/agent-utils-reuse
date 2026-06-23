@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Utils 按需复用
 
-动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read util 源码 export**（不能只看 feature 调用处）→ **Message A: Confirm + `Verdict（最终）`（禁止 Write）** → **Message B: Write**（须晚于 Message A）。
+动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read util 源码 export**（不能只看 feature 调用处）→ **Confirm**: Discovery + 分项 Q1–Q4 + `Verdict（最终）` in chat → **Implement**: Write（同一 assistant 轮，Verdict 在首个 Write 之前）。
 
 **Read util ≠ 门禁完成。** Hook（confirm）会拦缺 Verdict 的 Write。
 

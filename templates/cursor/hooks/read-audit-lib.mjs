@@ -94,6 +94,60 @@ export function hookErrorDenyMessage() {
   return 'Gate hook error — fix .cursor/hooks or re-run pnpm update:utils-reuse. Write blocked (fail-closed).'
 }
 
+/** Strip UTF-8 BOM Cursor may prefix on hook stdin JSON. */
+export function stripUtf8Bom(s) {
+  if (!s || typeof s !== "string") return ""
+  return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s
+}
+
+export async function readHookStdin() {
+  const chunks = []
+  for await (const chunk of process.stdin) chunks.push(chunk)
+  return stripUtf8Bom(Buffer.concat(chunks).toString("utf8"))
+}
+
+export function parseHookJson(raw) {
+  const trimmed = stripUtf8Bom(String(raw ?? "").trim())
+  if (!trimmed) return null
+  return JSON.parse(trimmed)
+}
+
+function messageContentToString(content) {
+  if (content == null) return ""
+  if (typeof content === "string") return content
+  if (Array.isArray(content)) {
+    return content.map((part) => {
+      if (typeof part === "string") return part
+      if (part && typeof part === "object") return part.text ?? part.content ?? ""
+      return ""
+    }).filter(Boolean).join("\n")
+  }
+  if (typeof content === "object") return content.text ?? content.content ?? ""
+  return String(content)
+}
+
+export function extractAssistantTextFromHookInput(input) {
+  if (!input || typeof input !== "object") return ""
+  for (const key of ["text", "response", "content", "agent_message", "assistant_message"]) {
+    if (input[key] != null) {
+      const s = messageContentToString(input[key])
+      if (s.trim()) return s
+    }
+  }
+  const lists = []
+  if (Array.isArray(input.conversation)) lists.push(...input.conversation)
+  if (Array.isArray(input.messages)) lists.push(...input.messages)
+  for (let i = lists.length - 1; i >= 0; i--) {
+    const msg = lists[i]
+    if (!msg || typeof msg !== "object") continue
+    const role = String(msg.role ?? msg.type ?? "").toLowerCase()
+    if (role !== "assistant" && role !== "agent") continue
+    const s = messageContentToString(msg.content ?? msg.text ?? msg.message)
+    if (s.trim()) return s
+  }
+  return ""
+}
+
 export function verdictAuditPath(cwd = process.cwd()) {
   return path.join(cwd, '.cursor', VERDICT_AUDIT_FILENAME)
 }
@@ -206,6 +260,13 @@ export function recordVerdict(text, cwd = process.cwd()) {
 
 export function hasVerdict(cwd = process.cwd()) {
   return loadVerdictAudit(cwd).recorded === true
+}
+
+export function tryEagerRecordVerdict(input, cwd = process.cwd()) {
+  if (hasVerdict(cwd)) return true
+  const text = extractAssistantTextFromHookInput(input)
+  if (!text) return false
+  return recordVerdict(text, cwd)
 }
 
 export function hasLocalHelpersTableInVerdict(cwd = process.cwd()) {

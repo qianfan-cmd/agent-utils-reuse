@@ -250,6 +250,62 @@ try {
   fs.rmSync(tempDir, { recursive: true, force: true })
 }
 
+
+// --- v0.3.4: BOM stdin on track hooks ---
+function runHookRaw(cwd, scriptName, rawInput) {
+  const script = hookPath(cwd, scriptName)
+  const r = spawnSync(process.execPath, [script], { cwd, input: rawInput, encoding: "utf8" })
+  if (r.error) throw r.error
+  const out = (r.stdout || "").trim()
+  if (!out) throw new Error("no stdout: " + r.stderr)
+  return JSON.parse(out)
+}
+
+const bomTemp = fs.mkdtempSync(path.join(os.tmpdir(), "gate-bom-"))
+try {
+  fs.mkdirSync(path.join(bomTemp, "src", "utils"), { recursive: true })
+  fs.writeFileSync(path.join(bomTemp, ".utils-bookrc.json"), JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils" }, null, 2) + "\n")
+  resetAudit(bomTemp)
+  const bomPayload = "\uFEFF" + JSON.stringify({ tool_input: { path: "src/utils/foo.ts" } })
+  const readOut = runHookRaw(bomTemp, "track-utils-reads.mjs", bomPayload)
+  assert("BOM stdin Read util → recorded in audit", readOut.ok === true)
+  const audit = JSON.parse(fs.readFileSync(path.join(bomTemp, ".cursor", ".utils-gate-reads.json"), "utf8"))
+  assert("BOM Read audit contains path", audit.reads.includes("src/utils/foo.ts"))
+
+  resetAudit(bomTemp)
+  const verdictPayload = "\uFEFF" + JSON.stringify({ text: SAMPLE_VERDICT })
+  const vOut = runHookRaw(bomTemp, "track-utils-verdict.mjs", verdictPayload)
+  assert("BOM stdin Verdict → recorded", vOut.recorded === true)
+} finally {
+  fs.rmSync(bomTemp, { recursive: true, force: true })
+}
+
+// --- v0.3.4: same-turn Verdict in preToolUse payload ---
+const sameTurnDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-same-turn-"))
+try {
+  fs.mkdirSync(path.join(sameTurnDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(sameTurnDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(sameTurnDir, ".utils-bookrc.json"),
+    JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] }, null, 2) + "\n"
+  )
+  fs.writeFileSync(path.join(sameTurnDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(path.join(sameTurnDir, "src/views/Page.vue"), "<template><div>test</div></template>\n")
+  resetAudit(sameTurnDir)
+  recordRead(sameTurnDir, "src/utils/copy.ts")
+  const sameTurnAllow = runHook(sameTurnDir, {
+    text: SAMPLE_VERDICT,
+    tool_input: { path: "src/views/Page.vue", old_string: "test", new_string: "test-updated" }
+  })
+  assert(
+    "Same-turn payload.text Verdict + StrReplace views → allow (no prior recordVerdict)",
+    sameTurnAllow.permission === "allow",
+    JSON.stringify(sameTurnAllow)
+  )
+} finally {
+  fs.rmSync(sameTurnDir, { recursive: true, force: true })
+}
+
 if (process.exitCode) {
   console.error('\nSome tests failed.')
   process.exit(1)

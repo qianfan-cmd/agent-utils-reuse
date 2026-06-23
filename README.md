@@ -101,6 +101,23 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
 
+### Upgrade v0.3.3 → v0.3.4
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Same-turn Confirm→Write (v0.3.4):**
+
+- **Confirm then Implement in one assistant response** — no user "继续" required
+- **BOM-safe hook stdin** — fixes fail-closed when Cursor sends UTF-8 BOM
+- **Eager Verdict record** in preToolUse when assistant text is in hook payload
+- **`afterAgentThought`** hook for early Verdict capture
+- D1 Discovery: `search` or Grep **`utils-index.json`** (repo-wide business Grep ≠ D1)
+
+**Maintainers**: push git tags (`git tag v0.3.4 && git push origin v0.3.4`).
+
 ### Upgrade v0.3.2 → v0.3.3
 
 ```bash

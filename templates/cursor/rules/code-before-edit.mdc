@@ -20,8 +20,8 @@ If the target file **already imports `@/utils`** or you will call util symbols: 
    - **Discovery**: D1 (`agent-utils-reuse search` or Grep `utils-index.json`; **forbidden**: Read `utils-book/*.md`) or D2 (Grep/SemanticSearch `utilsDir`)
    - **Identify** each util `symbol @ path` **and** each planned/retained feature helper
    - **Read** each export/method you will call **in the util source file** (not only how another feature imports it); **Grep same util file** for sibling exports
-   - **Message A** (no Write tools): Discovery + **Local helpers** table + Confirm (**Q1–Q4 per symbol, separately**) + **`Verdict（最终）`** in chat
-4. **Message B**: Write / StrReplace — **later message** than Message A.
+   - **Confirm phase**: Discovery + **Local helpers** table + Confirm (**Q1–Q4 per symbol, separately**) + **`Verdict（最终）`** in chat
+4. **Implement phase**: Write / StrReplace — **same assistant response**, after Confirm text.
 
 ## Session checklist
 

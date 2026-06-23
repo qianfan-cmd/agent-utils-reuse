@@ -25,6 +25,11 @@
       {
         "command": "node .cursor/hooks/track-utils-verdict.mjs"
       }
+    ],
+    "afterAgentThought": [
+      {
+        "command": "node .cursor/hooks/track-utils-verdict.mjs"
+      }
     ]
   }
 }

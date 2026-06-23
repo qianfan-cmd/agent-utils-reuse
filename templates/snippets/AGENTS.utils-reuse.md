@@ -13,12 +13,12 @@ Before first business Write when gate applies:
 3. **Discovery (when triggered)**: D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`, **or** D2 Grep/SemanticSearch `utilsDir`. **Forbidden**: Read/Grep `utils-book/*.md` for Shortlist (v0.3.0)
 4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
 5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
-6. **Message A** (no Write tools):
+6. **Confirm phase** (chat, before first Write tool):
    - Discovery line (when triggered)
    - **Local helpers** table — one row per planned/**retained** helper
    - **Confirm (Q1–Q5 per symbol)** — **Q1, Q2, Q3, Q4 must appear separately**; forbidden: `Q1-Q5 通过`
    - **`Verdict（最终）`** per row — five types below
-7. Then Write (**Message B** — a **later message** than Message A)
+7. Then Write (**Implement phase** — same assistant response, after Confirm text)
 
 **Read util files does NOT complete the gate** — post-selection proof (Confirm + Verdict) is a separate hard step.
 
@@ -58,9 +58,9 @@ For **each** util you will import or call **and each Local helpers table row**, 
 | **featureLocal(reason)** | Page-local only; strong UI/state coupling |
 | **featureLocal+placement debt** | Copied from component; note extraction candidate |
 
-**Plan → Implement**: **`Verdict（最终）`** in a **prior assistant message** before first business Write/StrReplace; earlier Read/Search allowed. Do not combine Verdict and first Write in one message.
+**Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: confirm`, v0.2.1): deny Write until util files Read **and** prior-chat Verdict with **individual Q1–Q4**; adding new local helpers requires Discovery **and** Local helpers table in Message A.
+**Hook** (default `hookMode: confirm`, v0.3.4): BOM-safe stdin; same-turn Verdict eager record; deny Write until util Read + Verdict with **individual Q1–Q4**; new local helpers require Discovery **and** Local helpers table.
 
 #### Export JSDoc (utilsDir — mandatory)
 

@@ -11,22 +11,24 @@ alwaysApply: true
 
 **HARD STOP — hollow Confirm forbidden**
 
-- **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Message A.
+- **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- Hook (v0.3.3) **fail-closed**: session Read util + Write under `remindWritePaths` without prior Verdict → deny; hook errors deny (not silent allow). Also denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without a **Local helpers** table in Message A.
+- Hook (v0.3.4) **fail-closed** + **same-turn Verdict** via preToolUse eager record; **BOM-safe** stdin: session Read util + Write under `remindWritePaths` without prior Verdict → deny; hook errors deny (not silent allow). Also denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without a **Local helpers** table in Confirm phase.
 
-**Two-phase workflow (confirm Hook enforces):**
+**Confirm→Implement workflow (confirm Hook enforces):**
 
-1. **Message A** — Identify + Discovery (when triggered) + **Local helpers** table + Confirm (Q1–Q5 **per symbol**) + **`Verdict（最终）`**. **No** Write / StrReplace / EditNotebook tools in this message.
-2. **Message B** — Write / StrReplace after Message A was recorded.
+1. **Confirm phase** — Identify + Discovery (when triggered) + **Local helpers** table + Confirm (Q1–Q5 **per symbol**) + **`Verdict（最终）` in chat**.
+2. **Implement phase** — Write / StrReplace **in the same assistant response**, after Confirm text (before first Write tool).
 
-**Before first business Write / StrReplace** on an applicable task: assistant chat must include substantive **Confirm (Q1–Q5 per util and per local helper row)** and **`Verdict（最终）`** (or `Verdict:`). **Forbidden**: empty "Q1–Q5 pass"; StrReplace feature files without Verdict; same message as first Write.
+**Confirm→Implement same turn (v0.3.4)**: Discovery + Local helpers + 分项 Q1–Q4 + `Verdict（最终）` in chat **before** the first Write tool in **this assistant response**. No user "继续" required. Hook records Verdict from chat (incl. same-turn preToolUse payload); BOM-safe stdin parsing.
+
+**Before first business Write / StrReplace**: chat must include substantive **Confirm (Q1–Q5 per util and per local helper row)** and **`Verdict（最终）`** **before** the first Write tool in this response. **Forbidden**: empty "Q1–Q5 pass"; Write before Verdict text.
 
 **Non-skippable**: For each util you will **import or call**, and each **planned/retained feature helper**, complete Confirm + Verdict in **chat**, then Write.
 
 **Confirm confirms**: whether **this symbol**, for **this task's planned usage**, can replace what you would write **without changing the util** (Q1–Q5). See `placement-decision.md` §1.6.
 
-**Discovery (mandatory when triggered)** — see § Discovery below; Message A must state **D1** or **D2** used.
+**Discovery (mandatory when triggered)** — see § Discovery below; Confirm phase must state **D1** or **D2** used.
 
 ## Discovery (mandatory when triggered)
 
@@ -35,14 +37,14 @@ alwaysApply: true
 - Gate applies (below)
 - You will **add or materially rewrite** a **local pure helper** in feature code (FileReader, dataUrl, validate, convert, base64, mime, DOM text extraction, etc.)
 
-**Discovery action** (pick **one**; state in Message A):
+**Discovery action** (pick **one**; state in Confirm phase; **repo-wide Grep for business usage is NOT D1**):
 
-- **D1 (KV — preferred)**: `agent-utils-reuse search "<task keywords>" --limit 8` **or** `Grep` `docs/agent-catalog/utils-index.json` → list candidate `sym @ path`
+- **D1 (KV — preferred)**: `agent-utils-reuse search "<task keywords>" --limit 8` **or** `Grep` with path/glob targeting `utils-index.json` → list candidate `sym @ path`
 - **D2**: `Grep` / `SemanticSearch` under configured `utilsDir` (keywords from planned helpers, e.g. `base64`, `dataUrl`, `validateFile`)
 
 **Forbidden for Shortlist (D1)**: Read `utils-book/index.md`, Read `utils-book/{章}.md`, or Grep entire `utils-book/` — Markdown is **human-only** (v0.3.0).
 
-**Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Message A (composable or newUtil extraction candidate).
+**Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Confirm phase (composable or newUtil extraction candidate).
 
 ## Gate applies — NOT exempt
 
@@ -69,12 +71,12 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
    - **Understand the task** by Read/Grep **feature/business code** — that does **not** substitute for Read of the util export you will call.
    - **Forbidden**: Confirm from only reading another feature's `import` / call sites (e.g. `ai-promptInput.vue`) without Read of `promptUtils.ts` (or the util path you identified).
    - **Same-file siblings**: When you Read **any** export in a util file, **Grep that file** for related sibling exports before writing a local helper (e.g. Read `uploadSingleFile` in `imageUploadUtils.ts` → also check `fileToBase64` in the same file).
-6. **Output in chat** (never as JSON cache) — **Message A, no Write tools**:
+6. **Output Confirm in chat** (never as JSON cache) — **before first Write tool**:
    - **Discovery** line (D1 or D2) when triggered
    - **Local helpers** table — one row per planned/**retained** feature helper vs utils/component candidate (see `placement-decision.md` §3)
    - Substantive **Confirm（五问）** — **per util and per Local helpers row**; Q1–Q4 must appear as separate items
    - **`Verdict（最终）`** per row: `reuse(sym)` | `partialReuse(sym)+featureLocal(wrapper)` | `newUtil(name)` | `featureLocal(reason)` | `featureLocal+placement debt(ref→candidate)`
-7. **Then** Write / StrReplace — **Message B** (must be a **later assistant message** than Message A; Hook denies same-message Verdict + Write).
+7. **Then** Write / StrReplace in the **same response** (after step 6). Hook allows once Verdict is recorded (same-turn or prior turn).
 
 ## Export JSDoc (utilsDir — mandatory)
 
@@ -95,12 +97,12 @@ export function formatDateLocal(iso: string): string { ... }
 ## Plan approved → Implement
 
 - Read/Search in earlier Implement messages is **allowed**.
-- **`Verdict（最终）`** must appear in a **prior assistant message** before the first business Write / StrReplace (same task).
-- **No** Write/StrReplace until a previous message includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
+- **`Verdict（最终）`** must appear in a **chat before the first Write tool in this response** / StrReplace (same task).
+- **No** Write/StrReplace until chat includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `confirm`, v0.3.3)
+## Hook (default `confirm`, v0.3.4)
 
-Default `hookMode` is **`confirm`**: **deny** Write until prior-chat **`Verdict（最终）`** with **individual Q1–Q4** (`afterAgentResponse` hook). **v0.3.3**: if this session **Read** any file under `utilsDir`, and you Write under `remindWritePaths`, Verdict is required even when the patch has **no** `@/utils` import. Hook errors **fail-closed** (no silent allow). See also `pre-write-utils-checklist.mdc`.
+Default `hookMode` is **`confirm`**: **deny** Write until prior-chat **`Verdict（最终）`** with **individual Q1–Q4** (`afterAgentResponse` hook). **v0.3.4**: BOM-safe stdin; eager same-turn Verdict; if this session **Read** any file under `utilsDir`, and you Write under `remindWritePaths`, Verdict is required even when the patch has **no** `@/utils` import. Hook errors **fail-closed** (no silent allow). See also `pre-write-utils-checklist.mdc`.
 
 **When `@/utils` in target (merged disk + patch):**
 
@@ -113,7 +115,7 @@ Default `hookMode` is **`confirm`**: **deny** Write until prior-chat **`Verdict�
 2. Prior-chat Verdict with **individual Q1–Q4**
 3. **Local helpers** table in that Verdict message
 
-**Read util / search / gen index do NOT complete the gate** — Message A (Confirm + Verdict, no Write tools) then Message B.
+**Read util / search / gen index do NOT complete the gate** — Confirm in chat, then Write (same assistant turn OK).
 
 Heuristic detection — still require accurate Q4 equivalence and placement debt content per Rules; see `placement-decision.md` §7.
 
@@ -130,7 +132,7 @@ Set `"hookMode": "remind"` in `.utils-bookrc.json` for reminder-only (see README
 - Read `AGENTS.md` with limit/offset only
 - Put Verdict and first Write in the same message (Hook will deny)
 - Add or change a utils **export** without **`/** */`** immediately above it (see Export JSDoc)
-- Add util-semantics **local helpers** without Discovery (D1/D2) + Local helpers table in Message A
+- Add util-semantics **local helpers** without Discovery (D1/D2) + Local helpers table in Confirm phase
 - **Rewrite** a whole helper when a **same-file sibling export** already covers the core logic — prefer reuse or thin featureLocal wrapper
 - Copy pure functions from another feature component without Discovery — **placement debt** mandatory if featureLocal
 - Skip re-Confirm for **existing** local helpers in the file when gate applies

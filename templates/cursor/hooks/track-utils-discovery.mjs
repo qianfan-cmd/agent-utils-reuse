@@ -3,17 +3,13 @@ import {
   extractShellCommand,
   loadHookConfig,
   logHookError,
+  parseHookJson,
+  readHookStdin,
   recordDiscovery,
   shellCommandIsUtilsSearch,
   toolInputTargetsUtilsDir,
   toolInputTargetsUtilsIndex
 } from './read-audit-lib.mjs'
-
-async function readStdin() {
-  const chunks = []
-  for await (const chunk of process.stdin) chunks.push(chunk)
-  return Buffer.concat(chunks).toString('utf8')
-}
 
 function extractToolInput(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
@@ -32,13 +28,13 @@ async function main() {
   const config = loadHookConfig(cwd)
 
   try {
-    const raw = await readStdin()
+    const raw = await readHookStdin()
     if (!raw.trim()) {
       process.stdout.write(JSON.stringify({ ok: true }))
       return
     }
 
-    const input = JSON.parse(raw)
+    const input = parseHookJson(raw)
     const toolInput = extractToolInput(input)
 
     const shellCmd = extractShellCommand(toolInput)

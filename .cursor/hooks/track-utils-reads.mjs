@@ -4,15 +4,11 @@ import {
   loadHookConfig,
   logHookError,
   normalizeAuditPath,
+  parseHookJson,
+  readHookStdin,
   recordRead,
   resetSessionAudits
 } from './read-audit-lib.mjs'
-
-async function readStdin() {
-  const chunks = []
-  for await (const chunk of process.stdin) chunks.push(chunk)
-  return Buffer.concat(chunks).toString('utf8')
-}
 
 function extractReadPath(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
@@ -38,13 +34,13 @@ async function main() {
       return
     }
 
-    const raw = await readStdin()
+    const raw = await readHookStdin()
     if (!raw.trim()) {
       process.stdout.write(JSON.stringify({ ok: true }))
       return
     }
 
-    const input = JSON.parse(raw)
+    const input = parseHookJson(raw)
     const filePath = extractReadPath(input)
     if (!filePath) {
       process.stdout.write(JSON.stringify({ ok: true }))
