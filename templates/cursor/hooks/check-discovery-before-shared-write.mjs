@@ -15,6 +15,7 @@ import {
   resolveTargetUtilPaths,
   sessionHasUtilReads,
   parseHookJson,
+  parseNestedJson,
   readHookStdin,
   tryEagerRecordVerdict
 } from './read-audit-lib.mjs'
@@ -25,8 +26,8 @@ function extractPath(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
   if (typeof toolInput === 'string') {
     try {
-      const parsed = JSON.parse(toolInput)
-      return parsed.path ?? parsed.file_path ?? parsed.target_notebook
+      const parsed = parseNestedJson(toolInput)
+      return parsed?.path ?? parsed?.file_path ?? parsed?.target_notebook
     } catch {
       return null
     }
@@ -38,7 +39,7 @@ function extractWriteContent(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
   if (typeof toolInput === 'string') {
     try {
-      return JSON.parse(toolInput)
+      return parseNestedJson(toolInput) ?? {}
     } catch {
       return {}
     }
@@ -61,7 +62,7 @@ function denyDiscoveryMessage(config) {
 }
 
 function denyLocalHelpersTableMessage() {
-  return `Denied: Message A must include a **Local helpers** table (header + at least one data row) with per-row Confirm (individual Q1-Q4) and Verdict（最终） in chat before Write (same assistant turn OK). See ${PLACEMENT_SECTION}.`
+  return `Denied: Confirm phase must include a **Local helpers** table (or | Helper | / | 本地函数 | header) (header + at least one data row) with per-row Confirm (individual Q1-Q4) and Verdict（最终） in chat before Write (same assistant turn OK). See ${PLACEMENT_SECTION}.`
 }
 
 function remindUtilsMessage() {
@@ -106,7 +107,7 @@ function failClosedWrite(config, cwd, err, context) {
   process.stdout.write(
     JSON.stringify({
       permission: 'deny',
-      agent_message: hookErrorDenyMessage()
+      agent_message: hookErrorDenyMessage(err?.message || String(err))
     })
   )
 }
@@ -159,7 +160,7 @@ async function main() {
     // hookMode: confirm — same-turn Verdict in hook payload counts
     tryEagerRecordVerdict(input, cwd)
 
-    const addsHelper = isRemind && patchAddsLocalHelper(payload) && !isUtils
+    const addsHelper = isRemind && patchAddsLocalHelper(payload, normalized) && !isUtils
 
     if (addsHelper) {
       if (!hasDiscovery(cwd)) {

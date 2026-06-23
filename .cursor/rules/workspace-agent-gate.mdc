@@ -16,8 +16,8 @@ When the task will touch application source or project config:
 3. **When utils gate applies** (see `.cursor/rules/utils-reuse-gate.mdc` — **includes existing `@/utils` in target file, WIP wiring NOT exempt**):
    - **Identify** each util `symbol @ path`
    - **Read** export(s)/method(s) you will call **in util source** (`utilsDir` / `@/utils` path) — partial Read / Grep within that file OK; feature call sites alone do **not** count
-   - **Message A** (no Write tools): Discovery (when triggered) + **Local helpers** table + **Confirm (Q1–Q4 per symbol, separately)** + **`Verdict（最终）`**
-4. **Message B**: Write / StrReplace — **later message** than Message A.
+   - **Confirm phase**: Discovery (when triggered) + **Local helpers** table + **Confirm (Q1–Q4 per symbol, separately)** + **`Verdict（最终）`**
+4. **Implement phase**: Write / StrReplace — **same assistant response**, after Confirm text.
 
 ## Optional (not required every task)
 

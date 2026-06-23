@@ -13,7 +13,7 @@ alwaysApply: true
 
 - **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- Hook (v0.3.4) **fail-closed** + **same-turn Verdict** via preToolUse eager record; **BOM-safe** stdin: session Read util + Write under `remindWritePaths` without prior Verdict → deny; hook errors deny (not silent allow). Also denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without a **Local helpers** table in Confirm phase.
+- Hook (v0.3.5) **fail-closed** + **same-turn Verdict** via preToolUse eager record; **BOM-safe** stdin (buffer + string); **absolute-path Discovery** supported; session Read util + Write under `remindWritePaths` without prior Verdict → deny; hook errors deny (not silent allow). Also denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without a **Local helpers** table (or accepted headers: `| Helper |`, `| 本地函数 |`) in Confirm phase.
 
 **Confirm→Implement workflow (confirm Hook enforces):**
 
@@ -39,8 +39,8 @@ alwaysApply: true
 
 **Discovery action** (pick **one**; state in Confirm phase; **repo-wide Grep for business usage is NOT D1**):
 
-- **D1 (KV — preferred)**: `agent-utils-reuse search "<task keywords>" --limit 8` **or** `Grep` with path/glob targeting `utils-index.json` → list candidate `sym @ path`
-- **D2**: `Grep` / `SemanticSearch` under configured `utilsDir` (keywords from planned helpers, e.g. `base64`, `dataUrl`, `validateFile`)
+- **D1 (KV — preferred)**: `agent-utils-reuse search "<task keywords>" --limit 8` **or** `Grep` with **`path: docs/agent-catalog/utils-index.json`** (relative to project root) → list candidate `sym @ path`
+- **D2**: `Grep` / `SemanticSearch` with **`path: src/utils`** (relative; absolute paths also accepted v0.3.5+) under configured `utilsDir` (keywords from planned helpers, e.g. `base64`, `dataUrl`, `validateFile`)
 
 **Forbidden for Shortlist (D1)**: Read `utils-book/index.md`, Read `utils-book/{章}.md`, or Grep entire `utils-book/` — Markdown is **human-only** (v0.3.0).
 
@@ -73,7 +73,7 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
    - **Same-file siblings**: When you Read **any** export in a util file, **Grep that file** for related sibling exports before writing a local helper (e.g. Read `uploadSingleFile` in `imageUploadUtils.ts` → also check `fileToBase64` in the same file).
 6. **Output Confirm in chat** (never as JSON cache) — **before first Write tool**:
    - **Discovery** line (D1 or D2) when triggered
-   - **Local helpers** table — one row per planned/**retained** feature helper vs utils/component candidate (see `placement-decision.md` §3)
+   - **Local helpers** table — one row per planned/**retained** feature helper vs utils/component candidate (see `placement-decision.md` §3). Header: **`Local helpers`** or **`| 本地函数 |`** recommended; **`| Helper |`** also accepted (v0.3.5+)
    - Substantive **Confirm（五问）** — **per util and per Local helpers row**; Q1–Q4 must appear as separate items
    - **`Verdict（最终）`** per row: `reuse(sym)` | `partialReuse(sym)+featureLocal(wrapper)` | `newUtil(name)` | `featureLocal(reason)` | `featureLocal+placement debt(ref→candidate)`
 7. **Then** Write / StrReplace in the **same response** (after step 6). Hook allows once Verdict is recorded (same-turn or prior turn).

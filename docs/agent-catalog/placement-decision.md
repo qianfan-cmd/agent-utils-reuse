@@ -178,9 +178,11 @@ flowchart TD
 
 **Identify（识别，必做）**：列出本任务将 import/调用的 util + 拟写/保留的 feature helper（含文件中已有、本次仍依赖者）。
 
-**Discovery（触发时必写）**：`D1: search "数组 排序"` 或 `D1: Grep utils-index.json "sortAsc"` | `D2: Grep src/utils "base64|dataUrl"`
+**Discovery（触发时必写）**：`D1: search "数组 排序"` 或 `D1: Grep path:docs/agent-catalog/utils-index.json "sortAsc"` | `D2: Grep path:src/utils "base64|dataUrl"`（相对项目根；绝对路径 v0.3.5+ 亦识别）
 
 **Local helpers（拟写或保留 — 每个 helper 至少一行；Hook 检测表头 + 至少一行数据）**
+
+推荐表头：**`Local helpers`** 或 **`| 本地函数 |`**；**`| Helper |`** 亦接受（v0.3.5+）。
 
 | 本地函数 | utils / 组件候选 | 对照结论 |
 |----------|------------------|----------|

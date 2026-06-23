@@ -101,6 +101,23 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
 
+### Upgrade v0.3.4 → v0.3.5
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Verdict audit closure (v0.3.5):**
+
+- **Buffer-level BOM strip** (`EF BB BF`) — fixes fail-closed when all hooks crash on stdin parse
+- **Absolute-path Discovery** — Grep `E:/proj/src/utils` now records discovery (prefer relative `src/utils`)
+- **Local helpers table headers** — accepts `| Helper |`, `| 本地函数 |`, `Local helpers`, etc.
+- **`patchAddsLocalHelper`** — scans only `<script>` blocks in `.vue` (CSS/template patches no longer false-positive)
+- **Hook parse errors** include `err.message` in deny text; debug keys logged to `.utils-gate-hook-debug.log`
+
+**Maintainers**: push git tags (`git tag v0.3.5 && git push origin v0.3.5`).
+
 ### Upgrade v0.3.3 → v0.3.4
 
 ```bash

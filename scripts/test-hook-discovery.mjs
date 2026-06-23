@@ -246,6 +246,45 @@ assert(
   JSON.stringify(allowCommentOnly)
 )
 
+// --- v0.3.5: Grep with absolute utilsDir path ---
+resetAudit(projectRoot)
+const absUtilsPath = path.join(projectRoot, 'src/utils').replace(/\\/g, '/')
+spawnSync(process.execPath, [hookPath(projectRoot, 'track-utils-discovery.mjs')], {
+  cwd: projectRoot,
+  input: JSON.stringify({
+    tool_input: { pattern: 'fileToBase64', path: absUtilsPath }
+  }),
+  encoding: 'utf8'
+})
+const absDiscAudit = JSON.parse(
+  fs.readFileSync(path.join(projectRoot, '.cursor', '.utils-gate-discovery.json'), 'utf8')
+)
+assert(
+  'Grep absolute path to src/utils → discovery recorded',
+  absDiscAudit.recorded === true,
+  JSON.stringify(absDiscAudit)
+)
+
+const HELPER_HEADER_VERDICT = `| Helper | utils 候选 | 对照结论 |
+| readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |
+
+Confirm readFileAsDataUrl: Q1 File Q2 data URL Q3 FileReader Q4 same as fileToBase64 Q5 no
+Verdict（最终）: reuse(fileToBase64)`
+
+resetAudit(projectRoot)
+spawnSync(process.execPath, [hookPath(projectRoot, 'track-utils-discovery.mjs')], {
+  cwd: projectRoot,
+  input: JSON.stringify({ tool_input: { pattern: 'fileToBase64', path: absUtilsPath } }),
+  encoding: 'utf8'
+})
+recordVerdict(projectRoot, HELPER_HEADER_VERDICT)
+const allowHelperHeader = runHook(projectRoot, helperWrite)
+assert(
+  'Absolute-path Discovery + | Helper | table Verdict → allow',
+  allowHelperHeader.permission === 'allow',
+  JSON.stringify(allowHelperHeader)
+)
+
 if (process.exitCode) {
   console.error('\nSome discovery hook tests failed.')
   process.exit(1)

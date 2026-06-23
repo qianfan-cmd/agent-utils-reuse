@@ -4,6 +4,7 @@ import {
   loadHookConfig,
   logHookError,
   parseHookJson,
+  parseNestedJson,
   readHookStdin,
   recordDiscovery,
   shellCommandIsUtilsSearch,
@@ -15,7 +16,7 @@ function extractToolInput(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
   if (typeof toolInput === 'string') {
     try {
-      return JSON.parse(toolInput)
+      return parseNestedJson(toolInput) ?? {}
     } catch {
       return {}
     }
@@ -40,9 +41,9 @@ async function main() {
     const shellCmd = extractShellCommand(toolInput)
     if (shellCommandIsUtilsSearch(shellCmd)) {
       recordDiscovery('search', cwd)
-    } else if (toolInputTargetsUtilsIndex(toolInput, config)) {
+    } else if (toolInputTargetsUtilsIndex(toolInput, config, cwd)) {
       recordDiscovery('index', cwd)
-    } else if (toolInputTargetsUtilsDir(toolInput, config)) {
+    } else if (toolInputTargetsUtilsDir(toolInput, config, cwd)) {
       recordDiscovery('grep', cwd)
     }
 

@@ -60,6 +60,12 @@ Verdict（最终）: featureLocal(x)`
 const CHINESE_HEADER = `| 本地函数 | utils 候选 | 结论 |
 | readFileAsDataUrl | fileToBase64 | reuse |`
 
+const HELPER_PIPE_HEADER = `| Helper | utils 候选 | 对照结论 |
+| copyText | copyToClip @ copy.ts | reuse(copyToClip) |
+
+Confirm copyToClip: Q1 text Q2 clipboard Q3 DOM Q4 same Q5 no
+Verdict（最终）: reuse(copyToClip)`
+
 assert('substantive Confirm with Q1-Q4 passes', textHasSubstantiveConfirm(GOOD_SUBSTANTIVE))
 assert('compressed but individual Q1-Q4 passes', textHasSubstantiveConfirm(COMPRESSED_OK))
 assert('partialReuse outcome passes', textHasSubstantiveConfirm(PARTIAL_REUSE))
@@ -72,6 +78,7 @@ assert('no Verdict marker rejected', !textHasSubstantiveConfirm('Q1 Q2 Q3 Q4 reu
 
 assert('Local helpers table with data row', textHasLocalHelpersTable(GOOD_TABLE))
 assert('Chinese header table', textHasLocalHelpersTable(CHINESE_HEADER))
+assert('| Helper | header table with data row', textHasLocalHelpersTable(HELPER_PIPE_HEADER))
 assert('header only no data row fails', !textHasLocalHelpersTable(BAD_TABLE_HEADER_ONLY))
 assert('no table fails', !textHasLocalHelpersTable(GOOD_SUBSTANTIVE))
 

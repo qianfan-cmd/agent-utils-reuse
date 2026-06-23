@@ -11,7 +11,7 @@ description: >-
 
 Mandatory rules: `.cursor/rules/utils-reuse-gate.mdc`, `AGENTS.md` utils section. This Skill is **optional** detail — Cursor may attach it by description; **no need to Read this file** if rules are followed.
 
-Reference: `placement-decision.md` §1.6 post-selection proof, §3 Message A, §1.5 edge cases.
+Reference: `placement-decision.md` §1.6 post-selection proof, §3 Confirm phase, §1.5 edge cases.
 
 ## When to Use
 
@@ -34,7 +34,7 @@ Read `AGENTS.md`. Read / Grep **business code**, spec, **existing imports** so C
 
 **Forbidden for Shortlist**: Read/Grep `utils-book/*.md` (human-only, v0.3.0).
 
-State D1 or D2 in Message A. Hook may deny Write of new local helpers without Discovery this session.
+State D1 or D2 in Confirm phase. Hook may deny Write of new local helpers without Discovery this session.
 
 ## Step 2 — Identify (mandatory)
 

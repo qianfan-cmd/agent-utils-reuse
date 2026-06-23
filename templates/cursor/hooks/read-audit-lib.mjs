@@ -7,6 +7,7 @@ export const AUDIT_FILENAME = '.utils-gate-reads.json'
 export const VERDICT_AUDIT_FILENAME = '.utils-gate-verdict.json'
 export const DISCOVERY_AUDIT_FILENAME = '.utils-gate-discovery.json'
 export const HOOK_ERROR_LOG = '.utils-gate-hook-error.log'
+export const HOOK_DEBUG_LOG = '.utils-gate-hook-debug.log'
 
 const DEFAULT_UTILS_DIR = 'src/utils'
 const DEFAULT_UTILS_BOOK_DIR = 'docs/agent-catalog/utils-book'
@@ -90,26 +91,70 @@ export function sessionHasUtilReads(cwd = process.cwd()) {
   return loadAudit(cwd).reads.length > 0
 }
 
-export function hookErrorDenyMessage() {
-  return 'Gate hook error — fix .cursor/hooks or re-run pnpm update:utils-reuse. Write blocked (fail-closed).'
+export function hookErrorDenyMessage(detail) {
+  const base =
+    'Gate hook error — fix .cursor/hooks or re-run pnpm update:utils-reuse. Write blocked (fail-closed).'
+  return detail ? `${base} (${detail})` : base
 }
 
-/** Strip UTF-8 BOM Cursor may prefix on hook stdin JSON. */
+/** Strip UTF-8 BOM bytes before UTF-8 decode. */
+export function stripBomBuffer(buf) {
+  if (!buf || buf.length === 0) return buf
+  if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+    return buf.subarray(3)
+  }
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) {
+    return buf.subarray(2)
+  }
+  return buf
+}
+
+/** Strip UTF-8 BOM char after string decode. */
 export function stripUtf8Bom(s) {
-  if (!s || typeof s !== "string") return ""
+  if (!s || typeof s !== 'string') return ''
   return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s
 }
 
 export async function readHookStdin() {
   const chunks = []
   for await (const chunk of process.stdin) chunks.push(chunk)
-  return stripUtf8Bom(Buffer.concat(chunks).toString("utf8"))
+  const buf = stripBomBuffer(Buffer.concat(chunks))
+  return stripUtf8Bom(buf.toString('utf8'))
+}
+
+export function parseNestedJson(str) {
+  const trimmed = stripUtf8Bom(String(str ?? '').trim())
+  if (!trimmed) return null
+  try {
+    return JSON.parse(trimmed)
+  } catch (err) {
+    throw new Error(`Hook JSON parse failed: ${err.message}`)
+  }
 }
 
 export function parseHookJson(raw) {
-  const trimmed = stripUtf8Bom(String(raw ?? "").trim())
+  const trimmed = stripUtf8Bom(String(raw ?? '').trim())
   if (!trimmed) return null
-  return JSON.parse(trimmed)
+  try {
+    return JSON.parse(trimmed)
+  } catch (err) {
+    throw new Error(`Hook JSON parse failed: ${err.message}`)
+  }
+}
+
+export function logHookPayloadKeys(input, cwd = process.cwd(), context = 'hook') {
+  try {
+    if (!input || typeof input !== 'object') return
+    const keys = Object.keys(input).sort().join(', ')
+    const filePath = path.join(cwd, '.cursor', HOOK_DEBUG_LOG)
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.appendFileSync(
+      filePath,
+      `[${new Date().toISOString()}] ${context} payload keys: ${keys || '(empty)'}\n`
+    )
+  } catch {
+    /* ignore */
+  }
 }
 
 function messageContentToString(content) {
@@ -128,7 +173,18 @@ function messageContentToString(content) {
 
 export function extractAssistantTextFromHookInput(input) {
   if (!input || typeof input !== "object") return ""
-  for (const key of ["text", "response", "content", "agent_message", "assistant_message"]) {
+  for (const key of [
+    "text",
+    "response",
+    "content",
+    "agent_message",
+    "assistant_message",
+    "assistant_message_text",
+    "agent_response",
+    "assistant_response",
+    "message",
+    "output"
+  ]) {
     if (input[key] != null) {
       const s = messageContentToString(input[key])
       if (s.trim()) return s
@@ -144,6 +200,14 @@ export function extractAssistantTextFromHookInput(input) {
     if (role !== "assistant" && role !== "agent") continue
     const s = messageContentToString(msg.content ?? msg.text ?? msg.message)
     if (s.trim()) return s
+  }
+  if (input.hook_input && typeof input.hook_input === 'object') {
+    const nested = extractAssistantTextFromHookInput(input.hook_input)
+    if (nested.trim()) return nested
+  }
+  if (input.turn && typeof input.turn === 'object') {
+    const nested = extractAssistantTextFromHookInput(input.turn)
+    if (nested.trim()) return nested
   }
   return ""
 }
@@ -227,7 +291,13 @@ export function textHasSubstantiveConfirm(text) {
 export function textHasLocalHelpersTable(text) {
   if (!text || typeof text !== 'string') return false
 
-  const hasHeader = /Local helpers/i.test(text) || /\|\s*本地函数\s*\|/.test(text)
+  const hasHeader =
+    /Local helpers/i.test(text) ||
+    /\|\s*本地函数\s*\|/.test(text) ||
+    /\|\s*Helper\s*\|/i.test(text) ||
+    /\|\s*helper\s*\|/i.test(text) ||
+    /\|\s*函数\s*\|/.test(text) ||
+    /\|\s*本地 helper\s*\|/i.test(text)
   if (!hasHeader) return false
 
   const tableLines = text
@@ -262,10 +332,13 @@ export function hasVerdict(cwd = process.cwd()) {
   return loadVerdictAudit(cwd).recorded === true
 }
 
-export function tryEagerRecordVerdict(input, cwd = process.cwd()) {
+export function tryEagerRecordVerdict(input, cwd = process.cwd(), context = 'preToolUse') {
   if (hasVerdict(cwd)) return true
   const text = extractAssistantTextFromHookInput(input)
-  if (!text) return false
+  if (!text) {
+    logHookPayloadKeys(input, cwd, context)
+    return false
+  }
   return recordVerdict(text, cwd)
 }
 
@@ -493,17 +566,14 @@ export function isUtilsBookDiscoveryRead() {
   return false
 }
 
-export function isUtilsIndexPath(filePath, utilsIndexFile) {
-  const normalized = normalizeAuditPath(filePath)
+export function isUtilsIndexPath(filePath, utilsIndexFile, cwd = process.cwd()) {
   const indexNorm = String(utilsIndexFile).replace(/\\/g, '/').replace(/^\.\/+/, '')
-  return (
-    normalized === indexNorm ||
-    normalized.endsWith(`/${indexNorm}`) ||
-    normalized.endsWith('/utils-index.json')
-  )
+  if (pathMatchesConfiguredDir(filePath, indexNorm, cwd)) return true
+  const normalized = normalizeAuditPath(filePath)
+  return normalized.endsWith('/utils-index.json')
 }
 
-export function toolInputTargetsUtilsIndex(toolInput, config) {
+export function toolInputTargetsUtilsIndex(toolInput, config, cwd = process.cwd()) {
   if (!toolInput || typeof toolInput !== 'object') return false
   const indexFile = config.utilsIndexFile.replace(/\\/g, '/')
 
@@ -519,7 +589,7 @@ export function toolInputTargetsUtilsIndex(toolInput, config) {
     candidates.push(...toolInput.paths.map(String))
   }
 
-  return candidates.some((p) => isUtilsIndexPath(p, indexFile))
+  return candidates.some((p) => isUtilsIndexPath(p, indexFile, cwd))
 }
 
 const UTILS_SEARCH_CMD_RES = [
@@ -542,10 +612,40 @@ export function extractShellCommand(toolInput) {
   return ''
 }
 
-export function pathUnderConfiguredDir(filePath, dir) {
-  const normalized = normalizeAuditPath(filePath)
-  const prefix = dir.replace(/\\/g, '/').replace(/\/+$/, '')
-  return normalized === prefix || normalized.startsWith(`${prefix}/`)
+export function pathMatchesConfiguredDir(filePath, dir, cwd = process.cwd()) {
+  let normalized = normalizeAuditPath(filePath)
+  const prefix = dir.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '')
+  if (normalized === prefix || normalized.startsWith(`${prefix}/`)) return true
+
+  const root = normalizeAuditPath(cwd).replace(/\/+$/, '')
+  if (root && normalized.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
+    normalized = normalized.slice(root.length + 1)
+    if (normalized === prefix || normalized.startsWith(`${prefix}/`)) return true
+  }
+
+  const seg = `/${prefix}/`.toLowerCase()
+  const lower = normalized.toLowerCase()
+  if (lower.includes(seg) || lower.endsWith(`/${prefix.toLowerCase()}`)) return true
+
+  return false
+}
+
+/** @deprecated use pathMatchesConfiguredDir */
+export function pathUnderConfiguredDir(filePath, dir, cwd = process.cwd()) {
+  return pathMatchesConfiguredDir(filePath, dir, cwd)
+}
+
+function patchTextForHelperScan(text, filePathHint = '') {
+  if (!text || typeof text !== 'string') return ''
+  const normalized = normalizeAuditPath(filePathHint)
+  if (!/\.vue$/i.test(normalized)) return text
+  const scripts = []
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi
+  let m
+  while ((m = re.exec(text)) !== null) {
+    scripts.push(m[1])
+  }
+  return scripts.length > 0 ? scripts.join('\n') : ''
 }
 
 const NEW_FN_DECL_RE = /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)\s*\(/g
@@ -566,26 +666,35 @@ function extractFunctionNames(text) {
   return names
 }
 
+function helperNamesInPatch(text, filePathHint) {
+  const scanned = patchTextForHelperScan(text, filePathHint)
+  if (/\.vue$/i.test(normalizeAuditPath(filePathHint)) && !scanned.trim()) {
+    return new Set()
+  }
+  return extractFunctionNames(scanned || text)
+}
+
 /**
  * Heuristic: Write/StrReplace patch introduces a new local function/helper.
  */
-export function patchAddsLocalHelper(payload) {
+export function patchAddsLocalHelper(payload, filePath = '') {
   if (!payload || typeof payload !== 'object') return false
+  const hint = payload.path ?? payload.file_path ?? filePath ?? ''
   const content = payload.content != null ? String(payload.content) : ''
   const newStr = payload.new_string ?? payload.newString ?? ''
   const oldStr = payload.old_string ?? payload.oldString ?? ''
 
   if (content) {
-    return extractFunctionNames(content).size > 0
+    return helperNamesInPatch(content, hint).size > 0
   }
 
   const added = String(newStr)
   if (!added.trim()) return false
 
-  const newNames = extractFunctionNames(added)
+  const newNames = helperNamesInPatch(added, hint)
   if (newNames.size === 0) return false
 
-  const oldNames = extractFunctionNames(String(oldStr))
+  const oldNames = helperNamesInPatch(String(oldStr), hint)
   for (const name of newNames) {
     if (!oldNames.has(name)) return true
   }
@@ -595,7 +704,7 @@ export function patchAddsLocalHelper(payload) {
 /**
  * Grep / SemanticSearch payload targets configured utilsDir (D2).
  */
-export function toolInputTargetsUtilsDir(toolInput, config) {
+export function toolInputTargetsUtilsDir(toolInput, config, cwd = process.cwd()) {
   if (!toolInput || typeof toolInput !== 'object') return false
   const utilsDir = config.utilsDir.replace(/\\/g, '/')
   const candidates = []
@@ -610,5 +719,5 @@ export function toolInputTargetsUtilsDir(toolInput, config) {
     candidates.push(...toolInput.paths.map(String))
   }
 
-  return candidates.some((p) => pathUnderConfiguredDir(p, utilsDir))
+  return candidates.some((p) => pathMatchesConfiguredDir(p, utilsDir, cwd))
 }

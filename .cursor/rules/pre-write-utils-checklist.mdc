@@ -17,4 +17,6 @@ When you are about to **Write / StrReplace / EditNotebook** under **`remindWrite
 
 If any is false → output Discovery + Local helpers + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
 
+If Write is still denied after Verdict: check `.cursor/.utils-gate-verdict.json` (`recorded: true`), `.utils-gate-discovery.json`, and `.cursor/.utils-gate-hook-error.log`. Run `pnpm upgrade:utils-reuse` for v0.3.5+ BOM/Discovery fixes.
+
 Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6. Hook (`hookMode: confirm`) will **deny** Write if you skip this.

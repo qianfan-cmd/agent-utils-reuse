@@ -5,6 +5,7 @@ import {
   logHookError,
   normalizeAuditPath,
   parseHookJson,
+  parseNestedJson,
   readHookStdin,
   recordRead,
   resetSessionAudits
@@ -14,8 +15,8 @@ function extractReadPath(input) {
   const toolInput = input.tool_input ?? input.arguments ?? input
   if (typeof toolInput === 'string') {
     try {
-      const parsed = JSON.parse(toolInput)
-      return parsed.path ?? parsed.file_path
+      const parsed = parseNestedJson(toolInput)
+      return parsed?.path ?? parsed?.file_path
     } catch {
       return null
     }
