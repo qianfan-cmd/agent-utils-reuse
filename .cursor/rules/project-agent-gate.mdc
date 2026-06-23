@@ -15,9 +15,9 @@ Installed by **`agent-utils-reuse init`**. Works in **any** project root with `A
 4. **Confirm phase**: **Identify** → Discovery (when triggered) + **Local helpers** table → Read export(s) **in util source** → **Confirm (Q1–Q4 per symbol, separately) + `Verdict（最终）`** in chat.
 5. **Implement phase**: Write / StrReplace — **same assistant response**, after Confirm text.
 
-## Hook (v0.2.1 confirm)
+## Hook (v0.3.6 — default off)
 
-Default **`hookMode: confirm`**: **deny** Write until util **files** Read **and** recorded **`Verdict（最终）` with individual Q1–Q4**. Adding local helpers also requires Discovery + Local helpers table in Confirm phase chat.
+Default **`hookMode: off`**: Rules enforce Confirm + Verdict; **no Write tool deny**. Opt-in **`hookMode: confirm`** for hard deny (Read + Verdict + Discovery + Local helpers table).
 
 ## Project-specific core rule
 

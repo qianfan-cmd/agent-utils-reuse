@@ -1,36 +1,4 @@
 {
   "version": 1,
-  "hooks": {
-    "sessionStart": [
-      {
-        "command": "node .cursor/hooks/track-utils-reads.mjs --reset"
-      }
-    ],
-    "preToolUse": [
-      {
-        "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",
-        "matcher": "Write|StrReplace|EditNotebook"
-      }
-    ],
-    "postToolUse": [
-      {
-        "command": "node .cursor/hooks/track-utils-reads.mjs",
-        "matcher": "Read"
-      },
-      {
-        "command": "node .cursor/hooks/track-utils-discovery.mjs",
-        "matcher": "Grep|SemanticSearch|Shell"
-      }
-    ],
-    "afterAgentResponse": [
-      {
-        "command": "node .cursor/hooks/track-utils-verdict.mjs"
-      }
-    ],
-    "afterAgentThought": [
-      {
-        "command": "node .cursor/hooks/track-utils-verdict.mjs"
-      }
-    ]
-  }
+  "hooks": {}
 }

@@ -100,7 +100,7 @@ function collectRequiredReads(normalized, payload, config, cwd) {
 
 function failClosedWrite(config, cwd, err, context) {
   logHookError(cwd, context, err)
-  if (config.hookMode === 'remind') {
+  if (config.hookMode === 'off' || config.hookMode === 'remind') {
     process.stdout.write(JSON.stringify({ permission: 'allow' }))
     return
   }
@@ -140,7 +140,7 @@ async function main() {
       cwd
     )
 
-    if (config.hookMode === 'remind') {
+    if (config.hookMode === 'off' || config.hookMode === 'remind') {
       if (isUtils) {
         process.stdout.write(
           JSON.stringify({ permission: 'allow', agent_message: remindUtilsMessage() })

@@ -84,7 +84,7 @@ Per row:
 
 ## Hook confirm mode (v0.2.1)
 
-`hookMode: confirm` → deny Write until util files Read + prior Verdict with **individual Q1–Q4**; deny new local helpers without Discovery **and** Local helpers table. See README.
+Default **`hookMode: off`** — Rules only. Opt-in **`hookMode: confirm`** → deny Write until Read + Verdict + Discovery + Local helpers table. See README.
 
 ## Do Not
 

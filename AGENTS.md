@@ -63,7 +63,7 @@ For **each** util you will import or call **and each Local helpers table row**, 
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: confirm`, v0.3.4): BOM-safe stdin; same-turn Verdict eager record; deny Write until util Read + Verdict with **individual Q1–Q4**; new local helpers require Discovery **and** Local helpers table.
+**Hook** (default `hookMode: off`, v0.3.6): Rules-only Confirm + Verdict before Write. Opt-in `hookMode: confirm` for hard deny (Read + Verdict + Discovery + Local helpers table).
 
 #### Export JSDoc (utilsDir — mandatory)
 

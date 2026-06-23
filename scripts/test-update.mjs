@@ -124,8 +124,29 @@ try {
 
   assert.ok(bookrcAfter.installedPackageVersion || readBookrc(projectRoot).installedPackageVersion)
 
-  // --- Gate completeness: simulate ai-web partial upgrade (stale hooks) ---
   const hooksJsonPath = path.join(projectRoot, '.cursor', 'hooks.json')
+
+  const hooksAfterInit = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+  assert.ok(!hooksAfterInit.hooks?.preToolUse, 'default off: hooks.json should have no preToolUse')
+  assert.equal(
+    Object.keys(hooksAfterInit.hooks ?? {}).length,
+    0,
+    'default off: hooks.json should have no registered hooks'
+  )
+
+  // --- hookMode: confirm restores full hooks ---
+  fs.writeFileSync(
+    path.join(projectRoot, '.utils-bookrc.json'),
+    `${JSON.stringify({ ...readBookrc(projectRoot), hookMode: 'confirm' }, null, 2)}\n`,
+    'utf8'
+  )
+  const confirmUpdate = runCli(['update', '--yes'], projectRoot)
+  assert.equal(confirmUpdate.status, 0, confirmUpdate.stderr)
+  const hooksConfirm = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+  assert.equal(hooksConfirm.hooks.preToolUse?.length, 1, 'confirm mode should install preToolUse')
+  assert.equal(hooksConfirm.hooks.postToolUse?.length, 2, 'confirm mode should install postToolUse hooks')
+
+  // --- Gate completeness: simulate ai-web partial upgrade (stale hooks) ---
   const discoveryHookPath = path.join(
     projectRoot,
     '.cursor',
@@ -155,7 +176,8 @@ try {
   assert.match(repairUpdate.stdout, /Gate verify: OK/)
 
   const hooksAfter = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
-  assert.equal(hooksAfter.hooks.postToolUse?.length, 2, 'hooks.json should have Read + Grep postToolUse')
+  assert.equal(hooksAfter.hooks.preToolUse?.length, 1, 'confirm hooks.json should have preToolUse after repair')
+  assert.equal(hooksAfter.hooks.postToolUse?.length, 2, 'confirm hooks.json should have Read + Grep postToolUse')
   assert.ok(fs.existsSync(discoveryHookPath), 'track-utils-discovery.mjs should be restored')
 
   const verifyOk = runCli(['verify'], projectRoot)

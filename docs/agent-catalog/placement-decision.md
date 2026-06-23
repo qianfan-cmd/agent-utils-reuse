@@ -164,7 +164,7 @@ flowchart TD
 
 **Agent 禁止（Shortlist）**：Read `utils-book/index.md`、Read `utils-book/{章}.md`、Grep 整个 `utils-book/` — Markdown 仅供人类浏览（v0.3.0）。
 
-**Hook（v0.3.0 confirm）**：Write 到 `remindWritePaths` 且补丁 **新增本地 function/helper** 时，本会话须已有 D1（Shell `agent-utils-reuse search` 或 Grep `utils-index.json`）或 D2（Grep/SemanticSearch 命中 `utilsDir`）证据。
+**Hook（v0.3.0 confirm；仅 `hookMode: confirm` 时生效）**：Write 到 `remindWritePaths` 且补丁 **新增本地 function/helper** 时，本会话须已有 D1 或 D2 证据。
 
 **禁止**：仅凭摘要写 **Verdict: reuse**。同名见 `utils-index.json` 的 `ambiguous` 或 utils-book 附录（人类查阅）。
 

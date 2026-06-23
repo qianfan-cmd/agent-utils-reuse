@@ -14,31 +14,31 @@
   "utilsImportAliases": [
     "@/utils"
   ],
-  "hookMode": "confirm",
+  "hookMode": "off",
   "sourceGlobs": [
     "src/**/*.{vue,ts,tsx}"
   ],
   "projectRoot": ".",
   "gateFileHashes": {
-    "docs/agent-catalog/placement-decision.md": "sha256:79d11ad5f172cc5d0f18ff7f1e2c74fb4f564f7499d8c34fe1ed3a0c3039ee8a",
+    "docs/agent-catalog/placement-decision.md": "sha256:c64d7951a19b358713e06aeecbc9228d796acc06241fd6e2fc7098b5253839c8",
     "docs/agent-catalog/MERGE-AGENTS.md": "sha256:957fceb01531d642559e933b1a97cc13f578d9a0830e83d80a50af3e9e97a743",
-    "docs/agent-catalog/README.md": "sha256:91ee9e5e6a0c482c68dc00f7f5075c2286cd70b2650bafe51ff6f18e6406883d",
+    "docs/agent-catalog/README.md": "sha256:8289465bc8db280a31b684de543f4ae3c31f5b3c9678c3a87fe1479bc224f0ef",
     "docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md": "sha256:95802c747bac90297483543852250a7d01cd033afad480d7cbc0e8ad774c0d13",
     "docs/agent-catalog/BACKFILL-UTILS-BOOK.en.md": "sha256:f46ebae7186cf8f93a4625ecb2763ffbbca22aa16b63ce17dd9752b43080a746"
   },
   "gateOverwriteHashes": {
-    ".cursor/rules/workspace-agent-gate.mdc": "sha256:a1972204ae10b939a019abfb5a2198c8fcd07f03635dc16c425754e1794cefbb",
-    ".cursor/rules/utils-reuse-gate.mdc": "sha256:1e67e12d9e2a86b9c77a8661d74f51c4a44f352b3839661d2a5a4545fef5dc36",
+    ".cursor/rules/workspace-agent-gate.mdc": "sha256:a4cb717cadecedde71abaed358fedc3ea9aa59e2d3034392701d77ab209f7a13",
+    ".cursor/rules/utils-reuse-gate.mdc": "sha256:812d1b01f015474b39841635c02ac1f27141de2ee02c688cf7fb0cbbbd9aff79",
     ".cursor/rules/code-before-edit.mdc": "sha256:ca609baea3b25af3acf516461c93813e23a9408944e7608d9df6246f25b4c9a5",
-    ".cursor/rules/reuse-first.mdc": "sha256:5b09c7186fff76ec08e3d89ed0bcac08524e6c4529ab4867d55d5c0a462efaa8",
-    ".cursor/rules/project-agent-gate.mdc": "sha256:53263ee0fc2d9adbee37fd48f8c7474942eb62ee23995a45d44344e2c6cc2517",
-    ".cursor/hooks/check-discovery-before-shared-write.mjs": "sha256:678c781dd748f0dbad4d0453e58c7381ae7674372c28d688bb6249634cbb75e3",
-    ".cursor/hooks/read-audit-lib.mjs": "sha256:1a4732c4828a325eab5dcb1e027a69cee34257110e94a3e9acbd4e63f362fff1",
+    ".cursor/rules/reuse-first.mdc": "sha256:109c9ad212d6eeb7055e176fe90e31729c00e183c50e56dca4e88ac954bd42f1",
+    ".cursor/rules/project-agent-gate.mdc": "sha256:535023aee3710b4ccdeff3bdf9229e7d8aee3eddbd7a170449bf330eca02b662",
+    ".cursor/hooks/check-discovery-before-shared-write.mjs": "sha256:d1a30a7cebdae7271d06dc413f4fdedb10bbe0f963b8e473b4eb5b4cc3dd8162",
+    ".cursor/hooks/read-audit-lib.mjs": "sha256:e2e61df4f2e61df9a3321493ef57433a54b2dd0c58756c1c1edf2753ad1daf17",
     ".cursor/hooks/track-utils-reads.mjs": "sha256:3fd521d5033e35dafe3792d900f3134f79e7cda3b63e4103968963891ccddad6",
     ".cursor/hooks/track-utils-verdict.mjs": "sha256:0f43211c2e2c1aad2bf8226b0ca0f380e6c758aeaec202b198ab50785bfd0263",
-    ".cursor/skills/reuse-before-create/SKILL.md": "sha256:db94a616d91a1e902f756e3774a368d0bd4ee3f5506f194280b7f391b642eb5a",
-    ".cursor/hooks.json": "sha256:721289f7ce1eabce7bdaf02fc0494913877eabddb015b456b3fbf3fbc05c56bc",
-    ".cursor/rules/pre-write-utils-checklist.mdc": "sha256:e1f0e21b80351f5e1b66ef3423b72f05d5258eb0241f9f84b2325bbef1610027",
+    ".cursor/skills/reuse-before-create/SKILL.md": "sha256:1481d899762e21eca7dbde0aff93ca1146e07f6ad94c8371f331616c3116707f",
+    ".cursor/hooks.json": "sha256:887820009578e8dc55e174da5873b4025cde40c5b0c33e750b69238b3c158079",
+    ".cursor/rules/pre-write-utils-checklist.mdc": "sha256:024a4aa789eb64e716a9040521257990aad4db4db8562dffe2e1767ca147aed2",
     ".cursor/hooks/track-utils-discovery.mjs": "sha256:93e2b6bb431710883bf141e56d2053dfc742e034b7c4d9a893742966d1daec1e"
   },
   "installedPackageVersion": "0.3.5",

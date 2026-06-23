@@ -2,7 +2,7 @@
 
 本目录帮助 Cursor Agent **在公共 utils 目录中按需复用工具函数**：先 **KV 检索（search / Grep index）**，再 **Confirm（五问）**，必要时 **问用户**（展示层细小差异），最后 Verdict。
 
-**强制总闸（v0.3.4）**：`utils-reuse-gate.mdc` + `pre-write-utils-checklist.mdc` — **选中后证明**（§1.6）：每个 util + Local helpers 行须 **分项 Q1–Q4** + Verdict；禁止空泛「Q1–Q5 通过」。`hookMode: confirm` 时 Hook **fail-closed**：会话已 Read util 后对 `remindWritePaths` Write **无 prior Verdict → deny**；异常不再 silent allow。
+**强制总闸（v0.3.6）**：`utils-reuse-gate.mdc` + `pre-write-utils-checklist.mdc` — **选中后证明**（§1.6）：每个 util + Local helpers 行须 **分项 Q1–Q4** + Verdict；禁止空泛「Q1–Q5 通过」。默认 **`hookMode: off`**（Rules 约束，不拦 Write）；opt-in **`hookMode: confirm`** 时 Hook **fail-closed** deny Write。
 
 ## 两类任务，勿混淆
 
@@ -44,7 +44,7 @@ Read util / search / gen index 均 ≠ gate complete
 
 ### Hook 验收（任意 init 项目）
 
-Cursor 开在**项目根**，`.utils-bookrc.json` 中 `hookMode: confirm`：
+Cursor 开在**项目根**。默认 **`hookMode: off`**；需硬门禁时设 `hookMode: confirm`：
 
 1. Agent **Read** 某 `utilsDir` 文件 → `.cursor/.utils-gate-reads.json` 应出现该路径
 2. assistant 在**首个 Write 工具之前**输出分项 Q1–Q4 + `Verdict（最终）` → `.cursor/.utils-gate-verdict.json` 中 `recorded: true`（同轮 preToolUse 亦可记录）

@@ -8,7 +8,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: *
 - **utils-book generator** — human-readable Markdown + `utils-index.json` from same scan
 - **Confirm gate** — substantive Q1–Q5 **per util and per Local helpers row** + **`Verdict（最终）`** before Write
 - **Discovery gate** — search / Grep index or Grep `utilsDir` before adding util-semantics local helpers
-- **Cursor templates** — full Rules stack + confirm Hook; **no manual per-project edits**
+- **Cursor templates** — full Rules stack; **Write Hook opt-in** (`hookMode: confirm`)
 
 > 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
 
@@ -17,7 +17,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: *
 | Layer | Role |
 |-------|------|
 | **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`upgrade:utils-reuse`** or **`update:utils-reuse`** |
-| **Hook (default confirm)** | **Deny Write** until util files Read **and** prior-chat Verdict with **individual Q1–Q4** (when `@/utils` in target); **deny new local helpers** without Discovery **and** Local helpers table **and** substantive Verdict |
+| **Hook (default off)** | Rules-only Confirm + Verdict; **no Write deny**. Opt-in `hookMode: confirm` for hard deny |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
 **Two-phase workflow**: Message A = Identify + Discovery (when triggered) + Local helpers table + **per-symbol Confirm (Q1–Q4 separately)** + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
@@ -99,7 +99,23 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/pre-write-utils-checklist.mdc` | Message A/B HARD STOP before Write (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
-| `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
+| `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
+
+### Upgrade v0.3.5 → v0.3.6
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Default Write Hook off (v0.3.6):**
+
+- **`hookMode: off`** is the new default — **no `preToolUse` Write deny**; Confirm + Verdict enforced by Rules only
+- Avoids Agent Shell bypass when hook timing/heuristics fail in Cursor
+- Opt-in hard gate: set `"hookMode": "confirm"` in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`
+- **`hookMode: remind`** — preToolUse allow + reminder only (no deny)
+
+**Maintainers**: push git tags (`git tag v0.3.6 && git push origin v0.3.6`).
 
 ### Upgrade v0.3.4 → v0.3.5
 
@@ -333,7 +349,7 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `confirm` | `confirm` = deny until util Read **and** prior-chat Verdict; `remind` = message only |
+| `hookMode` | `off` | `off` = Rules only (default); `confirm` = deny Write until Read + Verdict; `remind` = allow + reminder |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
@@ -342,16 +358,25 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
 | `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
 
-### Optional remind mode (soft Hook)
+### hookMode (v0.3.6)
 
-To disable Read/Verdict deny and show reminders only:
+| Mode | Write deny | hooks.json |
+|------|------------|------------|
+| **`off`** (default) | No | Empty — no hooks registered |
+| `remind` | No | `preToolUse` only (allow + reminder) |
+| `confirm` | Yes | Full audit + preToolUse deny gate |
 
-1. Set `"hookMode": "remind"` in `.utils-bookrc.json`
-2. Run `init --force` or manually remove `sessionStart` / `postToolUse` / `afterAgentResponse` from `.cursor/hooks.json` (keep `preToolUse` only)
+Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write — `off` removes tool-layer deny only.
 
-Rules still require Confirm + **`Verdict（最终）`** in chat — remind does not enforce that.
+**Opt-in hard gate:**
 
-### confirm mode (default, v0.2.0)
+```json
+{ "hookMode": "confirm" }
+```
+
+Then `pnpm update:utils-reuse --yes`. Existing `hookMode` in `.utils-bookrc.json` is **preserved** across updates.
+
+### confirm mode (opt-in)
 
 `init --force` installs:
 

@@ -22,7 +22,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     utilsIndexFile: DEFAULT_UTILS_INDEX_FILE,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
-    hookMode: 'confirm'
+    hookMode: 'off'
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)
@@ -41,7 +41,9 @@ export function loadHookConfig(cwd = process.cwd()) {
     }
     if (raw.hookMode) {
       const mode = String(raw.hookMode).toLowerCase()
-      base.hookMode = mode === 'remind' ? 'remind' : 'confirm'
+      if (mode === 'remind') base.hookMode = 'remind'
+      else if (mode === 'confirm') base.hookMode = 'confirm'
+      else base.hookMode = 'off'
     }
   } catch {
     /* defaults */
