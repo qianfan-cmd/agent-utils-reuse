@@ -4,6 +4,7 @@
  * Usage: node scripts/test-verdict-substance.mjs
  */
 import {
+  extractVerdictSymbols,
   textHasLocalHelpersTable,
   textHasSubstantiveConfirm
 } from '../templates/cursor/hooks/read-audit-lib.mjs'
@@ -79,6 +80,16 @@ assert('no Verdict marker rejected', !textHasSubstantiveConfirm('Q1 Q2 Q3 Q4 reu
 assert('Local helpers table with data row', textHasLocalHelpersTable(GOOD_TABLE))
 assert('Chinese header table', textHasLocalHelpersTable(CHINESE_HEADER))
 assert('| Helper | header table with data row', textHasLocalHelpersTable(HELPER_PIPE_HEADER))
+const helperSyms = extractVerdictSymbols(HELPER_PIPE_HEADER)
+assert(
+  'extractVerdictSymbols from reuse + table',
+  helperSyms.includes('copyToClip') && helperSyms.includes('copyText'),
+  helperSyms.join(',')
+)
+assert(
+  'extractVerdictSymbols partialReuse',
+  extractVerdictSymbols(PARTIAL_REUSE).includes('dataUrlToImageFile')
+)
 assert('header only no data row fails', !textHasLocalHelpersTable(BAD_TABLE_HEADER_ONLY))
 assert('no table fails', !textHasLocalHelpersTable(GOOD_SUBSTANTIVE))
 

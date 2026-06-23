@@ -101,6 +101,22 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.6 → v0.3.7
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Gate/KV test feedback (v0.3.7):**
+
+- **confirm hook**: deny JSON includes **`missingReads`** and **`staleSymbols`** (symbol-granular Verdict)
+- **Discovery audit** `via`: `cli` | `grep-index` | `d2-utils-dir`
+- **Rules**: D1 zero candidates → mandatory D2; sibling Grep; **Gate N/A**; Confirm must Read util source (not index/feature-only)
+- **patchAddsLocalHelper**: template-only `.vue` StrReplace no longer triggers addsHelper chain
+
+**Maintainers**: push git tags (`git tag v0.3.7 && git push origin v0.3.7`).
+
 ### Upgrade v0.3.5 → v0.3.6
 
 ```bash

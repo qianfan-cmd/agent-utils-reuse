@@ -174,6 +174,16 @@ const writeDeny = runHook(projectRoot, {
   }
 })
 assert('Write new file with @/utils import, empty audit → deny', writeDeny.permission === 'deny')
+assert(
+  'Write deny includes missingReads array',
+  Array.isArray(writeDeny.missingReads) && writeDeny.missingReads.length > 0,
+  JSON.stringify(writeDeny)
+)
+assert(
+  'Write deny missingReads reason',
+  writeDeny.denyReason === 'missing_reads',
+  JSON.stringify(writeDeny)
+)
 
 // --- v0.3.3: session Read util + Write remind path without @/utils in patch ---
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-session-read-'))
@@ -443,6 +453,154 @@ try {
   )
 } finally {
   fs.rmSync(helperDir, { recursive: true, force: true })
+}
+
+// --- v0.3.7: staleSymbols + template-only after script + Read BOM postToolUse ---
+const staleDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-stale-"))
+try {
+  fs.mkdirSync(path.join(staleDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(staleDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(staleDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(staleDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(path.join(staleDir, "src", "utils", "other.ts"), "export function otherUtil() {}\n")
+  fs.writeFileSync(
+    path.join(staleDir, "src", "views", "Page.vue"),
+    `<template><div>test</div></template>
+<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+</script>
+`
+  )
+  resetAudit(staleDir)
+  recordRead(staleDir, "src/utils/copy.ts")
+  recordRead(staleDir, "src/utils/other.ts")
+  recordVerdict(
+    staleDir,
+    `Confirm copyToClip: Q1 text Q2 clip Q3 DOM Q4 same Q5 no
+Verdict（最终）: reuse(copyToClip)`
+  )
+  const staleDeny = runHook(staleDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "import { copyToClip } from '@/utils/copy'",
+      new_string: "import { copyToClip, otherUtil } from '@/utils/other'"
+    }
+  })
+  assert(
+    "Verdict for copyToClip only + Write imports otherUtil → deny staleSymbols",
+    staleDeny.permission === "deny" &&
+      staleDeny.denyReason === "verdict_stale_for_symbol" &&
+      Array.isArray(staleDeny.staleSymbols) &&
+      staleDeny.staleSymbols.includes("otherUtil"),
+    JSON.stringify(staleDeny)
+  )
+
+  recordVerdict(
+    staleDir,
+    `Confirm copyToClip: Q1 a Q2 b Q3 c Q4 d Q5 no
+Confirm otherUtil: Q1 a Q2 b Q3 c Q4 d Q5 no
+Verdict（最终）: reuse(copyToClip) + reuse(otherUtil)`
+  )
+  const staleAllow = runHook(staleDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "import { copyToClip } from '@/utils/copy'",
+      new_string: "import { copyToClip, otherUtil } from '@/utils/other'"
+    }
+  })
+  assert(
+    "Updated Verdict covering otherUtil → allow",
+    staleAllow.permission === "allow",
+    JSON.stringify(staleAllow)
+  )
+} finally {
+  fs.rmSync(staleDir, { recursive: true, force: true })
+}
+
+const templateDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-template-only-"))
+try {
+  fs.mkdirSync(path.join(templateDir, "src", "views"), { recursive: true })
+  fs.writeFileSync(
+    path.join(templateDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"],
+        utilsIndexFile: "docs/agent-catalog/utils-index.json"
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(
+    path.join(templateDir, "src", "views", "Page.vue"),
+    `<template><div>old</div></template>
+<script setup lang="ts">
+function copyText() {}
+</script>
+`
+  )
+  resetAudit(templateDir)
+  spawnSync(process.execPath, [hookPath(templateDir, "track-utils-discovery.mjs")], {
+    cwd: templateDir,
+    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
+    encoding: "utf8"
+  })
+  recordVerdict(
+    templateDir,
+    `| Helper | utils | verdict |
+| copyText | copyToClip | reuse(copyToClip) |
+Confirm copyToClip: Q1 a Q2 b Q3 c Q4 d Q5 no
+Verdict（最终）: reuse(copyToClip)`
+  )
+  const templateAllow = runHook(templateDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "<div>old</div>",
+      new_string: "<div>new</div>"
+    }
+  })
+  assert(
+    "Template-only StrReplace after script helper on disk → allow (no addsHelper)",
+    templateAllow.permission === "allow",
+    JSON.stringify(templateAllow)
+  )
+} finally {
+  fs.rmSync(templateDir, { recursive: true, force: true })
+}
+
+const readBomDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-read-bom-"))
+try {
+  fs.mkdirSync(path.join(readBomDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(readBomDir, ".utils-bookrc.json"),
+    JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils" }, null, 2) + "\n"
+  )
+  resetAudit(readBomDir)
+  const readBomPayload = Buffer.concat([
+    Buffer.from([0xef, 0xbb, 0xbf]),
+    Buffer.from(JSON.stringify({ tool_input: { path: "src/utils/bom-read.ts" } }), "utf8")
+  ])
+  const readHookOut = spawnSync(process.execPath, [hookPath(readBomDir, "track-utils-reads.mjs")], {
+    cwd: readBomDir,
+    input: readBomPayload,
+    encoding: "utf8"
+  })
+  const readParsed = JSON.parse((readHookOut.stdout || "").trim())
+  assert("BOM bytes track-utils-reads postToolUse → ok", readParsed.ok === true)
+  const readAudit = JSON.parse(fs.readFileSync(path.join(readBomDir, ".cursor", ".utils-gate-reads.json"), "utf8"))
+  assert("BOM Read audit path recorded", readAudit.reads.includes("src/utils/bom-read.ts"))
+} finally {
+  fs.rmSync(readBomDir, { recursive: true, force: true })
 }
 
 

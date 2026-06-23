@@ -40,11 +40,11 @@ async function main() {
 
     const shellCmd = extractShellCommand(toolInput)
     if (shellCommandIsUtilsSearch(shellCmd)) {
-      recordDiscovery('search', cwd)
+      recordDiscovery('cli', cwd)
     } else if (toolInputTargetsUtilsIndex(toolInput, config, cwd)) {
-      recordDiscovery('index', cwd)
+      recordDiscovery('grep-index', cwd)
     } else if (toolInputTargetsUtilsDir(toolInput, config, cwd)) {
-      recordDiscovery('grep', cwd)
+      recordDiscovery('d2-utils-dir', cwd)
     }
 
     process.stdout.write(JSON.stringify({ ok: true }))

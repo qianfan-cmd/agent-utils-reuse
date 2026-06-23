@@ -264,6 +264,29 @@ assert(
   absDiscAudit.recorded === true,
   JSON.stringify(absDiscAudit)
 )
+assert(
+  'Grep utilsDir records via d2-utils-dir',
+  absDiscAudit.via === 'd2-utils-dir',
+  JSON.stringify(absDiscAudit)
+)
+
+resetAudit(projectRoot)
+spawnSync(process.execPath, [hookPath(projectRoot, 'track-utils-discovery.mjs')], {
+  cwd: projectRoot,
+  input: JSON.stringify({ tool_input: { pattern: 'sortAsc', path: indexPath } }),
+  encoding: 'utf8'
+})
+const indexDisc = JSON.parse(
+  fs.readFileSync(path.join(projectRoot, '.cursor', '.utils-gate-discovery.json'), 'utf8')
+)
+assert('Grep utils-index records via grep-index', indexDisc.via === 'grep-index', JSON.stringify(indexDisc))
+
+resetAudit(projectRoot)
+recordShellSearch(projectRoot)
+const cliDisc = JSON.parse(
+  fs.readFileSync(path.join(projectRoot, '.cursor', '.utils-gate-discovery.json'), 'utf8')
+)
+assert('Shell search records via cli', cliDisc.via === 'cli', JSON.stringify(cliDisc))
 
 const HELPER_HEADER_VERDICT = `| Helper | utils 候选 | 对照结论 |
 | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |

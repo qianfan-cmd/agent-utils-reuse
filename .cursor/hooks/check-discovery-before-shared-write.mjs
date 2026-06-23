@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+  getStaleVerdictSymbols,
   hasDiscovery,
   hasLocalHelpersTableInVerdict,
   hasRead,
@@ -11,6 +12,7 @@ import {
   matchesRemindPath,
   normalizeAuditPath,
   patchAddsLocalHelper,
+  requiredSymbolsFromPatch,
   resolveContentUtilPaths,
   resolveTargetUtilPaths,
   sessionHasUtilReads,
@@ -58,7 +60,12 @@ function denyVerdictMessage() {
 
 function denyDiscoveryMessage(config) {
   const indexFile = config.utilsIndexFile || 'docs/agent-catalog/utils-index.json'
-  return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1 preferred) OR Grep \`${indexFile}\` before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir. Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Confirm phase (same turn before Write). See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+  return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1: via cli) OR Grep \`${indexFile}\` (D1: grep-index) before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir (via d2-utils-dir). Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Confirm phase (same turn before Write). See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+}
+
+function denyStaleVerdictMessage(staleSymbols) {
+  const list = staleSymbols.map((s) => `\`${s}\``).join(', ')
+  return `Denied: Prior Verdict does not cover util symbol(s) ${list} in this Write. Output Confirm + Verdict（最终） for the new symbol(s), then Write again. See ${PLACEMENT_SECTION}.`
 }
 
 function denyLocalHelpersTableMessage() {
@@ -215,10 +222,28 @@ async function main() {
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
+          denyReason: 'missing_reads',
+          missingReads: missing,
           agent_message: denyReadMessage(missing)
         })
       )
       return
+    }
+
+    if (hasVerdict(cwd)) {
+      const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
+      const staleSymbols = getStaleVerdictSymbols(requiredSymbols, cwd)
+      if (staleSymbols.length > 0) {
+        process.stdout.write(
+          JSON.stringify({
+            permission: 'deny',
+            denyReason: 'verdict_stale_for_symbol',
+            staleSymbols,
+            agent_message: denyStaleVerdictMessage(staleSymbols)
+          })
+        )
+        return
+      }
     }
 
     if (!hasVerdict(cwd)) {

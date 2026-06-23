@@ -220,17 +220,23 @@ export function verdictAuditPath(cwd = process.cwd()) {
 
 export function loadVerdictAudit(cwd = process.cwd()) {
   const filePath = verdictAuditPath(cwd)
-  if (!fs.existsSync(filePath)) return { recorded: false, hasLocalHelpersTable: false }
+  if (!fs.existsSync(filePath)) {
+    return { recorded: false, hasLocalHelpersTable: false, symbols: [] }
+  }
   try {
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    const symbols = Array.isArray(raw.symbols)
+      ? raw.symbols.map(String)
+      : extractVerdictSymbols(raw.snippet ?? '')
     return {
       recorded: Boolean(raw.recorded),
       at: raw.at ?? null,
       snippet: raw.snippet ?? null,
-      hasLocalHelpersTable: Boolean(raw.hasLocalHelpersTable)
+      hasLocalHelpersTable: Boolean(raw.hasLocalHelpersTable),
+      symbols
     }
   } catch {
-    return { recorded: false, hasLocalHelpersTable: false }
+    return { recorded: false, hasLocalHelpersTable: false, symbols: [] }
   }
 }
 
@@ -241,7 +247,49 @@ export function saveVerdictAudit(data, cwd = process.cwd()) {
 }
 
 export function resetVerdictAudit(cwd = process.cwd()) {
-  saveVerdictAudit({ recorded: false, hasLocalHelpersTable: false }, cwd)
+  saveVerdictAudit({ recorded: false, hasLocalHelpersTable: false, symbols: [] }, cwd)
+}
+
+const VERDICT_SYMBOL_OUTCOME_RES = [
+  /\breuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
+  /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
+  /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
+  /\bfeatureLocal\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi
+]
+
+/**
+ * Heuristic: symbols named in Verdict outcomes + Local helpers table first column.
+ */
+export function extractVerdictSymbols(text) {
+  if (!text || typeof text !== 'string') return []
+  const symbols = new Set()
+  for (const re of VERDICT_SYMBOL_OUTCOME_RES) {
+    re.lastIndex = 0
+    let m
+    while ((m = re.exec(text)) !== null) {
+      if (m[1]) symbols.add(m[1])
+    }
+  }
+  const lines = text.split('\n').filter((line) => line.includes('|'))
+  for (const line of lines) {
+    if (/^\s*\|[-:\s|]+\|\s*$/.test(line)) continue
+    const cells = line
+      .split('|')
+      .map((c) => c.trim())
+      .filter(Boolean)
+    if (cells.length >= 2 && !/^(本地函数|Helper|helper|函数|Local helpers)$/i.test(cells[0])) {
+      const first = cells[0].replace(/\s+@.*$/, '').trim()
+      if (/^[a-zA-Z_$][\w$]*$/.test(first)) symbols.add(first)
+    }
+  }
+  return [...symbols]
+}
+
+export function getStaleVerdictSymbols(requiredSymbols, cwd = process.cwd()) {
+  const audit = loadVerdictAudit(cwd)
+  if (!audit.recorded || !audit.symbols?.length) return []
+  const covered = new Set(audit.symbols.map((s) => s.toLowerCase()))
+  return [...new Set(requiredSymbols)].filter((s) => !covered.has(String(s).toLowerCase()))
 }
 
 const VERDICT_MARKER_RES = [
@@ -318,12 +366,14 @@ export function textHasVerdict(text) {
 export function recordVerdict(text, cwd = process.cwd()) {
   if (!textHasSubstantiveConfirm(text)) return false
   const snippet = String(text).replace(/\s+/g, ' ').trim().slice(0, 400)
+  const symbols = extractVerdictSymbols(text)
   saveVerdictAudit(
     {
       recorded: true,
       at: new Date().toISOString(),
       snippet,
-      hasLocalHelpersTable: textHasLocalHelpersTable(text)
+      hasLocalHelpersTable: textHasLocalHelpersTable(text),
+      symbols
     },
     cwd
   )
@@ -403,6 +453,56 @@ export function matchesRemindPath(filePath, remindWritePaths) {
 
 const IMPORT_RE =
   /(?:import\s+(?:[\w*{}\s,]+)\s+from\s+|import\s+|export\s+[\w*\s{},]+\s+from\s+)['"]([^'"]+)['"]/g
+
+const NAMED_IMPORT_FROM_RE =
+  /import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g
+const DEFAULT_IMPORT_FROM_RE = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g
+
+function isUtilsImportSpec(spec, config) {
+  const normalized = spec.replace(/\\/g, '/')
+  for (const alias of config.utilsImportAliases) {
+    const aliasNorm = alias.replace(/\\/g, '/').replace(/\/+$/, '')
+    if (normalized === aliasNorm || normalized.startsWith(`${aliasNorm}/`)) return true
+  }
+  const utilsPrefix = config.utilsDir.replace(/\\/g, '/')
+  return normalized === utilsPrefix || normalized.startsWith(`${utilsPrefix}/`)
+}
+
+function parseNamedImportIdentifiers(clause) {
+  return clause
+    .split(',')
+    .map((part) => {
+      const trimmed = part.trim()
+      if (!trimmed) return null
+      const asMatch = trimmed.match(/^([a-zA-Z_$][\w$]*)\s+as\s+([a-zA-Z_$][\w$]*)$/)
+      if (asMatch) return asMatch[2]
+      const name = trimmed.split(/\s+/)[0]
+      return /^[a-zA-Z_$][\w$]*$/.test(name) ? name : null
+    })
+    .filter(Boolean)
+}
+
+/** Imported binding names from @/utils (or configured aliases) in source text. */
+export function extractImportedUtilsSymbols(content, config) {
+  if (!content || typeof content !== 'string') return []
+  const symbols = new Set()
+  let m
+  NAMED_IMPORT_FROM_RE.lastIndex = 0
+  while ((m = NAMED_IMPORT_FROM_RE.exec(content)) !== null) {
+    if (!isUtilsImportSpec(m[2], config)) continue
+    for (const id of parseNamedImportIdentifiers(m[1])) symbols.add(id)
+  }
+  DEFAULT_IMPORT_FROM_RE.lastIndex = 0
+  while ((m = DEFAULT_IMPORT_FROM_RE.exec(content)) !== null) {
+    if (isUtilsImportSpec(m[2], config)) symbols.add(m[1])
+  }
+  return [...symbols]
+}
+
+export function requiredSymbolsFromPatch(normalized, payload, config, cwd = process.cwd()) {
+  const merged = mergeWritePayload(normalized, payload, cwd)
+  return extractImportedUtilsSymbols(merged, config)
+}
 
 export function extractUtilsImportSpecifiers(content, config) {
   if (!content || typeof content !== 'string') return []
@@ -682,6 +782,7 @@ function helperNamesInPatch(text, filePathHint) {
 export function patchAddsLocalHelper(payload, filePath = '') {
   if (!payload || typeof payload !== 'object') return false
   const hint = payload.path ?? payload.file_path ?? filePath ?? ''
+  const normalizedHint = normalizeAuditPath(hint)
   const content = payload.content != null ? String(payload.content) : ''
   const newStr = payload.new_string ?? payload.newString ?? ''
   const oldStr = payload.old_string ?? payload.oldString ?? ''
@@ -692,6 +793,11 @@ export function patchAddsLocalHelper(payload, filePath = '') {
 
   const added = String(newStr)
   if (!added.trim()) return false
+
+  // Pure template/CSS StrReplace in .vue — delta has no script block
+  if (/\.vue$/i.test(normalizedHint) && !/<script\b/i.test(added)) {
+    return false
+  }
 
   const newNames = helperNamesInPatch(added, hint)
   if (newNames.size === 0) return false

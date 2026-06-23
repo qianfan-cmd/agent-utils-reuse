@@ -193,7 +193,11 @@ flowchart TD
 | replaceMentionUrlInPrompt | ai-videoUpload 同模式 | featureLocal + placement debt → replaceMentionTagUrlInText |
 | checkMention 等 | ai-promptInput（未 export） | featureLocal + placement debt → useMentionEditor |
 
-无 utils 候选时写 `—` 并说明 Grep 范围。
+无 utils 候选时写 `—` 并说明 Grep 范围。**D1 零候选时必须先 D2**（Grep `utilsDir`），禁止直接 featureLocal 重复 util 语义。
+
+**Gate N/A**（纯 UI / 无 utils / 无 local helper）：Confirm 阶段写 **`Gate N/A: <理由>`**。
+
+**Sibling check（必做）**：Read export X @ util 文件后 → Grep **同一 util 文件** 内相关 export，再写 local helper。
 
 **Confirm（五问）— 每个符号一组（示例：fileToBase64）**
 

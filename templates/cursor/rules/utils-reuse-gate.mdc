@@ -45,7 +45,11 @@ alwaysApply: true
 
 **Forbidden for Shortlist (D1)**: Read `utils-book/index.md`, Read `utils-book/{章}.md`, or Grep entire `utils-book/` — Markdown is **human-only** (v0.3.0).
 
-**Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Confirm phase (composable or newUtil extraction candidate).
+**Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Confirm phase (composable or newUtil extraction candidate). **Cross-feature component copy ≠ reuse(utils)** — do not label component reuse as `reuse(symbol)`.
+
+**D1 zero candidates → mandatory D2**: If D1 (CLI search or Grep `utils-index.json`) returns **no** candidates, you **must** run D2 (`Grep path:src/utils`) before writing util-semantics local helpers. **Forbidden**: skip D2 and featureLocal-duplicate when utils may exist.
+
+**Gate N/A**: Pure UI / no `@/utils` / no util-semantics helpers → output **`Gate N/A: <reason>`** in Confirm phase (still no hollow Q1-Q5).
 
 ## Gate applies — NOT exempt
 
@@ -71,7 +75,7 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
 5. **Read** each **export/method you will call** in the **util source file** under `utilsDir` / `@/utils` (partial Read of that file, or Grep **within that util file**, is OK).
    - **Understand the task** by Read/Grep **feature/business code** — that does **not** substitute for Read of the util export you will call.
    - **Forbidden**: Confirm from only reading another feature's `import` / call sites (e.g. `ai-promptInput.vue`) without Read of `promptUtils.ts` (or the util path you identified).
-   - **Same-file siblings**: When you Read **any** export in a util file, **Grep that file** for related sibling exports before writing a local helper (e.g. Read `uploadSingleFile` in `imageUploadUtils.ts` → also check `fileToBase64` in the same file).
+   - **Same-file siblings (mandatory)**: After Read export X @ `file.ts` → **Grep that same util file** for related exports before any local helper (e.g. `fileToBase64` when you Read `uploadSingleFile`).
 6. **Output Confirm in chat** (never as JSON cache) — **before first Write tool**:
    - **Discovery** line (D1 or D2) when triggered
    - **Local helpers** table — one row per planned/**retained** feature helper vs utils/component candidate (see `placement-decision.md` §3). Header: **`Local helpers`** or **`| 本地函数 |`** recommended; **`| Helper |`** also accepted (v0.3.5+)
@@ -105,7 +109,7 @@ export function formatDateLocal(iso: string): string { ... }
 
 Default **`hookMode: off`** — **no Write deny**; Confirm + Verdict enforced by Rules only. Avoids Agent Shell bypass when hook heuristics fail.
 
-**Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4**; new local helpers require Discovery + Local helpers table. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
+**Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
 
 **`hookMode: remind`**: preToolUse allow + reminder only (see README).
 
