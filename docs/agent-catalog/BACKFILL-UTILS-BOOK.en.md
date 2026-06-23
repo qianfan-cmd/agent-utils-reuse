@@ -44,5 +44,7 @@ Rules:
 5. Skip re-export lines (`export { x } from`) unless a separate note is required.
 6. When done, list changed files and symbols.
 
+**Note**: BACKFILL only updates `utilsDir` comments. It does **not** replace Message A (five questions + `Verdict（最终）`) for later **feature** implementation tasks.
+
 First Grep `src/utils` for exports missing block comments or entries whose utils-index summary is the no-summary placeholder. Backfill file by file. Do not Write feature code.
 ```

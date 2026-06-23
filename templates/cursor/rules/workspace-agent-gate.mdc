@@ -27,11 +27,11 @@ When the task will touch application source or project config:
 
 ## Utils detail
 
-Details: **`.cursor/rules/utils-reuse-gate.mdc`**.
+Details: **`.cursor/rules/utils-reuse-gate.mdc`**. Write 前 checklist: **`.cursor/rules/pre-write-utils-checklist.mdc`**.
 
-## Hook (default confirm, v0.2.1)
+## Hook (default confirm, v0.3.3)
 
-Default `hookMode` is **`confirm`**: deny Write until **Read util files AND prior-chat `Verdict（最终）` with individual Q1–Q4**. **Local helpers (v0.2.1)**: deny new local helpers without Discovery + Local helpers table + substantive Verdict. Optional `"hookMode": "remind"` — see README.
+Default `hookMode` is **`confirm`**: deny Write until **Read util files AND prior-chat `Verdict（最终）` with individual Q1–Q4**. **v0.3.3**: session Read util + Write under `remindWritePaths` without Verdict → deny; hook errors **fail-closed** (no silent allow). **Local helpers (v0.2.1+)**: deny new local helpers without Discovery + Local helpers table + substantive Verdict. Optional `"hookMode": "remind"` — see README.
 
 ## Do NOT
 

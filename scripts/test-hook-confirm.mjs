@@ -6,6 +6,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -173,6 +174,81 @@ const writeDeny = runHook(projectRoot, {
   }
 })
 assert('Write new file with @/utils import, empty audit → deny', writeDeny.permission === 'deny')
+
+// --- v0.3.3: session Read util + Write remind path without @/utils in patch ---
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-session-read-'))
+try {
+  fs.mkdirSync(path.join(tempDir, 'src', 'views'), { recursive: true })
+  fs.mkdirSync(path.join(tempDir, 'src', 'utils'), { recursive: true })
+  fs.writeFileSync(
+    path.join(tempDir, '.utils-bookrc.json'),
+    `${JSON.stringify(
+      {
+        hookMode: 'confirm',
+        utilsDir: 'src/utils',
+        utilsImportAliases: ['@/utils'],
+        remindWritePaths: ['src/views']
+      },
+      null,
+      2
+    )}\n`
+  )
+  fs.writeFileSync(path.join(tempDir, 'src', 'utils', 'copy.ts'), 'export function copyToClip() {}\n')
+  fs.writeFileSync(
+    path.join(tempDir, 'src', 'views', 'Page.vue'),
+    '<template><div>test</div></template>\n'
+  )
+
+  resetAudit(tempDir)
+  recordRead(tempDir, 'src/utils/copy.ts')
+
+  const sessionDeny = runHook(tempDir, {
+    tool_input: {
+      path: 'src/views/Page.vue',
+      old_string: 'test',
+      new_string: 'test-updated'
+    }
+  })
+  assert(
+    'Session Read util + StrReplace views (no @/utils in patch) without Verdict → deny',
+    sessionDeny.permission === 'deny',
+    JSON.stringify(sessionDeny)
+  )
+
+  recordVerdict(tempDir)
+  const sessionAllow = runHook(tempDir, {
+    tool_input: {
+      path: 'src/views/Page.vue',
+      old_string: 'test-updated',
+      new_string: 'test'
+    }
+  })
+  assert(
+    'Session Read util + Verdict + StrReplace views → allow',
+    sessionAllow.permission === 'allow',
+    JSON.stringify(sessionAllow)
+  )
+
+  const badJson = spawnSync(process.execPath, [hookScript(tempDir)], {
+    cwd: tempDir,
+    input: '{not valid json',
+    encoding: 'utf8'
+  })
+  const badOut = (badJson.stdout || '').trim()
+  let badParsed = null
+  try {
+    badParsed = badOut ? JSON.parse(badOut) : null
+  } catch {
+    badParsed = null
+  }
+  assert(
+    'Invalid hook stdin JSON under confirm → deny',
+    badParsed?.permission === 'deny',
+    badOut
+  )
+} finally {
+  fs.rmSync(tempDir, { recursive: true, force: true })
+}
 
 if (process.exitCode) {
   console.error('\nSome tests failed.')

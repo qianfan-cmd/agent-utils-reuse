@@ -4,13 +4,16 @@ import {
   hasLocalHelpersTableInVerdict,
   hasRead,
   hasVerdict,
+  hookErrorDenyMessage,
   isUnderUtils,
   loadHookConfig,
+  logHookError,
   matchesRemindPath,
   normalizeAuditPath,
   patchAddsLocalHelper,
   resolveContentUtilPaths,
-  resolveTargetUtilPaths
+  resolveTargetUtilPaths,
+  sessionHasUtilReads
 } from './read-audit-lib.mjs'
 
 const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md §1.6 and §3'
@@ -52,7 +55,7 @@ function denyReadMessage(missingPaths) {
 }
 
 function denyVerdictMessage() {
-  return `Denied: Read util source is NOT enough. Output substantive Confirm in a **separate message before Write** (no Write/StrReplace tools in that message): **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. See ${PLACEMENT_SECTION}.`
+  return `Denied: Read util source is NOT enough. Read util / search / gen index do NOT complete the gate. Output substantive Confirm in a **separate message before Write** (no Write/StrReplace tools in that message): **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. See ${PLACEMENT_SECTION}.`
 }
 
 function denyDiscoveryMessage(config) {
@@ -87,11 +90,7 @@ function collectRequiredReads(normalized, payload, config, cwd) {
     }
   }
 
-  const patchContent = [
-    payload.content,
-    payload.new_string,
-    payload.newString
-  ]
+  const patchContent = [payload.content, payload.new_string, payload.newString]
     .filter(Boolean)
     .join('\n')
   for (const p of resolveContentUtilPaths(patchContent, config, cwd)) {
@@ -101,7 +100,24 @@ function collectRequiredReads(normalized, payload, config, cwd) {
   return { requiredReads, isRemind, isUtils }
 }
 
+function failClosedWrite(config, cwd, err, context) {
+  logHookError(cwd, context, err)
+  if (config.hookMode === 'remind') {
+    process.stdout.write(JSON.stringify({ permission: 'allow' }))
+    return
+  }
+  process.stdout.write(
+    JSON.stringify({
+      permission: 'deny',
+      agent_message: hookErrorDenyMessage()
+    })
+  )
+}
+
 async function main() {
+  let config = loadHookConfig(process.cwd())
+  const cwd = process.cwd()
+
   try {
     const raw = await readStdin()
     if (!raw.trim()) {
@@ -110,8 +126,7 @@ async function main() {
     }
 
     const input = JSON.parse(raw)
-    const config = loadHookConfig(process.cwd())
-    const cwd = process.cwd()
+    config = loadHookConfig(cwd)
     const filePath = extractPath(input)
     if (!filePath) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
@@ -145,8 +160,7 @@ async function main() {
     }
 
     // hookMode: confirm
-    const addsHelper =
-      isRemind && patchAddsLocalHelper(payload) && !isUtils
+    const addsHelper = isRemind && patchAddsLocalHelper(payload) && !isUtils
 
     if (addsHelper) {
       if (!hasDiscovery(cwd)) {
@@ -178,6 +192,17 @@ async function main() {
         )
         return
       }
+    }
+
+    // Session Read util + Write under remindWritePaths → require prior Verdict
+    if (isRemind && sessionHasUtilReads(cwd) && !hasVerdict(cwd)) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          agent_message: denyVerdictMessage()
+        })
+      )
+      return
     }
 
     if (requiredReads.size === 0) {
@@ -213,8 +238,8 @@ async function main() {
           : { permission: 'allow' }
       )
     )
-  } catch {
-    process.stdout.write(JSON.stringify({ permission: 'allow' }))
+  } catch (err) {
+    failClosedWrite(config, cwd, err, 'check-discovery-before-shared-write')
   }
 }
 

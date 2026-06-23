@@ -15,9 +15,9 @@ When the task will touch application source or project config:
 2. **Understand the task**: Read / Grep / search **business code**, specs, and **existing imports**.
 3. **When utils gate applies** (see `.cursor/rules/utils-reuse-gate.mdc` — **includes existing `@/utils` in target file, WIP wiring NOT exempt**):
    - **Identify** each util `symbol @ path`
-   - **Read** export(s)/method(s) you will call (partial Read / Grep OK)
-   - **Message A** (no Write tools): substantive **Confirm (Q1–Q5) per util** + **`Verdict（最终）`**
-4. **Message B**: Write / StrReplace.
+   - **Read** export(s)/method(s) you will call **in util source** (`utilsDir` / `@/utils` path) — partial Read / Grep within that file OK; feature call sites alone do **not** count
+   - **Message A** (no Write tools): Discovery (when triggered) + **Local helpers** table + **Confirm (Q1–Q4 per symbol, separately)** + **`Verdict（最终）`**
+4. **Message B**: Write / StrReplace — **later message** than Message A.
 
 ## Optional (not required every task)
 
@@ -27,16 +27,17 @@ When the task will touch application source or project config:
 
 ## Utils detail
 
-Details: **`.cursor/rules/utils-reuse-gate.mdc`**.
+Details: **`.cursor/rules/utils-reuse-gate.mdc`**. Write 前 checklist: **`.cursor/rules/pre-write-utils-checklist.mdc`**.
 
-## Hook (default confirm, v0.1.9)
+## Hook (default confirm, v0.3.3)
 
-Default `hookMode` is **`confirm`**: deny Write until **Read util files AND prior-chat `Verdict（最终）`**. Optional `"hookMode": "remind"` — see README.
+Default `hookMode` is **`confirm`**: deny Write until **Read util files AND prior-chat `Verdict（最终）` with individual Q1–Q4**. **v0.3.3**: session Read util + Write under `remindWritePaths` without Verdict → deny; hook errors **fail-closed** (no silent allow). **Local helpers (v0.2.1+)**: deny new local helpers without Discovery + Local helpers table + substantive Verdict. Optional `"hookMode": "remind"` — see README.
 
 ## Do NOT
 
 - Skip full `AGENTS.md` read (no limit-only reads)
 - Treat **Read util as gate complete** — Verdict in chat is mandatory
+- **Confirm from feature usage only** — must Read util **source** export(s) you will call
 - Write before Confirm + **`Verdict（最终）`** when gate applies
 - Assume gate does not apply because there is no new import
 - Write `.utils-discovery-cache.json` or gate cache files

@@ -1,12 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-23T09:16:37.759Z",
+  "generatedAt": "2026-06-23T18:21:11.575Z",
   "utilsDir": "src/utils",
   "stats": {
-    "files": 3,
-    "symbols": 4,
-    "withSummary": 4,
-    "weakSummary": 0
+    "files": 2,
+    "symbols": 3,
+    "withSummary": 3
   },
   "symbols": {
     "sortAsc": [
@@ -16,7 +15,7 @@
         "summary": "数字数组升序排序，返回新数组，不修改原数组",
         "chapter": "array",
         "kind": "function",
-        "searchText": "sortAsc sort Asc array sortArray array/sortArray.ts 数字数组升序排序，返回新数组，不修改原数组"
+        "searchText": "sortAsc array array/sortArray.ts 数字数组升序排序，返回新数组，不修改原数组"
       }
     ],
     "sortDesc": [
@@ -26,7 +25,7 @@
         "summary": "数字数组降序排序，返回新数组",
         "chapter": "array",
         "kind": "function",
-        "searchText": "sortDesc sort Desc array sortArray array/sortArray.ts 数字数组降序排序，返回新数组"
+        "searchText": "sortDesc array array/sortArray.ts 数字数组降序排序，返回新数组"
       }
     ],
     "uniqueByKey": [
@@ -36,17 +35,7 @@
         "summary": "按字段对对象数组去重，保留首次出现的元素",
         "chapter": "array",
         "kind": "function",
-        "searchText": "uniqueByKey unique By Key array uniqueByKey array/uniqueByKey.ts 按字段对对象数组去重，保留首次出现的元素"
-      }
-    ],
-    "copyToClip": [
-      {
-        "path": "src/utils/copy/copyToClip.ts",
-        "line": 6,
-        "summary": "将文本写入系统剪贴板",
-        "chapter": "copy",
-        "kind": "function",
-        "searchText": "copyToClip copy To Clip copy copyToClip copy/copyToClip.ts 将文本写入系统剪贴板 剪贴板 clipboard copy paste"
+        "searchText": "uniqueByKey array array/uniqueByKey.ts 按字段对对象数组去重，保留首次出现的元素"
       }
     ]
   },

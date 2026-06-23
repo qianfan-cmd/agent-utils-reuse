@@ -44,5 +44,7 @@ node node_modules/agent-utils-reuse/bin/cli.mjs search "你的关键词" --limit
 5. 跳过 re-export 行（`export { x } from`）除非需要给 re-export 符号单独说明。
 6. 完成后列出改动的文件与符号清单。
 
+**说明**：BACKFILL 会话只改 `utilsDir` 注释，**不替代**后续业务 feature 任务的 Message A 五问 + `Verdict（最终）`。
+
 请先 Grep `src/utils` 找出无块注释或 utils-index 中 summary 为「无简介」的 export，再逐文件补全。不要 Write feature 代码。
 ```

@@ -4,7 +4,7 @@
 
 **范围**：仅公共 **utils 目录**（默认 `src/utils/`）。hooks / components / feature 不在 utils-book Shortlist；可 **featureLocal** 自写。组件复用不替代 utils **reuse**。
 
-**Confirm+Verdict 不可跳过**：对每个将 import/调用的 util，Write 前必须在 **对话** 完成 **Confirm（五问）+ Verdict（最终）**。**已有 import / WIP 接线 / 无新 import 均不豁免**。**Shortlist** 仅在不确定候选时可选。
+**Confirm+Verdict 不可跳过**：对每个将 import/调用的 util，Write 前必须在 **对话** 完成 **Confirm（五问）+ Verdict（最终）**。**已有 import / WIP 接线 / 无新 import 均不豁免**。**Discovery（§2）** 在门禁适用或拟写 feature 本地 helper 时 **必做**。
 
 ---
 
@@ -24,7 +24,7 @@
 > **在不动已有 export 签名与默认语义的前提下，用该 util 替换 feature 里拟新写的同语义逻辑，业务契约与风险均可接受。**
 
 - 仅凭工具书摘要 → **不构成证明**（只能 Shortlist）。
-- 必须 **Read** 将调用的 **export/方法** 源码后，用 **五问** 书面 Confirm；**不得**从本文档抄针对某业务的 Verdict。读整文件非必须（子集/单 export 即可）。
+- 必须 **Read** 将调用的 **export/方法** 在 **utils 源文件**（`utilsDir` / `@/utils` 路径）中的实现；可 partial Read 或在该 util 文件内 Grep。**仅** Read/Grep 其他 feature 里的 import/调用 **不能** 替代 Read util 源码。读整文件非必须（子集/单 export 即可）。
 
 ### 1.1 Confirm 五问
 
@@ -62,9 +62,11 @@
 
 | Verdict | 条件 |
 |---------|------|
-| **reuse** | 五问通过 + Q5=否；`import`；不改已有 export |
-| **newUtil** | A 或 B；`pnpm gen:utils-book` |
-| **featureLocal** | A 且仅本页；或强绑 UI/state |
+| **reuse(sym)** | 五问通过 + Q5=否；`import`；不改已有 export |
+| **partialReuse(sym) + featureLocal(wrapper)** | util 覆盖核心；页面包装 |
+| **newUtil(name)** | A 或 B；`pnpm gen:utils-book`；每个新 export 上方 **`/** */`** |
+| **featureLocal(reason)** | A 且仅本页；或强绑 UI/state |
+| **featureLocal + placement debt** | 组件内逻辑；跨 feature 复制 — 须写 debt 与收敛候选 |
 
 ### 1.5 细小差异 — 向用户确认
 
@@ -86,59 +88,159 @@
 
 用户选 A → **reuse**；选 B → **featureLocal** 或 **newUtil**。
 
+### 1.6 选中后判断树（post-selection proof）
+
+> **重心**：Identify 出 util 或拟写/保留的本地 helper 之后，**每个符号**须 Read 源码（或组件参照）并 **分项 Q1–Q5**，再落 Verdict。Discovery（§2）是 Shortlist 前置，**不能替代**本节的证明。
+
+**Step 0 — 候选在哪？**
+
+| 候选来源 | Read 要求 | Q4 的 reuse 对象 |
+|----------|-----------|------------------|
+| `utilsDir` export | Read **util 源文件** export | 该 export |
+| 仅在 feature 组件内（未 export） | Read 组件实现 + **Grep utilsDir** 语义等价 | utils **export**（若无 → 无 reuse 对象） |
+| 拟写/保留的 featureLocal helper | Grep utilsDir + 同文件 sibling | 最近似 util export 或 `—` |
+
+**Step 1 — 五问（每个符号一组，Q1–Q4 分项必写）**
+
+- **禁止**「Q1–Q5 通过」「五问通过」等空泛结论（Hook v0.2.1 会 deny）。
+- util 与 **Local helpers 表每一行** 均须有自己的 Q1–Q5（可压缩句式）。
+
+**Step 2 — Verdict 阶梯（五类）**
+
+```mermaid
+flowchart TD
+  start[Symbol_selected]
+  utilsExport{utils_export_exists?}
+  qPass{Q1_to_Q4_pass?}
+  q5{Q5_must_change_util?}
+  reuseVerdict["reuse(sym)"]
+  partialVerdict["partialReuse(sym)+featureLocal(wrapper)"]
+  newUtilVerdict["newUtil(name)"]
+  featLocal["featureLocal(reason)"]
+  debt["featureLocal+placement_debt"]
+
+  start --> utilsExport
+  utilsExport -->|yes| qPass
+  utilsExport -->|no_only_in_component| debt
+  qPass -->|yes_core_only| partialVerdict
+  qPass -->|yes_full| q5
+  q5 -->|no| reuseVerdict
+  q5 -->|yes| newUtilVerdict
+  qPass -->|no_need_share| newUtilVerdict
+  qPass -->|no_page_only| featLocal
+```
+
+| Verdict | 何时 | 动作 |
+|---------|------|------|
+| **reuse(sym)** | Q1–Q4 通过且 Q5=否 | 直接 `import` / 调用 |
+| **partialReuse(sym) + featureLocal(wrapper)** | util 覆盖核心逻辑；页面要包装类型 / ElMessage / 业务字段 | util 做转换；包装留 feature |
+| **newUtil(name)** | Q1–Q4 硬失败但要跨 feature 共享；或 Q5=是 | 新 export + JSDoc + `pnpm gen:utils-book` |
+| **featureLocal(reason)** | 仅本页；强绑 UI / state / DOM 编排 | 不写 utils |
+| **featureLocal + placement debt(ref → candidate)** | 逻辑仅在组件内；跨 feature 复制 | Message A 写 debt 与收敛方向（`newUtil` / `composable`） |
+
+**组件内候选（无 export）专用**：
+
+- utils **无**语义等价 export → **不能**写 `reuse`；Q4 须写明「无可 import 的 reuse 对象」。
+- 纯函数跨 feature 复制（如 `replaceMentionUrlInPrompt`）→ **featureLocal + placement debt → 候选 newUtil**。
+- DOM / Selection 编排（`checkMention`、`insertMentionForRef`、cursor 保存/恢复）→ **featureLocal + placement debt → 候选 composable**（通常不是 newUtil）。
+
+**文件中已存在、本次仍依赖的 helper**（如 `validateFile`）须在 Local helpers 表与 Confirm 中 **一并重走**，不因「上次就有」而跳过。
+
 ---
 
-## 2. Shortlist（可选 — 仅不确定候选时）
+## 2. Discovery（必做 — 触发时）
 
-通过 utils-book 查候选时的步骤（**不是**每次任务的必做环节；考古 / 现有 import / grep 同样有效）：
+**触发**（满足任一）：
 
-| 步骤 | 动作 |
+- 门禁适用（现有 `@/utils`、语义任务 mention/upload/validate 等、将 import utils）
+- 拟在 feature **新增/改写** 纯函数 helper（FileReader、dataUrl、validate、convert、base64、mime 等）
+
+**动作**（二选一，Message A 须写明）：
+
+| 代号 | 动作 |
 |------|------|
-| S1 | **只 Read** [`utils-book/index.md`](utils-book/index.md) |
-| S2 | 按 index **选章提示** **只 Read 1 章**（目录导航；**不得**据选章直接写 Verdict） |
-| S3 | 列出候选 `name @ path` |
-| S4 | 不确定时 `Grep` utils-book 目录 |
+| **D1** | **首选** `agent-utils-reuse search "<任务关键词>" --limit 8`；**备选** `Grep` [`utils-index.json`](utils-index.json)（按符号名/摘要关键词）。列出候选 `name @ path` |
+| **D2** | `Grep` / `SemanticSearch` **`utilsDir`**（关键词来自计划 helper 语义，如 `base64`、`dataUrl`、`validateFile`） |
 
-**禁止**：仅凭摘要写 **Verdict: reuse**。同名见 index **附录**。
+**Agent 禁止（Shortlist）**：Read `utils-book/index.md`、Read `utils-book/{章}.md`、Grep 整个 `utils-book/` — Markdown 仅供人类浏览（v0.3.0）。
+
+**Hook（v0.3.0 confirm）**：Write 到 `remindWritePaths` 且补丁 **新增本地 function/helper** 时，本会话须已有 D1（Shell `agent-utils-reuse search` 或 Grep `utils-index.json`）或 D2（Grep/SemanticSearch 命中 `utilsDir`）证据。
+
+**禁止**：仅凭摘要写 **Verdict: reuse**。同名见 `utils-index.json` 的 `ambiguous` 或 utils-book 附录（人类查阅）。
+
+**从其他 feature 组件复制纯函数前**：须 D1/D2；逻辑仅在组件内、utils 无 export → 可 **featureLocal**，Message A 标注 **placement debt**（建议 composable）。
 
 ---
 
-## 3. Write 前对话输出（推荐格式）
+## 3. Write 前对话输出（Message A — 必做格式）
 
-**在对话中输出**（不要写入 cache JSON 文件）。**必做**：每个 util 有**实质** Q1–Q5 + Verdict。**不强制**下列完整模板；可压缩，但禁止空泛「Q1–Q5 通过」。
+**在对话中输出**（不要写入 cache JSON 文件）。**必做**：**每个 util + Local helpers 表每一行** 各有一组 **分项 Q1–Q5** + 行级 Verdict。**禁止**空泛「Q1–Q5 通过」（Hook v0.2.1 deny）。
 
-**Identify（识别，必做）**：列出本任务将用的 `sym @ path`（来源：计划 / 现有 import / grep / Shortlist 均可，一行即可）。
+**Identify（识别，必做）**：列出本任务将 import/调用的 util + 拟写/保留的 feature helper（含文件中已有、本次仍依赖者）。
 
-**Shortlist 痕迹（可选）**：若走了 §2，可写 `utils-book index + 章 X`。
+**Discovery（触发时必写）**：`D1: search "数组 排序"` 或 `D1: Grep utils-index.json "sortAsc"` | `D2: Grep src/utils "base64|dataUrl"`
+
+**Local helpers（拟写或保留 — 每个 helper 至少一行；Hook 检测表头 + 至少一行数据）**
+
+| 本地函数 | utils / 组件候选 | 对照结论 |
+|----------|------------------|----------|
+| readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |
+| dataUrlToRefItem | dataUrlToImageFile @ cropExport.ts | partialReuse(dataUrlToImageFile) + featureLocal(wrapper) |
+| validateFile | validateFileType + validateFileSize | featureLocal 薄包装 |
+| htmlToText | ai-promptInput（未 export）；Grep utils 无 | featureLocal + placement debt → mentionHtmlToText |
+| replaceMentionUrlInPrompt | ai-videoUpload 同模式 | featureLocal + placement debt → replaceMentionTagUrlInText |
+| checkMention 等 | ai-promptInput（未 export） | featureLocal + placement debt → useMentionEditor |
+
+无 utils 候选时写 `—` 并说明 Grep 范围。
+
+**Confirm（五问）— 每个符号一组（示例：fileToBase64）**
+
+- Q1 输入：`File` → 与拟写 `readFileAsDataUrl` 一致
+- Q2 输出：`Promise<string>` data URL — 一致
+- Q3 副作用：FileReader only — 可接受
+- Q4 替换实验：`fileToBase64(file)` ≡ `readFileAsDataUrl(file)`（同 readAsDataURL）
+- Q5 须改 util 内部？否
+
+**Verdict（最终）**（每行一个）：
+
+- reuse(`fileToBase64`)
+- partialReuse(`dataUrlToImageFile`) + featureLocal(`dataUrlToRefItem`)
+- featureLocal(`validateFile`) — 10MB / 扩展名 / ElMessage 包装
+- featureLocal(`htmlToText`) + placement debt(ai-promptInput → 候选 mentionHtmlToText @ utils/prompt)
+
+**用户确认（仅当 §1.5 适用）**：差异点 + 选项 A/B + 用户选择。
+
+**Golden Message A（复盘 @/upload 冒烟 — 勿照抄 Verdict，须 Read 后自主 Confirm）**
 
 ```markdown
-**Identify**：`PromptUtils` @ src/utils/prompt/promptUtils.ts（现有 import）
+**Identify**：fileToBase64, uploadSingleFile, PromptUtils @ utils；本地 htmlToText, replaceMentionUrlInPrompt, checkMention…
 
-**Confirm（五问）**
-- Q1 输入：…
-- Q2 输出/存储/API：…
-- Q3 副作用：…
-- Q4 替换实验：`sym` ≡ 本任务拟写 `f` because …（展示层差异：有/无）
-- Q5 须改 util 内部？是/否
+**Discovery**：D1 utils-book index + chatFile
 
-**用户确认（仅当 §1.5 适用）**
-- 差异点：…
-- 选项 A（reuse，与 `sym` 现状一致）：…（源码事实）
-- 选项 B（定制）：…
-- 用户选择：A | B
+**Local helpers**
+| 本地函数 | utils / 组件候选 | 对照结论 |
+| htmlToText | ai-promptInput；utils 无 HTML 层 | featureLocal + placement debt |
+| replaceMentionUrlInPrompt | ai-videoUpload 同 regex | featureLocal + placement debt → newUtil 候选 |
 
-**Verdict（最终）**：reuse(`sym`) | newUtil(`…`) | featureLocal
+**Confirm — fileToBase64**
+- Q1 … Q4 … Q5 否
+**Confirm — htmlToText**
+- Q1 … Q4 无可 import reuse 对象 … Q5 否
+
+**Verdict（最终）**：reuse(`fileToBase64`)；featureLocal(`htmlToText`) + placement debt(…)
 ```
 
 ---
 
-## 4. 最终 Verdict 三选一
+## 4. 最终 Verdict（五类）
 
 | Verdict | 条件 | 动作 |
 |---------|------|------|
-| **reuse** | 五问通过 + Q5=否（含用户选 A） | `import` |
-| **newUtil** | A/B；或无 export 要共享 | 新符号 + `pnpm gen:utils-book` |
-| **featureLocal** | A 且仅本页；或用户选 B 且仅本页 | 不写/不改公共 utils |
+| **reuse(sym)** | Q1–Q4 通过 + Q5=否（含用户选 A） | `import` |
+| **partialReuse(sym) + featureLocal(wrapper)** | util 覆盖核心；页面包装类型/消息/字段 | util + 薄包装 |
+| **newUtil(name)** | A/B；或无 export 要共享 | 新符号 + **`/** */`** + `pnpm gen:utils-book` |
+| **featureLocal(reason)** | A 且仅本页；或强绑 UI/state | 不写 utils |
+| **featureLocal + placement debt** | 组件内逻辑跨 feature 复制 | debt 行写收敛候选；本次可仍 featureLocal |
 
 ---
 
@@ -153,6 +255,14 @@
 | 同名相近但实现要不同输入 | Q1/Q4 硬失败 | 禁止误 **reuse** |
 | 无合适 export、需跨处共享 | — | **newUtil** |
 | 逻辑可 reuse、仅展示层用词不同且需求未写明 | Q1–Q4 过；§1.5 | **问用户** 后 reuse 或 featureLocal/newUtil |
+| `readFileAsDataUrl` vs `fileToBase64` | Q4 等价 | **reuse** |
+| `dataUrlToRefItem` vs `dataUrlToImageFile` | util 做 dataURL→File | **部分 reuse** + featureLocal 包装 |
+| `validateFile` vs `validateFileType+Size` | 10MB/文案/扩展名兜底 | **featureLocal 薄包装** 或 reuse+§1.5；禁止整段重写 |
+| `textToHtml`「参考图N」vs `convertAllTagsToHtml`「图片N」 | 展示层 | **§1.5 问用户** 或 **newUtil(imageNamer)**；禁止 silent regex fork |
+| 从 `ai-promptInput` 抄 `htmlToText` 等 | utils 无 export | **featureLocal** + Discovery + **placement debt** |
+| `replaceMentionUrlInPrompt` / `removeMentionsForRefUrl` | ai-videoUpload 同模式；utils 无 export | **featureLocal + placement debt → newUtil** |
+| `checkMention` / cursor DOM 编排 | ai-promptInput 未 export | **featureLocal + placement debt → composable** |
+| `textToHtml` / `buildMentionContext` | PromptUtils 薄映射 | **featureLocal 胶水** 或 reuse 包装 |
 
 ---
 
@@ -161,20 +271,34 @@
 | 反模式 | 正确做法 |
 |--------|----------|
 | feature 重复实现 utils 已有语义的纯函数 | **reuse** 或 **newUtil**（无 export） |
+| 未 Discovery 就写 util 语义本地 helper | 先 D1/D2 + Local helpers 表 |
+| 同文件 sibling export 已存在却整段重写 | Grep 同 util 文件 + reuse 或薄包装 |
+| 从组件抄纯函数未 Grep utils | D1/D2；标注 placement debt |
 | 仅读摘要就 reject/reuse | Read 源码 + 五问 |
 | 以展示层/子集/类体积/瘦组件 alone 否决 reuse | 五问；或 **问用户** |
 | 展示层差异时静默 fork | **reuse** 或 **§1.5 问用户** |
 | 必须改 util 内部才能用 | **newUtil**，No extend |
 | 写 `.utils-discovery-cache.json` 等 cache 文件 | **对话**输出 D/C/V；软门禁无 cache 环节 |
+| newUtil 但 export 无 `/** */` 或 utils-book 未 regen | 补 JSDoc + `pnpm gen:utils-book` |
+| 空泛「Q1–Q5 通过」无分项 | 每个符号分项 Q1–Q4 + Q5 |
+| 跨 feature 复制未写 placement debt | Message A debt 行 + 收敛候选 |
+| 文件已有 helper 未重 Confirm | Local helpers 表含保留行 + 五问 |
 
 ---
 
 ## 7. 验收 prompt（人工 / Agent 冒烟）
 
-1. 时间类 util → 书面五问 → **reuse**
+1. 时间类 util → 分项五问 → **reuse**
 2. validate 入参不符 → **featureLocal**
 3. 无 export、需共享 → **newUtil** + regen
 4. 摘要像、实现要不同 IO → 禁止误 **reuse**
-5. 改 utils 前无 Identify+实质五问 → Hook 提醒
+5. 改 utils 前无 Identify+分项五问 → Hook deny（v0.2.1）
 6. 任意新需求：**不得**从规范抄 Verdict；展示层未写明时须 **问用户** 或 reuse
 7. Agent 不得 Write gate cache JSON 文件
+8. 实现 `@`/upload：Message A 含 Discovery + Local helpers + 同文件 sibling
+9. 无 Discovery 直接 Write 新 `function readFileAsDataUrl` → Hook deny（v0.2.0）
+10. Read index 后再 Write 本地 helper → 仍须 Message A（分项五问 + Local helpers 表 + Verdict）
+11. 空泛 `Q1-Q5 通过` 无 Q1–Q4 分项 → Hook deny Verdict
+12. Discovery OK 但 Message A 无 Local helpers 表 → Hook deny（新增 helper）
+13. `htmlToText` 从 ai-promptInput 复制 → Verdict 含 **placement debt**
+14. `dataUrlToRefItem` → **partialReuse** + featureLocal 包装，非整段重写

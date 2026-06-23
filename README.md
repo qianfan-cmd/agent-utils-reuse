@@ -97,8 +97,25 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/code-before-edit.mdc` | Source globs — Confirm before Write |
 | `.cursor/rules/project-agent-gate.mdc` | **alwaysApply checklist** — any project |
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
+| `.cursor/rules/pre-write-utils-checklist.mdc` | Message A/B HARD STOP before Write (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
+
+### Upgrade v0.3.2 → v0.3.3
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Gate hardening (all init projects, not ai-web-specific):**
+
+- **Hook fail-closed** — `hookMode: confirm` errors deny Write (no silent allow)
+- **Session Read → Write** — after Read under `utilsDir`, Write under `remindWritePaths` without prior assistant `Verdict（最终）` → deny (even if patch has no `@/utils` import)
+- **`pre-write-utils-checklist.mdc`** — alwaysApply Message A/B reminder
+- **Catalog docs** — two task types (index maintenance vs business Write); BACKFILL does not replace five-question gate
+
+**Maintainers**: push git tags (`git tag v0.3.3 && git push origin v0.3.3`) so GitHub installs resolve versions.
 
 ### Upgrade v0.3.1 → v0.3.2
 

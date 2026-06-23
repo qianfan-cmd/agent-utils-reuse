@@ -1,0 +1,20 @@
+---
+description: HARD STOP before Write under feature paths — Confirm + Verdict in prior message (Message A/B)
+alwaysApply: true
+---
+
+# Pre-Write utils checklist (mandatory)
+
+When you are about to **Write / StrReplace / EditNotebook** under **`remindWritePaths`** (default `src/feature`, `src/components`, `src/hooks`, `src/views`) or **`utilsDir`**, and the change **imports or calls `@/utils`** (or adds util-semantics local helpers):
+
+## HARD STOP — Read / search / gen index ≠ gate complete
+
+**Do not call Write tools in this turn** unless **all** are true from a **prior assistant message** (Message A):
+
+1. **Individual Q1, Q2, Q3, Q4** (and Q5) per util / Local helpers row — **not** `Q1-Q5 通过`
+2. **`Verdict（最终）`** with reuse / newUtil / featureLocal / partialReuse
+3. That Message A had **no** Write / StrReplace / EditNotebook tools
+
+If any is false → **output Message A only** (Discovery when triggered + Local helpers table + Confirm + Verdict), **stop**, wait for user/next turn for Message B.
+
+Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6. Hook (`hookMode: confirm`) will **deny** Write if you skip this.

@@ -2,6 +2,7 @@
 import {
   isUnderUtils,
   loadHookConfig,
+  logHookError,
   normalizeAuditPath,
   recordRead,
   resetSessionAudits
@@ -27,9 +28,12 @@ function extractReadPath(input) {
 }
 
 async function main() {
+  const cwd = process.cwd()
+  const config = loadHookConfig(cwd)
+
   try {
     if (process.argv.includes('--reset')) {
-      resetSessionAudits(process.cwd())
+      resetSessionAudits(cwd)
       process.stdout.write(JSON.stringify({ ok: true }))
       return
     }
@@ -47,15 +51,19 @@ async function main() {
       return
     }
 
-    const config = loadHookConfig(process.cwd())
     const normalized = normalizeAuditPath(filePath)
     if (isUnderUtils(normalized, config.utilsDir)) {
-      recordRead(normalized, process.cwd())
+      recordRead(normalized, cwd)
     }
 
     process.stdout.write(JSON.stringify({ ok: true, recorded: normalized }))
-  } catch {
-    process.stdout.write(JSON.stringify({ ok: true }))
+  } catch (err) {
+    logHookError(cwd, 'track-utils-reads', err)
+    if (config.hookMode === 'confirm') {
+      process.stdout.write(JSON.stringify({ ok: false, error: String(err?.message || err) }))
+    } else {
+      process.stdout.write(JSON.stringify({ ok: true }))
+    }
   }
 }
 

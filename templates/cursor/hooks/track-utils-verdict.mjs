@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { recordVerdict, resetVerdictAudit } from './read-audit-lib.mjs'
+import { loadHookConfig, logHookError, recordVerdict, resetVerdictAudit } from './read-audit-lib.mjs'
 
 async function readStdin() {
   const chunks = []
@@ -15,9 +15,12 @@ function extractAssistantText(input) {
 }
 
 async function main() {
+  const cwd = process.cwd()
+  const config = loadHookConfig(cwd)
+
   try {
     if (process.argv.includes('--reset')) {
-      resetVerdictAudit(process.cwd())
+      resetVerdictAudit(cwd)
       process.stdout.write(JSON.stringify({ ok: true }))
       return
     }
@@ -30,11 +33,16 @@ async function main() {
 
     const input = JSON.parse(raw)
     const text = extractAssistantText(input)
-    const recorded = recordVerdict(text, process.cwd())
+    const recorded = recordVerdict(text, cwd)
 
     process.stdout.write(JSON.stringify({ ok: true, recorded }))
-  } catch {
-    process.stdout.write(JSON.stringify({ ok: true }))
+  } catch (err) {
+    logHookError(cwd, 'track-utils-verdict', err)
+    if (config.hookMode === 'confirm') {
+      process.stdout.write(JSON.stringify({ ok: false, error: String(err?.message || err) }))
+    } else {
+      process.stdout.write(JSON.stringify({ ok: true }))
+    }
   }
 }
 

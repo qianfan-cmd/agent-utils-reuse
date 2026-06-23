@@ -6,6 +6,7 @@ export const CONFIG_FILENAME = '.utils-bookrc.json'
 export const AUDIT_FILENAME = '.utils-gate-reads.json'
 export const VERDICT_AUDIT_FILENAME = '.utils-gate-verdict.json'
 export const DISCOVERY_AUDIT_FILENAME = '.utils-gate-discovery.json'
+export const HOOK_ERROR_LOG = '.utils-gate-hook-error.log'
 
 const DEFAULT_UTILS_DIR = 'src/utils'
 const DEFAULT_UTILS_BOOK_DIR = 'docs/agent-catalog/utils-book'
@@ -71,6 +72,26 @@ export function saveAudit(data, cwd = process.cwd()) {
 
 export function resetAudit(cwd = process.cwd()) {
   saveAudit({ reads: [] }, cwd)
+}
+
+export function logHookError(cwd, context, err) {
+  try {
+    const filePath = path.join(cwd, '.cursor', HOOK_ERROR_LOG)
+    const msg = err instanceof Error ? err.message : String(err ?? 'unknown')
+    const line = `[${new Date().toISOString()}] ${context}: ${msg}\n`
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.appendFileSync(filePath, line)
+  } catch {
+    /* ignore log failures */
+  }
+}
+
+export function sessionHasUtilReads(cwd = process.cwd()) {
+  return loadAudit(cwd).reads.length > 0
+}
+
+export function hookErrorDenyMessage() {
+  return 'Gate hook error — fix .cursor/hooks or re-run pnpm update:utils-reuse. Write blocked (fail-closed).'
 }
 
 export function verdictAuditPath(cwd = process.cwd()) {

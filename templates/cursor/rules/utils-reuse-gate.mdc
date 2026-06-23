@@ -13,7 +13,7 @@ alwaysApply: true
 
 - **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Message A.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- Hook (v0.2.1) denies Write when Verdict lacks分项 Q1–Q4 or when adding local helpers without a **Local helpers** table in Message A.
+- Hook (v0.3.3) **fail-closed**: session Read util + Write under `remindWritePaths` without prior Verdict → deny; hook errors deny (not silent allow). Also denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without a **Local helpers** table in Message A.
 
 **Two-phase workflow (confirm Hook enforces):**
 
@@ -98,20 +98,22 @@ export function formatDateLocal(iso: string): string { ... }
 - **`Verdict（最终）`** must appear in a **prior assistant message** before the first business Write / StrReplace (same task).
 - **No** Write/StrReplace until a previous message includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `confirm`, v0.2.1)
+## Hook (default `confirm`, v0.3.3)
 
-Default `hookMode` is **`confirm`**: **deny** Write until:
+Default `hookMode` is **`confirm`**: **deny** Write until prior-chat **`Verdict（最终）`** with **individual Q1–Q4** (`afterAgentResponse` hook). **v0.3.3**: if this session **Read** any file under `utilsDir`, and you Write under `remindWritePaths`, Verdict is required even when the patch has **no** `@/utils` import. Hook errors **fail-closed** (no silent allow). See also `pre-write-utils-checklist.mdc`.
 
 **When `@/utils` in target (merged disk + patch):**
 
 1. Util **files** Read this session
-2. Prior-chat **`Verdict（最终）`** with **individual Q1–Q4** (`afterAgentResponse` hook)
+2. Prior-chat **`Verdict（最终）`** with **individual Q1–Q4**
 
 **When patch adds new local function/helper under `remindWritePaths`:**
 
 1. Discovery this session (`agent-utils-reuse search` or Grep `utils-index.json` or Grep/SemanticSearch `utilsDir`)
 2. Prior-chat Verdict with **individual Q1–Q4**
 3. **Local helpers** table in that Verdict message
+
+**Read util / search / gen index do NOT complete the gate** — Message A (Confirm + Verdict, no Write tools) then Message B.
 
 Heuristic detection — still require accurate Q4 equivalence and placement debt content per Rules; see `placement-decision.md` §7.
 

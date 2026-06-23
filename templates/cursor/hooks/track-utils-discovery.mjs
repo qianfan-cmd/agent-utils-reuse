@@ -2,6 +2,7 @@
 import {
   extractShellCommand,
   loadHookConfig,
+  logHookError,
   recordDiscovery,
   shellCommandIsUtilsSearch,
   toolInputTargetsUtilsDir,
@@ -27,6 +28,9 @@ function extractToolInput(input) {
 }
 
 async function main() {
+  const cwd = process.cwd()
+  const config = loadHookConfig(cwd)
+
   try {
     const raw = await readStdin()
     if (!raw.trim()) {
@@ -36,8 +40,6 @@ async function main() {
 
     const input = JSON.parse(raw)
     const toolInput = extractToolInput(input)
-    const config = loadHookConfig(process.cwd())
-    const cwd = process.cwd()
 
     const shellCmd = extractShellCommand(toolInput)
     if (shellCommandIsUtilsSearch(shellCmd)) {
@@ -49,8 +51,13 @@ async function main() {
     }
 
     process.stdout.write(JSON.stringify({ ok: true }))
-  } catch {
-    process.stdout.write(JSON.stringify({ ok: true }))
+  } catch (err) {
+    logHookError(cwd, 'track-utils-discovery', err)
+    if (config.hookMode === 'confirm') {
+      process.stdout.write(JSON.stringify({ ok: false, error: String(err?.message || err) }))
+    } else {
+      process.stdout.write(JSON.stringify({ ok: true }))
+    }
   }
 }
 
