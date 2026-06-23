@@ -68,6 +68,7 @@ When you **add or materially change** an export under utilsDir (default `src/uti
 
 - **`/** ... */` block comment immediately above** each export (generator does not use `//`).
 - Prefer **`@utils-book 一句话功能描述`** — behavior only, not reuse Verdict.
+- **KV search** uses these summaries in `utils-index.json`. Without them, D1 search has too little data — not a gate bug. Backfill existing exports: `docs/agent-catalog/BACKFILL-UTILS-BOOK.en.md` | `BACKFILL-UTILS-BOOK.zh.md`.
 - After **newUtil** / new exports: **`pnpm gen:utils-book`**.
 
 ```ts

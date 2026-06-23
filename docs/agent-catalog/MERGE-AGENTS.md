@@ -32,4 +32,9 @@ Monorepo 请在**放 `src/utils` 的子包根**执行 `init`（例如 `frontend/
 pnpm gen:utils-book
 ```
 
-可选 CI：`pnpm check:utils-book`（需先把 `utils-book` 纳入 git 跟踪并 commit）。
+**已有 utils 但缺 `@utils-book`？** 用 Agent 批量补注释（补完再 `gen`）：
+
+- [BACKFILL-UTILS-BOOK.zh.md](./BACKFILL-UTILS-BOOK.zh.md)（中文提示词）
+- [BACKFILL-UTILS-BOOK.en.md](./BACKFILL-UTILS-BOOK.en.md)（English prompt）
+
+可选 CI：`pnpm check:utils-book`（需先把 utils-book / utils-index 纳入 git 跟踪并 commit）。

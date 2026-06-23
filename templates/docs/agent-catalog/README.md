@@ -13,6 +13,8 @@
 | [`utils-book/{章}.md`](utils-book/) | **脚本生成** | **人类只读** — 章内符号表 |
 | [`placement-decision.md`](placement-decision.md) | **手写** | 可复用证明（五问）、问用户、范式示例 |
 | [`MERGE-AGENTS.md`](MERGE-AGENTS.md) | **手写** | `init` 如何自动处理 `AGENTS.md` |
+| [`BACKFILL-UTILS-BOOK.zh.md`](BACKFILL-UTILS-BOOK.zh.md) | **手写** | 补全 `@utils-book` — 中文 Agent 提示词 |
+| [`BACKFILL-UTILS-BOOK.en.md`](BACKFILL-UTILS-BOOK.en.md) | **手写** | Backfill `@utils-book` — English Agent prompt |
 | [`skills.md`](skills.md) | **脚本生成** | 项目 Agent Skills 索引 |
 
 ## 工作流
@@ -36,6 +38,13 @@ pnpm check:utils-book        # 可选 CI 门禁
 
 ## 提高摘要质量（新建 export 必填）
 
+**KV search 依赖 `@utils-book` 摘要**。无有效摘要时，index 中为 `(无简介 — Confirm 前须 Read 实现)`，中文/语义 Shortlist 会明显变弱 — 这是**索引信息不足**，不是门禁缺陷。
+
+**已有大量历史 utils、未写注释？** 使用补全指南（含可复制 Agent 提示词）：
+
+- 中文：[BACKFILL-UTILS-BOOK.zh.md](./BACKFILL-UTILS-BOOK.zh.md)
+- English: [BACKFILL-UTILS-BOOK.en.md](./BACKFILL-UTILS-BOOK.en.md)
+
 在 **`src/utils/`**（或 `.utils-bookrc.json` 中的 `utilsDir`）里，**每个 export 上方必须有**块注释 `/** ... */`（紧贴 export，中间仅空行）。**推荐**：
 
 ```ts
@@ -47,4 +56,4 @@ export function myUtil(...) { ... }
 - 不用单行 `//` 代替（生成器不读）。
 - **newUtil** 或新增 export 后执行 **`pnpm gen:utils-book`**。
 
-无摘要时 index 中 summary 为 `(无简介 — Confirm 前须 Read 实现)`，search 质量下降。
+无摘要时 index 中 summary 为 `(无简介 — Confirm 前须 Read 实现)`，search 质量下降 — 见 [BACKFILL-UTILS-BOOK.zh.md](./BACKFILL-UTILS-BOOK.zh.md) / [BACKFILL-UTILS-BOOK.en.md](./BACKFILL-UTILS-BOOK.en.md)。

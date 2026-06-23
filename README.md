@@ -52,6 +52,11 @@ node node_modules/agent-utils-reuse/bin/cli.mjs init --force
 pnpm gen:utils-book
 # Agent Discovery D1 (from project root):
 node node_modules/agent-utils-reuse/bin/cli.mjs search "数组 排序" --limit 8
+
+# 3. Existing utils missing @utils-book? Backfill JSDoc (Agent prompt in catalog docs):
+#    docs/agent-catalog/BACKFILL-UTILS-BOOK.en.md  (English)
+#    docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md  (中文)
+#    Then run pnpm gen:utils-book again.
 ```
 
 If `pnpm agent-utils-reuse` is not on PATH (Windows `.bin` issues), always use:
@@ -91,6 +96,15 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
+
+### Upgrade v0.3.0 → v0.3.1
+
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.3.1
+pnpm update:utils-reuse
+```
+
+**Docs only**: bilingual backfill guides `docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md` and `.en.md` — copy-paste Agent prompts to add missing `@utils-book` JSDoc on existing exports, then `pnpm gen:utils-book`. No Hook/search algorithm changes.
 
 ### Upgrade v0.2.1 → v0.3.0
 
