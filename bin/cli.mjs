@@ -10,9 +10,11 @@ import { printInitSummary, runInit } from '../lib/init.mjs'
 import {
   printStatusSummary,
   printUpdateSummary,
+  printUpgradeSummary,
   printVerifySummary,
   runStatus,
   runUpdate,
+  runUpgrade,
   runVerify
 } from '../lib/update.mjs'
 
@@ -90,6 +92,7 @@ function printHelp() {
 
 Usage:
   agent-utils-reuse init [--yes] [--force] [--accept-upstream] [--with-examples]
+  agent-utils-reuse upgrade [--yes] [--dry-run] [--tag <ref>] [--accept-upstream]
   agent-utils-reuse update [--yes] [--dry-run] [--bump] [--tag <ref>] [--accept-upstream]
   agent-utils-reuse status
   agent-utils-reuse verify
@@ -98,8 +101,9 @@ Usage:
   agent-utils-reuse check
 
 Commands:
-  init    First-time install — templates, AGENTS.md merge, .utils-bookrc.json, hooks
-  update  Reinstall gate files from node_modules or file: link (no lockfile churn by default)
+  init     First-time install — templates, AGENTS.md merge, .utils-bookrc.json, hooks
+  upgrade  Recommended — resolve latest version, pnpm add, then sync gate files
+  update   Reinstall gate files only (no lockfile churn; use for file: local dev)
   status  Version drift, gate verify, deprecated files, merge conflicts
   verify  Check overwrite-tier gate files match templates
   gen     Scan utilsDir and generate utils-book + utils-index.json
@@ -169,6 +173,21 @@ async function main() {
       forceDocs
     })
     printUpdateSummary(result)
+    if (result.exitCode) {
+      process.exit(result.exitCode)
+    }
+    return
+  }
+
+  if (command === 'upgrade') {
+    const result = runUpgrade(cwd, {
+      yes,
+      tag,
+      dryRun,
+      acceptUpstream,
+      forceDocs
+    })
+    printUpgradeSummary(result)
     if (result.exitCode) {
       process.exit(result.exitCode)
     }

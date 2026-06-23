@@ -52,6 +52,11 @@ function setupTempProject() {
   if (init.status !== 0) {
     throw new Error(`init failed: ${init.stderr}`)
   }
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
+  assert.equal(pkg.scripts['upgrade:utils-reuse'], 'agent-utils-reuse upgrade --yes')
+  assert.equal(pkg.scripts['update:utils-reuse'], 'agent-utils-reuse update --yes')
+
   return dir
 }
 
@@ -91,6 +96,11 @@ try {
   const dryRun = runCli(['update', '--yes', '--dry-run'], projectRoot)
   assert.equal(dryRun.status, 0, dryRun.stderr)
   assert.match(dryRun.stdout, /dry-run/)
+
+  const upgradeDryRun = runCli(['upgrade', '--yes', '--dry-run'], projectRoot)
+  assert.equal(upgradeDryRun.status, 0, upgradeDryRun.stderr)
+  assert.match(upgradeDryRun.stdout, /upgrade \(dry-run\)/)
+  assert.match(upgradeDryRun.stdout, /add -D file:/)
 
   const conflictUpdate = runCli(['update', '--yes'], projectRoot)
   assert.equal(conflictUpdate.status, 1, 'expected exit 1 on conflict')

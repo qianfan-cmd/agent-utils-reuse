@@ -32,6 +32,8 @@ Monorepo 请在**放 `src/utils` 的子包根**执行 `init`（例如 `frontend/
 pnpm gen:utils-book
 ```
 
+**Upgrade to latest package + gate:** `pnpm upgrade:utils-reuse`
+
 **已有 utils 但缺 `@utils-book`？** 用 Agent 批量补注释（补完再 `gen`）：
 
 - [BACKFILL-UTILS-BOOK.zh.md](./BACKFILL-UTILS-BOOK.zh.md)（中文提示词）

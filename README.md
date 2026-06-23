@@ -16,7 +16,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: *
 
 | Layer | Role |
 |-------|------|
-| **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`update:utils-reuse`** |
+| **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`upgrade:utils-reuse`** or **`update:utils-reuse`** |
 | **Hook (default confirm)** | **Deny Write** until util files Read **and** prior-chat Verdict with **individual Q1–Q4** (when `@/utils` in target); **deny new local helpers** without Discovery **and** Local helpers table **and** substantive Verdict |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
@@ -57,6 +57,9 @@ node node_modules/agent-utils-reuse/bin/cli.mjs search "数组 排序" --limit 8
 #    docs/agent-catalog/BACKFILL-UTILS-BOOK.en.md  (English)
 #    docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md  (中文)
 #    Then run pnpm gen:utils-book again.
+
+# 4. Later — upgrade to latest package + gate (one command):
+pnpm upgrade:utils-reuse
 ```
 
 If `pnpm agent-utils-reuse` is not on PATH (Windows `.bin` issues), always use:
@@ -97,11 +100,20 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | confirm + Verdict Hook; refreshed every init |
 
+### Upgrade v0.3.1 → v0.3.2
+
+```bash
+pnpm upgrade:utils-reuse
+```
+
+**New**: `upgrade:utils-reuse` — resolves latest GitHub semver tag (or npm `@latest`), runs `pnpm add`, then syncs gate. `update:utils-reuse` remains gate-only (for `file:` local dev).
+
+**Maintainers**: push git tags (`git tag v0.3.2 && git push origin v0.3.2`) so GitHub installs resolve versions.
+
 ### Upgrade v0.3.0 → v0.3.1
 
 ```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.3.1
-pnpm update:utils-reuse
+pnpm upgrade:utils-reuse
 ```
 
 **Docs only**: bilingual backfill guides `docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md` and `.en.md` — copy-paste Agent prompts to add missing `@utils-book` JSDoc on existing exports, then `pnpm gen:utils-book`. No Hook/search algorithm changes.
@@ -109,8 +121,7 @@ pnpm update:utils-reuse
 ### Upgrade v0.2.1 → v0.3.0
 
 ```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.3.0
-pnpm update:utils-reuse
+pnpm upgrade:utils-reuse
 pnpm gen:utils-book
 pnpm test:hooks
 pnpm test:hook-discovery
@@ -123,8 +134,7 @@ pnpm test:verdict-substance
 ### Upgrade v0.2.0 → v0.2.1
 
 ```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.2.1
-pnpm update:utils-reuse
+pnpm upgrade:utils-reuse
 pnpm test:hooks
 pnpm test:hook-discovery
 pnpm test:verdict-substance
@@ -135,8 +145,7 @@ pnpm test:verdict-substance
 ### Upgrade v0.1.9 → v0.2.0
 
 ```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.2.0
-pnpm update:utils-reuse
+pnpm upgrade:utils-reuse
 pnpm test:hooks
 pnpm test:hook-discovery
 ```
@@ -146,8 +155,7 @@ pnpm test:hook-discovery
 ### Upgrade v0.1.8 → v0.1.9
 
 ```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.1.9
-pnpm update:utils-reuse
+pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
@@ -155,18 +163,26 @@ pnpm test:hooks
 
 ### Upgrade / update (general)
 
-**Two steps** — upgrade the npm package separately from reinstalling gate files (`update` does **not** run `pnpm add` or touch other dependencies):
+**Recommended — one command** (latest package + gate sync):
 
 ```bash
-# 1. Upgrade devDependency only (when you want a new published version in node_modules)
-pnpm add -D github:qianfan-cmd/agent-utils-reuse#v0.2.0
-# or local dev: pnpm add -D file:../agent-utils-reuse
+pnpm upgrade:utils-reuse
+```
 
-# 2. One-command full gate sync (overwrite tier + verify)
+Resolves the newest GitHub semver tag (for `github:owner/repo#…`), npm `@latest`, or reinstalls a `file:` link, then syncs Rules/Hooks/Docs.
+
+**Gate-only** (no lockfile / no `pnpm add` — use when developing the package via `file:`):
+
+```bash
 pnpm update:utils-reuse
 ```
 
 **`file:` local dev**: if your linked package is **newer** than `node_modules`, `update` syncs templates from the **link** without re-running `pnpm add`. Run `agent-utils-reuse status` or `verify` to check drift.
+
+What **`upgrade`** does:
+
+1. Resolve latest version spec → `pnpm add -D …`
+2. Everything **`update`** does below
 
 What **`update`** (gate reinstall) does:
 
@@ -176,15 +192,16 @@ What **`update`** (gate reinstall) does:
 4. Write `installedPackageVersion`, `gateFileHashes`, `gateOverwriteHashes`
 5. Merge-tier docs (`placement-decision.md`, …) still use hash conflict sidecars
 
-What it **does not** do: `pnpm add` (unless `--bump`), lockfile changes, or modifying `src/**` / `utils-book/`.
+What it **does not** do (`update` alone): `pnpm add`, lockfile changes, or modifying `src/**` / `utils-book/`.
 
-| Flag | Action |
-|------|--------|
-| *(default)* | Reinstall + verify gate from node_modules or newer `file:` link |
-| `--bump` | Also run `pnpm add -D` first (optional) |
-| `--tag v0.2.0` | Pin version when using `--bump` |
-| `--dry-run` | Report drift + planned reinstall without writing |
-| `--accept-upstream` | Take package version for mergeable docs (like `git checkout --theirs`) |
+| Command / flag | Action |
+|----------------|--------|
+| `pnpm upgrade:utils-reuse` | **Recommended** — latest package + reinstall + verify gate |
+| `pnpm update:utils-reuse` | Gate-only sync from node_modules or newer `file:` link |
+| `… upgrade --tag v0.3.2` | Pin version instead of auto-latest |
+| `… upgrade --dry-run` | Show resolved spec + planned gate reinstall |
+| `… update --bump` | Legacy: bump using existing dep channel (not auto-latest) |
+| `--accept-upstream` | Take package docs; discard local doc customizations |
 | `--force-docs` | Alias for `--accept-upstream` |
 
 Diagnose:
@@ -235,8 +252,10 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 
 | Command | Action |
 |---------|--------|
-| `pnpm update:utils-reuse` | **Reinstall + verify** gate from templates (no pnpm add) |
-| `… update --yes --bump` | Optional: bump package then reinstall gate |
+| `pnpm upgrade:utils-reuse` | **Recommended** — latest package + reinstall + verify gate |
+| `pnpm update:utils-reuse` | Gate-only sync (no `pnpm add`; `file:` local dev) |
+| `… upgrade --tag v0.3.2` | Pin version on upgrade |
+| `… upgrade --dry-run` | Preview resolved spec + gate reinstall |
 | `… update --accept-upstream` | Take package docs; discard local doc customizations |
 | `… status` | Version drift, **gate verify**, deprecated files, merge conflicts |
 | `… verify` | Detailed overwrite-tier gate file check (exit 1 on drift) |
