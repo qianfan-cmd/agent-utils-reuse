@@ -1,0 +1,582 @@
+{
+  "entries": [
+    {
+      "path": "lib/init.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-24T07:49:52.537Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/load-config.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:42:35.646Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/pre-write-verdict-gate.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:42:35.676Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/build-hooks-json.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:42:36.090Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/sync-package-files.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:42:39.854Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:42:55.414Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:42:59.547Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:08.691Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:12.903Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:32.432Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:38.620Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:41.412Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:45.041Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/read-audit-lib.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:43:49.605Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/track-utils-reads.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:44:12.495Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/track-utils-discovery.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:44:15.216Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/hooks/audit-write-utils-reads.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:44:15.944Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/gate-report.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:44:46.258Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/gate-report.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:44:58.868Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "bin/cli.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:01.585Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/gate-report.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:03.891Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "bin/cli.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:06.436Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "bin/cli.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:08.530Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "bin/cli.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:26.559Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/load-config.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:29.244Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/load-config.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:31.127Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/load-config.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:32.638Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/docs/agent-catalog/placement-decision.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:45:58.611Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/docs/agent-catalog/placement-decision.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:00.848Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/rules/utils-reuse-gate.mdc",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:05.618Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "lib/init.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:23.416Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "package.json",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:23.421Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/rules/workspace-agent-gate.mdc",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:23.466Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/rules/workspace-agent-gate.mdc",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:25.320Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "package.json",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:27.603Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/rules/workspace-agent-gate.mdc",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:27.605Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/cursor/rules/workspace-agent-gate.mdc",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:48.972Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "README.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:49.248Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "AGENTS.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:49.959Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "README.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:54.095Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "README.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:46:56.769Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:47:28.233Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:47:29.802Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:47:31.331Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:47:36.396Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:48:26.389Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:48:28.954Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:48:31.541Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "scripts/test-gate-report.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:48:34.672Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "scripts/test-hook-mode-off.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:48:34.836Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "scripts/test-hook-audit.mjs",
+      "requiredPaths": [
+        "src/utils/foo.ts"
+      ],
+      "requiredSymbols": [
+        "uploadSingleFile"
+      ],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:48:35.899Z",
+      "missingReads": [
+        "src/utils/foo.ts"
+      ],
+      "shellBypassSuspected": true
+    },
+    {
+      "path": "templates/cursor/hooks/pre-write-verdict-gate.mjs",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:50:19.097Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    },
+    {
+      "path": "templates/snippets/AGENTS.utils-reuse.md",
+      "requiredPaths": [],
+      "requiredSymbols": [],
+      "staleSymbols": [],
+      "competingSymbols": [],
+      "at": "2026-06-25T13:50:20.241Z",
+      "missingReads": [],
+      "shellBypassSuspected": false
+    }
+  ]
+}
