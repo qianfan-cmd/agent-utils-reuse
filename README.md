@@ -101,6 +101,27 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.8 → v0.3.9
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+pnpm test:verdict-substance
+```
+
+**Compact auditable Confirm (v0.3.9):**
+
+- **Bulk compact (≥3 symbols)** — default 4-column table: `| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |`; Q1–Q3 compressed into one Q4 line (not an exemption from five questions)
+- **Hook fixes**: `confirmText` full storage (8k cap) for sibling/bulk validation; Q4 column parsed from header (not hardcoded offset); sibling check uses union of Verdict reuse symbols + patch imports
+- **`getBulkRowViolations`**: deny when reuse row has empty Read / Q4 or Read not in session (`bulk_row_invalid`, `bulk_read_not_in_session`)
+- **`noUtil(sym)`** Verdict — D1 zero-candidate keywords; **#28**: separate row from D2 reuse (e.g. `noUtil(debounce)` + `reuse(filterEmptyParams)`)
+- **>5 reuse symbols**: allow + agent remind to split batches (≤5 per Confirm + Write)
+- **Legacy** 1–2 symbol prose Confirm and 7-column Bulk table still accepted
+
+**Deny debugging**: when Write denied, read `agent_message` JSON — `denyReason`, `siblingMissing`, `bulkViolations`, `missingReads`.
+
+**Maintainers**: push git tags (`git tag v0.3.9 && git push origin v0.3.9`).
+
 ### Upgrade v0.3.7 → v0.3.8
 
 ```bash

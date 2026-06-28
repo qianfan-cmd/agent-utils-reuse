@@ -1,6 +1,6 @@
 {
   "name": "agent-utils-reuse",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Agent utils reuse gate: utils-index KV search, five-question Confirm flow, Cursor templates",
   "type": "module",
   "license": "MIT",

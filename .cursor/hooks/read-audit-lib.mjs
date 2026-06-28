@@ -225,22 +225,24 @@ export function verdictAuditPath(cwd = process.cwd()) {
 export function loadVerdictAudit(cwd = process.cwd()) {
   const filePath = verdictAuditPath(cwd)
   if (!fs.existsSync(filePath)) {
-    return { recorded: false, hasLocalHelpersTable: false, symbols: [] }
+    return { recorded: false, hasLocalHelpersTable: false, symbols: [], confirmText: null, snippet: null }
   }
   try {
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    const confirmText = raw.confirmText ?? null
     const symbols = Array.isArray(raw.symbols)
       ? raw.symbols.map(String)
-      : extractVerdictSymbols(raw.snippet ?? '')
+      : extractVerdictSymbols(confirmText ?? raw.snippet ?? '')
     return {
       recorded: Boolean(raw.recorded),
       at: raw.at ?? null,
       snippet: raw.snippet ?? null,
+      confirmText,
       hasLocalHelpersTable: Boolean(raw.hasLocalHelpersTable),
       symbols
     }
   } catch {
-    return { recorded: false, hasLocalHelpersTable: false, symbols: [] }
+    return { recorded: false, hasLocalHelpersTable: false, symbols: [], confirmText: null, snippet: null }
   }
 }
 
@@ -251,14 +253,18 @@ export function saveVerdictAudit(data, cwd = process.cwd()) {
 }
 
 export function resetVerdictAudit(cwd = process.cwd()) {
-  saveVerdictAudit({ recorded: false, hasLocalHelpersTable: false, symbols: [] }, cwd)
+  saveVerdictAudit({ recorded: false, hasLocalHelpersTable: false, symbols: [], confirmText: null, snippet: null }, cwd)
 }
+
+const CONFIRM_TEXT_MAX = 8192
+const BULK_Q4_MIN_LEN = 8
 
 const VERDICT_SYMBOL_OUTCOME_RES = [
   /\breuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
   /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
   /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-  /\bfeatureLocal\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi
+  /\bfeatureLocal\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
+  /\bnoUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi
 ]
 
 /**
@@ -290,6 +296,34 @@ export function extractVerdictSymbols(text) {
   return [...symbols]
 }
 
+/** Symbols with reuse / partialReuse / newUtil outcomes (for sibling + stale checks). */
+export function extractReuseSymbols(text) {
+  if (!text || typeof text !== 'string') return []
+  const symbols = new Set()
+  for (const re of [
+    /\breuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
+    /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
+    /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi
+  ]) {
+    re.lastIndex = 0
+    let m
+    while ((m = re.exec(text)) !== null) {
+      if (m[1]) symbols.add(m[1])
+    }
+  }
+  return [...symbols]
+}
+
+export function getConfirmText(cwd = process.cwd(), eagerText = '') {
+  if (eagerText && String(eagerText).trim()) return String(eagerText)
+  const audit = loadVerdictAudit(cwd)
+  return audit.confirmText ?? audit.snippet ?? ''
+}
+
+export function countReuseSymbols(text) {
+  return extractReuseSymbols(text).length
+}
+
 export function getStaleVerdictSymbols(requiredSymbols, cwd = process.cwd()) {
   const audit = loadVerdictAudit(cwd)
   if (!audit.recorded || !audit.symbols?.length) return []
@@ -314,7 +348,8 @@ const VERDICT_OUTCOME_RES = [
   /\breuse\s*\(/i,
   /\bnewUtil\b/i,
   /\bfeatureLocal\b/i,
-  /\bpartialReuse\b/i
+  /\bpartialReuse\b/i,
+  /\bnoUtil\s*\(/i
 ]
 
 function hasIndividualQ(text, n) {
@@ -332,47 +367,113 @@ function splitTableRow(line) {
   return parts.filter((c) => c.length > 0)
 }
 
-/**
- * Bulk Confirm table: header with Q1–Q4 columns + data rows each containing Q1–Q4.
- */
-export function textHasBulkConfirmTable(text) {
-  if (!text || typeof text !== 'string') return false
-
+function parseBulkTable(text) {
+  if (!text || typeof text !== 'string') return null
   const tableLines = text
     .split('\n')
     .filter((line) => line.includes('|'))
     .filter((line) => !/^\s*\|[-:\s|]+\|\s*$/.test(line))
-
-  if (tableLines.length < 2) return false
+  if (tableLines.length < 2) return null
 
   const headerCells = splitTableRow(tableLines[0])
+  const colIndex = (pred) => headerCells.findIndex(pred)
+
+  const q4Col = colIndex((c) => /^Q4\b/i.test(c))
+  const readCol = colIndex((c) => /^Read\b/i.test(c) || /Read\s*@/i.test(c))
+  const candidateCol = colIndex((c) => /^候选$/i.test(c) || /^Candidate$/i.test(c))
+  const effectiveReadCol = readCol >= 0 ? readCol : candidateCol
+  const verdictCol = colIndex((c) => /^Verdict$/i.test(c))
+  const symbolCol = colIndex((c) => /^(Symbol|Util|本地函数|Helper|helper|函数)$/i.test(c))
   const headerHasQCols = [1, 2, 3, 4].every((n) =>
     headerCells.some((c) => new RegExp(`^Q${n}$`, 'i').test(c))
   )
 
+  const isCompact = q4Col >= 0 && (effectiveReadCol >= 0 || symbolCol >= 0)
+  const explicitReadCol = readCol >= 0
+  const isLegacyQ = headerHasQCols
+
+  if (!isCompact && !isLegacyQ) return null
+
   const dataRows = tableLines.slice(1).filter((line) => {
-    const firstCell = splitTableRow(line)[0] ?? ''
-    return !/^Gate N\/A/i.test(firstCell)
+    const first = splitTableRow(line)[0] ?? ''
+    return !/^Gate N\/A/i.test(first)
   })
 
-  if (dataRows.length === 0) return false
-
-  if (headerHasQCols) {
-    const qIndices = [1, 2, 3, 4].map((n) =>
-      headerCells.findIndex((c) => new RegExp(`^Q${n}$`, 'i').test(c))
-    )
-    return dataRows.every((line) => {
-      const cells = splitTableRow(line)
-      return qIndices.every((i) => i >= 0 && cells[i] && cells[i] !== '—' && cells[i] !== '-')
-    })
+  return {
+    headerCells,
+    dataRows,
+    q4Col,
+    readCol: effectiveReadCol,
+    explicitReadCol,
+    verdictCol,
+    symbolCol,
+    headerHasQCols,
+    qIndices: isLegacyQ
+      ? [1, 2, 3, 4].map((n) => headerCells.findIndex((c) => new RegExp(`^Q${n}$`, 'i').test(c)))
+      : []
   }
-
-  return dataRows.every((line) => rowHasQ1ToQ4(line))
 }
 
-/** Used by textHasSubstantiveConfirm — bulk table with Q1–Q4 columns in header. */
+function parseBulkRow(line, table) {
+  const cells = splitTableRow(line)
+  if (cells.length === 0) return null
+  const symbol = (cells[table.symbolCol >= 0 ? table.symbolCol : 0] ?? '')
+    .replace(/\s+@.*$/, '')
+    .trim()
+  if (!symbol || /^Gate N\/A/i.test(symbol)) return null
+  if (!/^[a-zA-Z_$][\w$]*$/.test(symbol)) return null
+
+  let readPath = ''
+  let q4 = ''
+  let verdictCell = ''
+
+  if (table.headerHasQCols) {
+    const symIdx = cells.findIndex((c) => new RegExp(`\\b${symbol}\\b`, 'i').test(c))
+    const base = symIdx >= 0 ? symIdx : 0
+    readPath = table.readCol >= 0 ? cells[table.readCol] ?? '' : cells[base + 1] ?? ''
+    q4 = table.q4Col >= 0 ? cells[table.q4Col] ?? '' : cells[base + 4] ?? ''
+    verdictCell = table.verdictCol >= 0 ? cells[table.verdictCol] ?? '' : cells[cells.length - 1] ?? ''
+  } else {
+    readPath = table.readCol >= 0 ? cells[table.readCol] ?? '' : ''
+    q4 = table.q4Col >= 0 ? cells[table.q4Col] ?? '' : ''
+    verdictCell = table.verdictCol >= 0 ? cells[table.verdictCol] ?? '' : cells[cells.length - 1] ?? ''
+  }
+
+  return { symbol, readPath, q4, verdictCell, cells }
+}
+
+export function textHasBulkCompactTable(text) {
+  const table = parseBulkTable(text)
+  if (!table || table.q4Col < 0) return false
+  if (table.dataRows.length === 0) return false
+  return table.dataRows.every((line) => {
+    const row = parseBulkRow(line, table)
+    if (!row) return true
+    if (/\bnoUtil\s*\(/i.test(row.verdictCell) || /^Gate N\/A/i.test(row.symbol)) return true
+    return row.q4 && row.q4.length >= BULK_Q4_MIN_LEN && row.q4 !== '—' && row.q4 !== '-'
+  })
+}
+
+/**
+ * Bulk Confirm table: legacy Q1–Q4 columns or compact Symbol|Read|Q4|Verdict.
+ */
+export function textHasBulkConfirmTable(text) {
+  if (textHasBulkCompactTable(text)) return true
+  const table = parseBulkTable(text)
+  if (!table || !table.headerHasQCols) return false
+  if (table.dataRows.length === 0) return false
+  return table.dataRows.every((line) => {
+    const cells = splitTableRow(line)
+    return table.qIndices.every((i) => i >= 0 && cells[i] && cells[i] !== '—' && cells[i] !== '-')
+  })
+}
+
+/** Used by textHasSubstantiveConfirm — bulk table with Q4 column in header. */
 export function confirmTableHasQHeader(text) {
-  return /\|\s*Q1\s*\|/i.test(text) && /\|\s*Q4\s*\|/i.test(text)
+  return (
+    (/\|\s*Q1\s*\|/i.test(text) && /\|\s*Q4\s*\|/i.test(text)) ||
+    (/\|\s*Q4\b/i.test(text) && /\|\s*Read\b/i.test(text))
+  )
 }
 
 /**
@@ -389,7 +490,7 @@ export function textHasSubstantiveConfirm(text) {
 
   if (!VERDICT_OUTCOME_RES.some((re) => re.test(text))) return false
 
-  const bulkHeader = /\|\s*Q1\s*\|/i.test(text) && /\|\s*Q4\s*\|/i.test(text)
+  const bulkHeader = confirmTableHasQHeader(text)
   if (bulkHeader) return textHasBulkConfirmTable(text)
 
   if (textHasBulkConfirmTable(text)) return true
@@ -431,12 +532,14 @@ export function textHasVerdict(text) {
 
 export function recordVerdict(text, cwd = process.cwd()) {
   if (!textHasSubstantiveConfirm(text)) return false
-  const snippet = String(text).replace(/\s+/g, ' ').trim().slice(0, 400)
-  const symbols = extractVerdictSymbols(text)
+  const confirmText = String(text).slice(0, CONFIRM_TEXT_MAX)
+  const snippet = confirmText.replace(/\s+/g, ' ').trim().slice(0, 400)
+  const symbols = extractVerdictSymbols(confirmText)
   saveVerdictAudit(
     {
       recorded: true,
       at: new Date().toISOString(),
+      confirmText,
       snippet,
       hasLocalHelpersTable: textHasLocalHelpersTable(text) || textHasBulkConfirmTable(text),
       symbols
@@ -795,6 +898,8 @@ export function textHasD1ZeroD2Narrative(text) {
 /** D1 line documents outcome: candidates listed, or zero → D2 narrative. */
 export function textHasD1OutcomeDocumented(text) {
   if (!text || typeof text !== 'string') return false
+  if (/\bnoUtil\s*\(/i.test(text)) return true
+  if (/0\s*candidates?|无候选|zero candidates?|零候选|no candidates?/i.test(text)) return true
   if (textHasD1ZeroD2Narrative(text)) return true
   const d1Line =
     text.split('\n').find((l) => /\bD1\b/i.test(l) && !/\bD2\b/i.test(l)) ??
@@ -828,14 +933,22 @@ export function symbolPathFromIndex(index, symbol) {
 
 function q4TextForSymbol(text, symbol) {
   if (!text || !symbol) return ''
+  const table = parseBulkTable(text)
+  if (table) {
+    for (const line of table.dataRows) {
+      const row = parseBulkRow(line, table)
+      if (!row || row.symbol.toLowerCase() !== symbol.toLowerCase()) continue
+      if (row.q4) return row.q4
+    }
+  }
   const symRe = new RegExp(`\\b${symbol}\\b`, 'i')
   for (const line of text.split('\n')) {
     if (!symRe.test(line)) continue
     if (line.includes('|')) {
-      const cells = line.split('|').map((c) => c.trim()).filter(Boolean)
-      const symCell = cells.findIndex((c) => symRe.test(c))
-      if (symCell >= 0 && cells.length >= symCell + 5) {
-        return cells[symCell + 4] ?? line
+      const parsed = parseBulkTable(text)
+      if (parsed) {
+        const row = parseBulkRow(line, parsed)
+        if (row?.q4) return row.q4
       }
     }
     if (/\bQ4\b/i.test(line)) return line
@@ -846,6 +959,81 @@ function q4TextForSymbol(text, symbol) {
   )
   const block = text.match(blockRe)
   return block?.[1] ?? text
+}
+
+function sessionHasReadForCell(readCell, cwd = process.cwd()) {
+  if (!readCell || readCell === '—' || readCell === '-') return false
+  const cell = normalizeAuditPath(
+    readCell
+      .replace(/^Read\s*@\s*/i, '')
+      .replace(/\s+@.*$/, '')
+      .trim()
+  )
+  if (!cell || cell === '—') return false
+  if (hasRead(cell, cwd)) return true
+  const audit = loadAudit(cwd)
+  const base = path.basename(cell)
+  return audit.reads.some((r) => {
+    const norm = normalizeAuditPath(r)
+    return norm === cell || norm.endsWith(`/${cell}`) || (base && norm.endsWith(`/${base}`))
+  })
+}
+
+function rowRequiresRead(verdictCell) {
+  return /\b(reuse|partialReuse|newUtil)\s*\(/i.test(verdictCell ?? '')
+}
+
+/**
+ * Validate bulk Confirm table rows — Read column + Q4 substance for reuse rows.
+ */
+export function getBulkRowViolations(confirmText, cwd = process.cwd(), config = loadHookConfig(cwd)) {
+  const text = String(confirmText ?? '')
+  const table = parseBulkTable(text)
+  if (!table) return []
+
+  const violations = []
+  for (const line of table.dataRows) {
+    const row = parseBulkRow(line, table)
+    if (!row) continue
+    if (/\bnoUtil\s*\(/i.test(row.verdictCell) || /^Gate N\/A/i.test(row.symbol)) continue
+    if (!rowRequiresRead(row.verdictCell) && !/\breuse\b/i.test(row.verdictCell)) continue
+
+    const needsRead = rowRequiresRead(row.verdictCell)
+    if (needsRead) {
+      const readEmpty = !row.readPath || row.readPath === '—' || row.readPath === '-'
+      if (table.explicitReadCol && readEmpty) {
+        violations.push({
+          symbol: row.symbol,
+          denyReason: 'bulk_row_invalid',
+          reason: 'Read column empty for reuse row'
+        })
+        continue
+      }
+      if (table.explicitReadCol && !sessionHasReadForCell(row.readPath, cwd)) {
+        violations.push({
+          symbol: row.symbol,
+          denyReason: 'bulk_read_not_in_session',
+          reason: `Read @ ${row.readPath} not in session audit`
+        })
+      }
+    }
+
+    const q4Empty =
+      !row.q4 || row.q4 === '—' || row.q4 === '-' || row.q4.length < BULK_Q4_MIN_LEN
+    if (needsRead && q4Empty) {
+      violations.push({
+        symbol: row.symbol,
+        denyReason: 'bulk_row_invalid',
+        reason: 'Q4 column empty or too short for reuse row'
+      })
+    }
+  }
+  return violations
+}
+
+export function symbolsForSiblingCheck(requiredSymbols, confirmText) {
+  const fromVerdict = extractReuseSymbols(confirmText)
+  return [...new Set([...fromVerdict, ...requiredSymbols])]
 }
 
 function mentionsSiblingInQ4(q4Text, sibling) {
@@ -866,8 +1054,9 @@ export function getMissingSiblingMentions(requiredSymbols, verdictText, cwd = pr
   const siblingsByPath = index.siblingsByPath ?? {}
   const missing = []
   const text = String(verdictText ?? '')
+  const symbols = symbolsForSiblingCheck(requiredSymbols, text)
 
-  for (const sym of [...new Set(requiredSymbols)]) {
+  for (const sym of symbols) {
     const symPath = symbolPathFromIndex(index, sym)
     if (!symPath) continue
     const siblings = siblingsByPath[symPath]

@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import {
+  countReuseSymbols,
   extractAssistantTextFromHookInput,
+  getBulkRowViolations,
+  getConfirmText,
   getMissingSiblingMentions,
   getStaleVerdictSymbols,
   hasAgentsFileRead,
@@ -88,6 +91,17 @@ function denySiblingQ4Message(missing) {
     (m) => `\`${m.symbol}\` @ \`${m.path}\` — Q4 must mention sibling(s): ${m.siblings.map((s) => `\`${s}\``).join(', ')}`
   )
   return `Denied: Same-file multi-export — Q4 must reject or compare sibling export(s). ${lines.join('; ')}. See ${PLACEMENT_SECTION}.`
+}
+
+function denyBulkRowMessage(violations) {
+  const lines = violations.map(
+    (v) => `\`${v.symbol}\`: ${v.reason} (${v.denyReason})`
+  )
+  return `Denied: Bulk Confirm table row invalid — each reuse row needs Read @ path (session Read) and Q4 ≥ 8 chars. ${lines.join('; ')}. See ${PLACEMENT_SECTION}.`
+}
+
+function remindBatchConfirmMessage(count) {
+  return `Reminder: Confirm lists ${count} reuse symbols (>5). Prefer splitting into batches (≤5 symbols per Confirm table + Write). See utils-reuse-gate.mdc.`
 }
 
 function denyLocalHelpersTableMessage() {
@@ -221,7 +235,7 @@ async function main() {
       }
 
       if (needsDiscoveryOutcomeInChat(cwd)) {
-        const chatText = extractAssistantTextFromHookInput(input) || loadVerdictAudit(cwd).snippet || ''
+        const chatText = getConfirmText(cwd, extractAssistantTextFromHookInput(input))
         if (!textHasD1OutcomeDocumented(chatText)) {
           process.stdout.write(
             JSON.stringify({
@@ -308,9 +322,23 @@ async function main() {
       return
     }
 
-    const verdictText =
-      extractAssistantTextFromHookInput(input) || loadVerdictAudit(cwd).snippet || ''
-    const siblingMissing = getMissingSiblingMentions(requiredSymbols, verdictText, cwd, config)
+    const eagerText = extractAssistantTextFromHookInput(input) || ''
+    const confirmText = getConfirmText(cwd, eagerText)
+
+    const bulkViolations = getBulkRowViolations(confirmText, cwd, config)
+    if (bulkViolations.length > 0) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          denyReason: bulkViolations[0].denyReason,
+          bulkViolations,
+          agent_message: denyBulkRowMessage(bulkViolations)
+        })
+      )
+      return
+    }
+
+    const siblingMissing = getMissingSiblingMentions(requiredSymbols, confirmText, cwd, config)
     if (siblingMissing.length > 0) {
       process.stdout.write(
         JSON.stringify({
@@ -323,10 +351,15 @@ async function main() {
       return
     }
 
+    const reuseCount = countReuseSymbols(confirmText)
+    const batchRemind = reuseCount > 5 ? remindBatchConfirmMessage(reuseCount) : null
+    const baseRemind = isUtils || isRemind ? remindAppMessage() : null
+    const agentMessage = [baseRemind, batchRemind].filter(Boolean).join(' ')
+
     process.stdout.write(
       JSON.stringify(
-        isUtils || isRemind
-          ? { permission: 'allow', agent_message: remindAppMessage() }
+        agentMessage
+          ? { permission: 'allow', agent_message: agentMessage }
           : { permission: 'allow' }
       )
     )

@@ -3,9 +3,19 @@
  * Unit tests for textHasSubstantiveConfirm / textHasLocalHelpersTable (v0.2.1).
  * Usage: node scripts/test-verdict-substance.mjs
  */
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   extractVerdictSymbols,
+  getBulkRowViolations,
+  getMissingSiblingMentions,
+  recordRead,
+  recordVerdict,
+  resetSessionAudits,
+  textHasBulkCompactTable,
   textHasBulkConfirmTable,
+  textHasD1OutcomeDocumented,
   textHasLocalHelpersTable,
   textHasSubstantiveConfirm
 } from '../templates/cursor/hooks/read-audit-lib.mjs'
@@ -110,6 +120,68 @@ assert('bulk Confirm table passes', textHasSubstantiveConfirm(BULK_CONFIRM))
 assert('textHasBulkConfirmTable', textHasBulkConfirmTable(BULK_CONFIRM))
 assert('bulk table with Gate N/A row', textHasSubstantiveConfirm(BULK_CONFIRM))
 assert('bulk row missing Q1-Q4 in header cols fails', !textHasSubstantiveConfirm(BULK_MISSING_Q4))
+
+const COMPACT_BULK = `| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
+| sortAsc | sortArray.ts | ascending only; reject sortDesc | reuse(sortAsc) |
+
+**Verdict（最终）**：reuse(sortAsc)`
+
+const COMPACT_SHORT_Q4 = `| Symbol | Read @ path | Q4 | Verdict |
+| foo | bar.ts | short | reuse(foo) |
+
+Verdict（最终）: reuse(foo)`
+
+const NOUTIL_BULK = `| Symbol | Read @ path | Q4 | Verdict |
+| debounce | — | D1 "debounce": 0 candidates; no util export | noUtil(debounce) |
+
+Verdict（最终）: noUtil(debounce)`
+
+assert('compact bulk Confirm passes', textHasSubstantiveConfirm(COMPACT_BULK))
+assert('textHasBulkCompactTable', textHasBulkCompactTable(COMPACT_BULK))
+assert('compact short Q4 fails', !textHasSubstantiveConfirm(COMPACT_SHORT_Q4))
+assert('noUtil outcome passes', textHasSubstantiveConfirm(NOUTIL_BULK))
+assert('extractVerdictSymbols includes noUtil', extractVerdictSymbols(NOUTIL_BULK).includes('debounce'))
+
+assert('noUtil counts as D1 outcome', textHasD1OutcomeDocumented(NOUTIL_BULK))
+
+const bulkAuditDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bulk-audit-'))
+try {
+  fs.mkdirSync(path.join(bulkAuditDir, '.cursor'), { recursive: true })
+  fs.mkdirSync(path.join(bulkAuditDir, 'docs/agent-catalog'), { recursive: true })
+  fs.writeFileSync(
+    path.join(bulkAuditDir, 'docs/agent-catalog/utils-index.json'),
+    JSON.stringify({
+      symbols: {
+        sortAsc: [{ path: 'src/utils/array/sortArray.ts' }],
+        sortDesc: [{ path: 'src/utils/array/sortArray.ts' }]
+      },
+      siblingsByPath: {
+        'src/utils/array/sortArray.ts': ['sortAsc', 'sortDesc']
+      }
+    })
+  )
+  resetSessionAudits(bulkAuditDir)
+  recordRead('src/utils/array/sortArray.ts', bulkAuditDir)
+
+  const missingSibling = getMissingSiblingMentions(
+    ['sortAsc'],
+    COMPACT_BULK.replace('reject sortDesc', 'ascending only'),
+    bulkAuditDir
+  )
+  assert(
+    'q4TextForSymbol header-based: missing sibling mention',
+    missingSibling.length === 1 && missingSibling[0].symbol === 'sortAsc'
+  )
+
+  const okSibling = getMissingSiblingMentions(['sortAsc'], COMPACT_BULK, bulkAuditDir)
+  assert('sibling mentioned in Q4 → no missing', okSibling.length === 0)
+
+  recordVerdict(COMPACT_BULK, bulkAuditDir)
+  const violations = getBulkRowViolations(COMPACT_BULK, bulkAuditDir)
+  assert('compact bulk row validation passes', violations.length === 0)
+} finally {
+  fs.rmSync(bulkAuditDir, { recursive: true, force: true })
+}
 
 if (process.exitCode) {
   console.error('\nSome verdict substance tests failed.')

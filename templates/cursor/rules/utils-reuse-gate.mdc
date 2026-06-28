@@ -51,7 +51,18 @@ alwaysApply: true
 
 **Confirm in user-visible chat only** — not thinking-only; Hook cannot audit thinking.
 
-**Bulk Confirm (≥3 util symbols)**: one table with columns `Symbol / 本地函数 | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict` (or row-inline Q1–Q4) + **`Verdict（最终）`** summary. **featureLocal wrapper** = separate row. **Mixed page Gate N/A**: `Gate N/A — <区块名>：纯 UI` row; file-level `@/utils` does not exempt util blocks.
+**Bulk Confirm (≥3 util symbols) — compact default (v0.3.9)**:
+
+| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
+|--------|-------------|---------------------------|---------|
+
+- **Bulk compact = 五问合法压缩**：Q1–Q3 默认等价通过；**Q4 一行**须含替换结论；同文件 sibling 须 `reject <sibling>` 或等价。
+- **Read @ path**：须与本 session Read 的 util 文件一致（partial Read export 段 + 同文件 `Grep ^export` 即可）。
+- **`Verdict（最终）`** summary 仍必填。
+- **Legacy**（1–2 symbol）：分项 Q1–Q4 prose 仍接受；7 列 Bulk 表（Q1–Q4 分列）仍接受。
+- **D1 零候选 + D2 有结果（#28）**：**两行** — `noUtil(关键词)` 行 + reuse D2 结果行；禁止捆在一格。
+- **>5 reuse symbol**：优先分批（每批 ≤5 symbol：一张表 + 一次 Write）；Hook allow + remind。
+- **featureLocal wrapper** = separate row. **Mixed page Gate N/A**: `Gate N/A — <区块名>：纯 UI` row.
 
 **D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
 
@@ -87,8 +98,8 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
 6. **Output Confirm in chat** (never as JSON cache) — **before first Write tool**:
    - **Discovery** line (D1 or D2) when triggered
    - **Local helpers** table — one row per planned/**retained** feature helper vs utils/component candidate (see `placement-decision.md` §3). Header: **`Local helpers`** or **`| 本地函数 |`** recommended; **`| Helper |`** also accepted (v0.3.5+)
-   - Substantive **Confirm（五问）** — **per util and per Local helpers row**; Q1–Q4 must appear as separate items
-   - **`Verdict（最终）`** per row: `reuse(sym)` | `partialReuse(sym)+featureLocal(wrapper)` | `newUtil(name)` | `featureLocal(reason)` | `featureLocal+placement debt(ref→candidate)`
+   - Substantive **Confirm（五问）** — **per util and per Local helpers row**; legacy: Q1–Q4 as separate items; **bulk compact (≥3)**: one **Q4** cell per row (Hook validates Read + Q4)
+   - **`Verdict（最终）`** per row: `reuse(sym)` | `partialReuse(sym)+featureLocal(wrapper)` | `newUtil(name)` | `noUtil(sym)` | `featureLocal(reason)` | `featureLocal+placement debt(ref→candidate)`
 7. **Then** Write / StrReplace in the **same response** (after step 6).
 
 ## Export JSDoc (utilsDir — mandatory)

@@ -674,6 +674,114 @@ try {
   fs.rmSync(readBomDir, { recursive: true, force: true })
 }
 
+// --- v0.3.9: compact bulk sibling Q4 + bulk row validation ---
+const siblingDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-sibling-v039-"))
+try {
+  fs.mkdirSync(path.join(siblingDir, "src", "utils", "array"), { recursive: true })
+  fs.mkdirSync(path.join(siblingDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(siblingDir, "docs", "agent-catalog"), { recursive: true })
+  fs.writeFileSync(
+    path.join(siblingDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"],
+        utilsIndexFile: "docs/agent-catalog/utils-index.json"
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(
+    path.join(siblingDir, "docs/agent-catalog/utils-index.json"),
+    JSON.stringify({
+      symbols: {
+        sortAsc: [{ path: "src/utils/array/sortArray.ts" }],
+        sortDesc: [{ path: "src/utils/array/sortArray.ts" }]
+      },
+      siblingsByPath: {
+        "src/utils/array/sortArray.ts": ["sortAsc", "sortDesc"]
+      }
+    })
+  )
+  fs.writeFileSync(
+    path.join(siblingDir, "src/utils/array/sortArray.ts"),
+    "export function sortAsc() {}\nexport function sortDesc() {}\n"
+  )
+  fs.writeFileSync(
+    path.join(siblingDir, "src/views", "Page.vue"),
+    `<script setup lang="ts">
+import { sortAsc } from '@/utils/array/sortArray'
+// marker
+</script>
+`
+  )
+  prepareGateSession(siblingDir)
+  recordRead(siblingDir, "src/utils/array/sortArray.ts")
+
+  const compactNoSibling = `| Symbol | Read @ path | Q4 | Verdict |
+| sortAsc | sortArray.ts | ascending sort only | reuse(sortAsc) |
+
+**Verdict（最终）**：reuse(sortAsc)`
+
+  recordVerdict(siblingDir, compactNoSibling)
+  const siblingDeny = runHook(siblingDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "import { sortAsc }",
+      new_string: "import { sortAsc } from '@/utils/array/sortArray'"
+    }
+  })
+  assert(
+    "compact bulk Q4 without sibling mention → deny sibling_q4_missing",
+    siblingDeny.permission === "deny" && siblingDeny.denyReason === "sibling_q4_missing",
+    JSON.stringify(siblingDeny)
+  )
+
+  const compactOk = `| Symbol | Read @ path | Q4 | Verdict |
+| sortAsc | sortArray.ts | ascending only; reject sortDesc | reuse(sortAsc) |
+
+**Verdict（最终）**：reuse(sortAsc)`
+
+  recordVerdict(siblingDir, compactOk)
+  const siblingAllow = runHook(siblingDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "// marker",
+      new_string: "// ok\n"
+    }
+  })
+  assert(
+    "compact bulk Q4 with reject sibling → allow",
+    siblingAllow.permission === "allow",
+    JSON.stringify(siblingAllow)
+  )
+
+  const compactEmptyRead = `| Symbol | Read @ path | Q4 | Verdict |
+| sortAsc | | ascending only; reject sortDesc | reuse(sortAsc) |
+
+**Verdict（最终）**：reuse(sortAsc)`
+
+  recordVerdict(siblingDir, compactEmptyRead)
+  const bulkDeny = runHook(siblingDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "// ok",
+      new_string: "// patch\n"
+    }
+  })
+  assert(
+    "compact bulk empty Read column → deny bulk_row_invalid",
+    bulkDeny.permission === "deny" &&
+      (bulkDeny.denyReason === "bulk_row_invalid" || bulkDeny.denyReason === "bulk_read_not_in_session"),
+    JSON.stringify(bulkDeny)
+  )
+} finally {
+  fs.rmSync(siblingDir, { recursive: true, force: true })
+}
+
 
 if (process.exitCode) {
   console.error('\nSome tests failed.')

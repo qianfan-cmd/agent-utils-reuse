@@ -184,6 +184,27 @@ flowchart TD
 
 推荐表头：**`Local helpers`** 或 **`| 本地函数 |`**；**`| Helper |`** 亦接受（v0.3.5+）。
 
+**Bulk Confirm（≥3 util symbol — compact 默认，v0.3.9）**
+
+| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
+|--------|-------------|---------------------------|---------|
+| uploadFiles | imageUploadUtils.ts | parallel batch OK; reject uploadMultipleFiles | reuse(uploadFiles) |
+| debounce | — | D1 "debounce": 0 candidates; no util export | noUtil(debounce) |
+| filterEmptyParams | paramUtils.ts | filterEmptyParams ≡ dirty object clean | reuse(filterEmptyParams) |
+| mockModel | — | UI-only mock | featureLocal(mockModel) |
+| Gate N/A — section2 | — | pure UI | Gate N/A |
+
+**Verdict（最终）**：reuse(uploadFiles)；noUtil(debounce)；reuse(filterEmptyParams)；featureLocal(mockModel)
+
+- **Bulk compact 不是豁免五问** — 每行 Q4 压缩 Q1–Q3；Hook 校验 Read 列 + Q4 长度 + sibling 提及。
+- **Legacy 7 列**（1–2 symbol 或 maintainer 选用）：`| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |` 仍接受。
+
+**D1 零候选 → D2（chat 必写）**：`D1 "debounce": 0 candidates → D2: Grep path:src/utils "debounce"`；**#28 须独立 `noUtil(debounce)` 行**，不得与 D2 reuse 捆在一格。
+
+**同文件 sibling**：`utils-index.json` 的 `siblingsByPath` 有多 export 时，Q4 须书面 `reject <sibling>` 或等价比较。
+
+**分批 Write（>5 reuse symbol）**：单轮 Confirm 超过 5 个 reuse → 优先 2+ 轮，每轮 ≤5 symbol + 一张表 + 部分 Write。
+
 | 本地函数 | utils / 组件候选 | 对照结论 |
 |----------|------------------|----------|
 | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |
