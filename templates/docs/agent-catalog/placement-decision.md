@@ -184,6 +184,20 @@ flowchart TD
 
 推荐表头：**`Local helpers`** 或 **`| 本地函数 |`**；**`| Helper |`** 亦接受（v0.3.5+）。
 
+**Bulk Confirm（≥3 util symbol — 推荐一张表，避免重复 prose）**
+
+| Symbol / 本地函数 | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |
+|-------------------|------|----|----|----|----|---------|
+| uploadFiles | uploadMultipleFiles @ same file | File[] | API | none | reject uploadMultipleFiles | reuse(uploadFiles) |
+| mockModel | — | mock | UI | none | UI only | featureLocal(mockModel) |
+| Gate N/A — section2 | — | — | — | — | pure UI | Gate N/A |
+
+**Verdict（最终）**：reuse(uploadFiles)；featureLocal(mockModel)
+
+**D1 零候选 → D2（chat 必写）**：`D1 "debounce": 0 candidates → D2: Grep path:src/utils "debounce"`（页面 comment 不算）
+
+**同文件 sibling**：`utils-index.json` 的 `siblingsByPath` 有多 export 时，Q4 须书面排除未选 sibling。
+
 | 本地函数 | utils / 组件候选 | 对照结论 |
 |----------|------------------|----------|
 | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |

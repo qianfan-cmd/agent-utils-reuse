@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import {
+  extractAssistantTextFromHookInput,
+  getMissingSiblingMentions,
   getStaleVerdictSymbols,
+  hasAgentsFileRead,
   hasDiscovery,
   hasLocalHelpersTableInVerdict,
   hasRead,
@@ -8,8 +11,10 @@ import {
   hookErrorDenyMessage,
   isUnderUtils,
   loadHookConfig,
+  loadVerdictAudit,
   logHookError,
   matchesRemindPath,
+  needsDiscoveryOutcomeInChat,
   normalizeAuditPath,
   patchAddsLocalHelper,
   requiredSymbolsFromPatch,
@@ -19,6 +24,8 @@ import {
   parseHookJson,
   parseNestedJson,
   readHookStdin,
+  shouldRequireSelfUtilRead,
+  textHasD1OutcomeDocumented,
   tryEagerRecordVerdict
 } from './read-audit-lib.mjs'
 
@@ -63,9 +70,24 @@ function denyDiscoveryMessage(config) {
   return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1: via cli) OR Grep \`${indexFile}\` (D1: grep-index) before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir (via d2-utils-dir). Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Confirm phase (same turn before Write). See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
+function denyD1OutcomeMessage() {
+  return `Denied: Document Discovery in chat — D1 candidates (sym @ path) OR \`D1 "<kw>": 0 candidates → D2: ...\`. Grep index ≡ CLI search. Page comments do not count. See ${PLACEMENT_SECTION}.`
+}
+
+function denyAgentsReadMessage(agentsFile) {
+  return `Denied: Read \`${agentsFile}\` in full (no limit/offset) this session before Write. See workspace-agent-gate.mdc and AGENTS.md.`
+}
+
 function denyStaleVerdictMessage(staleSymbols) {
   const list = staleSymbols.map((s) => `\`${s}\``).join(', ')
   return `Denied: Prior Verdict does not cover util symbol(s) ${list} in this Write. Output Confirm + Verdict（最终） for the new symbol(s), then Write again. See ${PLACEMENT_SECTION}.`
+}
+
+function denySiblingQ4Message(missing) {
+  const lines = missing.map(
+    (m) => `\`${m.symbol}\` @ \`${m.path}\` — Q4 must mention sibling(s): ${m.siblings.map((s) => `\`${s}\``).join(', ')}`
+  )
+  return `Denied: Same-file multi-export — Q4 must reject or compare sibling export(s). ${lines.join('; ')}. See ${PLACEMENT_SECTION}.`
 }
 
 function denyLocalHelpersTableMessage() {
@@ -85,7 +107,7 @@ function collectRequiredReads(normalized, payload, config, cwd) {
   const isRemind = matchesRemindPath(normalized, config.remindWritePaths)
   const isUtils = isUnderUtils(normalized, config.utilsDir)
 
-  if (isUtils) {
+  if (isUtils && shouldRequireSelfUtilRead(normalized, config.utilsDir, cwd)) {
     requiredReads.add(normalized)
   }
 
@@ -116,6 +138,14 @@ function failClosedWrite(config, cwd, err, context) {
       permission: 'deny',
       agent_message: hookErrorDenyMessage(err?.message || String(err))
     })
+  )
+}
+
+function gateNeedsVerdict(isRemind, isUtils, requiredReads, cwd) {
+  return (
+    isUtils ||
+    requiredReads.size > 0 ||
+    (isRemind && sessionHasUtilReads(cwd))
   )
 }
 
@@ -164,8 +194,18 @@ async function main() {
       return
     }
 
-    // hookMode: confirm — same-turn Verdict in hook payload counts
     tryEagerRecordVerdict(input, cwd)
+
+    if ((isRemind || isUtils) && !hasAgentsFileRead(cwd)) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          denyReason: 'missing_agents_read',
+          agent_message: denyAgentsReadMessage(config.agentsFile)
+        })
+      )
+      return
+    }
 
     const addsHelper = isRemind && patchAddsLocalHelper(payload, normalized) && !isUtils
 
@@ -178,6 +218,20 @@ async function main() {
           })
         )
         return
+      }
+
+      if (needsDiscoveryOutcomeInChat(cwd)) {
+        const chatText = extractAssistantTextFromHookInput(input) || loadVerdictAudit(cwd).snippet || ''
+        if (!textHasD1OutcomeDocumented(chatText)) {
+          process.stdout.write(
+            JSON.stringify({
+              permission: 'deny',
+              denyReason: 'd1_outcome_missing',
+              agent_message: denyD1OutcomeMessage()
+            })
+          )
+          return
+        }
       }
 
       if (!hasVerdict(cwd)) {
@@ -201,7 +255,6 @@ async function main() {
       }
     }
 
-    // Session Read util + Write under remindWritePaths → require prior Verdict
     if (isRemind && sessionHasUtilReads(cwd) && !hasVerdict(cwd)) {
       process.stdout.write(
         JSON.stringify({
@@ -212,7 +265,9 @@ async function main() {
       return
     }
 
-    if (requiredReads.size === 0) {
+    const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
+
+    if (requiredReads.size === 0 && !isUtils && requiredSymbols.length === 0) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
@@ -230,27 +285,39 @@ async function main() {
       return
     }
 
-    if (hasVerdict(cwd)) {
-      const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
-      const staleSymbols = getStaleVerdictSymbols(requiredSymbols, cwd)
-      if (staleSymbols.length > 0) {
-        process.stdout.write(
-          JSON.stringify({
-            permission: 'deny',
-            denyReason: 'verdict_stale_for_symbol',
-            staleSymbols,
-            agent_message: denyStaleVerdictMessage(staleSymbols)
-          })
-        )
-        return
-      }
-    }
-
     if (!hasVerdict(cwd)) {
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
           agent_message: denyVerdictMessage()
+        })
+      )
+      return
+    }
+
+    const staleSymbols = getStaleVerdictSymbols(requiredSymbols, cwd)
+    if (staleSymbols.length > 0) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          denyReason: 'verdict_stale_for_symbol',
+          staleSymbols,
+          agent_message: denyStaleVerdictMessage(staleSymbols)
+        })
+      )
+      return
+    }
+
+    const verdictText =
+      extractAssistantTextFromHookInput(input) || loadVerdictAudit(cwd).snippet || ''
+    const siblingMissing = getMissingSiblingMentions(requiredSymbols, verdictText, cwd, config)
+    if (siblingMissing.length > 0) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          denyReason: 'sibling_q4_missing',
+          siblingMissing,
+          agent_message: denySiblingQ4Message(siblingMissing)
         })
       )
       return

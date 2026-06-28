@@ -6,7 +6,10 @@ import {
   normalizeAuditPath,
   parseHookJson,
   parseNestedJson,
+  pathIsAgentsFile,
   readHookStdin,
+  readPayloadIsPartial,
+  recordAgentsRead,
   recordRead,
   resetSessionAudits
 } from './read-audit-lib.mjs'
@@ -22,6 +25,18 @@ function extractReadPath(input) {
     }
   }
   return toolInput.path ?? toolInput.file_path
+}
+
+function extractReadPayload(input) {
+  const toolInput = input.tool_input ?? input.arguments ?? input
+  if (typeof toolInput === 'string') {
+    try {
+      return parseNestedJson(toolInput) ?? {}
+    } catch {
+      return {}
+    }
+  }
+  return toolInput ?? {}
 }
 
 async function main() {
@@ -42,6 +57,7 @@ async function main() {
     }
 
     const input = parseHookJson(raw)
+    const payload = extractReadPayload(input)
     const filePath = extractReadPath(input)
     if (!filePath) {
       process.stdout.write(JSON.stringify({ ok: true }))
@@ -51,6 +67,10 @@ async function main() {
     const normalized = normalizeAuditPath(filePath)
     if (isUnderUtils(normalized, config.utilsDir)) {
       recordRead(normalized, cwd)
+    }
+
+    if (pathIsAgentsFile(normalized, config.agentsFile) && !readPayloadIsPartial(payload)) {
+      recordAgentsRead(cwd)
     }
 
     process.stdout.write(JSON.stringify({ ok: true, recorded: normalized }))

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-23T21:14:40.284Z",
+  "generatedAt": "2026-06-28T10:20:58.507Z",
   "utilsDir": "src/utils",
   "stats": {
     "files": 2,
@@ -39,5 +39,11 @@
       }
     ]
   },
-  "ambiguous": {}
+  "ambiguous": {},
+  "siblingsByPath": {
+    "src/utils/array/sortArray.ts": [
+      "sortAsc",
+      "sortDesc"
+    ]
+  }
 }

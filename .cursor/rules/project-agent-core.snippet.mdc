@@ -1,0 +1,23 @@
+---
+description: Legacy pointer — use project-agent-gate.mdc (alwaysApply) or projectAgentCoreRule merge
+alwaysApply: false
+---
+
+# Deprecated: manual overlay
+
+**Do not copy this file.** `agent-utils-reuse init` now installs:
+
+- **`.cursor/rules/project-agent-gate.mdc`** — `alwaysApply: true` for **any** project
+- Package-managed rules/hooks refreshed on **every** `init` (not only `--force`)
+
+To merge the same bullets into **your** project core rule (e.g. `my-agent-core.mdc`):
+
+1. Add to `.utils-bookrc.json`:
+
+```json
+"projectAgentCoreRule": ".cursor/rules/my-agent-core.mdc"
+```
+
+2. Run `pnpm agent-utils-reuse init --force`
+
+See `templates/snippets/project-agent-gate.inject.md` in the npm package.

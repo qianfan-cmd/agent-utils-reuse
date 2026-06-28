@@ -5,6 +5,7 @@
  */
 import {
   extractVerdictSymbols,
+  textHasBulkConfirmTable,
   textHasLocalHelpersTable,
   textHasSubstantiveConfirm
 } from '../templates/cursor/hooks/read-audit-lib.mjs'
@@ -92,6 +93,23 @@ assert(
 )
 assert('header only no data row fails', !textHasLocalHelpersTable(BAD_TABLE_HEADER_ONLY))
 assert('no table fails', !textHasLocalHelpersTable(GOOD_SUBSTANTIVE))
+
+const BULK_CONFIRM = `| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |
+| uploadFiles | uploadMultipleFiles @ same file | File[] | API | none | reject uploadMultipleFiles | reuse(uploadFiles) |
+| mockModel | — | mock | UI | none | UI only | featureLocal(mockModel) |
+| Gate N/A — section2 | — | — | — | — | pure UI | Gate N/A |
+
+**Verdict（最终）**：reuse(uploadFiles)；featureLocal(mockModel)`
+
+const BULK_MISSING_Q4 = `| Symbol | Q1 | Q2 | Q3 | Q4 | Verdict |
+| foo | a | b | c | | reuse(foo) |
+
+Verdict（最终）: reuse(foo)`
+
+assert('bulk Confirm table passes', textHasSubstantiveConfirm(BULK_CONFIRM))
+assert('textHasBulkConfirmTable', textHasBulkConfirmTable(BULK_CONFIRM))
+assert('bulk table with Gate N/A row', textHasSubstantiveConfirm(BULK_CONFIRM))
+assert('bulk row missing Q1-Q4 in header cols fails', !textHasSubstantiveConfirm(BULK_MISSING_Q4))
 
 if (process.exitCode) {
   console.error('\nSome verdict substance tests failed.')

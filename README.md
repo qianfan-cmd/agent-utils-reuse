@@ -17,7 +17,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: *
 | Layer | Role |
 |-------|------|
 | **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`upgrade:utils-reuse`** or **`update:utils-reuse`** |
-| **Hook (default off)** | Rules-only Confirm + Verdict; **no Write deny**. Opt-in `hookMode: confirm` for hard deny |
+| **Hook (default confirm)** | Rules + Write deny until AGENTS.md Read + Confirm + Verdict; set `off` for Rules-only |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
 **Two-phase workflow**: Message A = Identify + Discovery (when triggered) + Local helpers table + **per-symbol Confirm (Q1–Q4 separately)** + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
@@ -100,6 +100,26 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/pre-write-utils-checklist.mdc` | Message A/B HARD STOP before Write (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
+
+### Upgrade v0.3.7 → v0.3.8
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+pnpm test:verdict-substance
+```
+
+**Batch Confirm + reliable confirm (v0.3.8):**
+
+- **Default `hookMode: confirm`** — Write deny until full **`AGENTS.md`** Read + util Read + chat Confirm + **`Verdict（最终）`**
+- **Bulk Confirm table** (≥3 symbols): `| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |` — Hook accepts per-row Q columns
+- **`utils-index.json` `siblingsByPath`** — same-file multi-export → Q4 must mention sibling in chat
+- **Discovery chat**: D1 candidates or `D1 "<kw>": 0 candidates → D2: ...` (page comments ≠ proof)
+- **Hook fixes**: exact-path Read audit; newUtil new file Write; arrow helpers; unresolved import still requires Verdict
+
+**Acceptance / flow testing**: batch harness needs `hookMode: confirm` + table Confirm; selection-only tests may use `off`.
+
+**Maintainers**: push git tags (`git tag v0.3.8 && git push origin v0.3.8`).
 
 ### Upgrade v0.3.6 → v0.3.7
 
@@ -365,7 +385,7 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `off` | `off` = Rules only (default); `confirm` = deny Write until Read + Verdict; `remind` = allow + reminder |
+| `hookMode` | `confirm` | `confirm` = Write deny (default v0.3.8); `off` = Rules only; `remind` = allow + reminder |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
@@ -374,23 +394,21 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
 | `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
 
-### hookMode (v0.3.6)
+### hookMode (v0.3.8)
 
 | Mode | Write deny | hooks.json |
 |------|------------|------------|
-| **`off`** (default) | No | Empty — no hooks registered |
+| **`confirm`** (default) | Yes | Full audit + preToolUse deny gate |
+| `off` | No | Empty — no hooks registered |
 | `remind` | No | `preToolUse` only (allow + reminder) |
-| `confirm` | Yes | Full audit + preToolUse deny gate |
 
-Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write — `off` removes tool-layer deny only.
+Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write.
 
-**Opt-in hard gate:**
+**Rules-only** (no tool deny):
 
 ```json
-{ "hookMode": "confirm" }
+{ "hookMode": "off" }
 ```
-
-Then `pnpm update:utils-reuse --yes`. Existing `hookMode` in `.utils-bookrc.json` is **preserved** across updates.
 
 ### confirm mode (opt-in)
 
@@ -419,12 +437,13 @@ Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, 
 
 ### Known limits
 
-- **Verdict detection is heuristic** — Hook requires individual Q1–Q4 tokens and Verdict outcome; cannot verify Q4 equivalence correctness or placement debt accuracy
-- **Local helpers table detection** — markdown header + at least one data row; cannot verify table completeness vs planned helpers
-- **Discovery detection is heuristic** — matches new `function` / `const fn =` in Write patches under feature paths
-- **Update verify** — overwrite-tier files must match templates after `update`; run `verify` if unsure; may miss or false-positive edge cases
-- **Same message Verdict + Write** — `preToolUse` runs before `afterAgentResponse` → denied; split into two messages (by design)
-- **Cloud Agent** — `afterAgentResponse` not wired in cloud; Rules only there
+- **Verdict detection is heuristic** — Hook requires individual Q1–Q4 or bulk Confirm table rows; cannot verify Q4 equivalence
+- **Thinking-only Confirm** — not visible to Hook; must output Confirm in **user-visible chat**
+- **Local helpers / bulk table detection** — markdown header + data rows; cannot verify completeness vs planned helpers
+- **Discovery detection is heuristic** — matches new `function` / `const fn =` / arrow helpers in Write patches
+- **Shell bypass** — Agent Shell Write bypasses hooks; reducing false denies is the main lever
+- **Same-turn Verdict + Write** — supported when assistant text is in preToolUse payload (`tryEagerRecordVerdict`)
+- **Cloud Agent** — `afterAgentResponse` may not be wired; Rules still apply
 - **Tab / non-Agent mode** — hooks do not apply
 
 ### Test Hook locally (Windows)

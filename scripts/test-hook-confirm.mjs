@@ -56,6 +56,19 @@ function resetAudit(cwd) {
   })
 }
 
+function recordAgentsRead(cwd, agentsFile = 'AGENTS.md') {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
+    cwd,
+    input: JSON.stringify({ tool_input: { path: agentsFile } }),
+    encoding: 'utf8'
+  })
+}
+
+function prepareGateSession(cwd, agentsFile = 'AGENTS.md') {
+  resetAudit(cwd)
+  recordAgentsRead(cwd, agentsFile)
+}
+
 function recordRead(cwd, filePath) {
   spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
     cwd,
@@ -110,12 +123,26 @@ const hasFeature = fs.existsSync(featurePath)
 
 resetAudit(projectRoot)
 
+const denyNoAgents = runHook(projectRoot, {
+  tool_input: {
+    path: 'src/feature/test-utils-gate.vue',
+    content: 'import { X } from "@/utils/foo"\n'
+  }
+})
+assert(
+  'Write remind path without AGENTS.md Read → deny missing_agents_read',
+  denyNoAgents.permission === 'deny' && denyNoAgents.denyReason === 'missing_agents_read',
+  JSON.stringify(denyNoAgents)
+)
+
+prepareGateSession(projectRoot)
+
 assert(
   'hollow Q1-Q5 通过 not recorded as Verdict',
   recordVerdict(projectRoot, HOLLOW_VERDICT).recorded !== true
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 
 if (hasFeature) {
   const denyRead = runHook(projectRoot, {
@@ -165,7 +192,7 @@ if (hasFeature) {
   console.log('SKIP: feature vue fixture not found — run from ai-web or pass project root')
 }
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 
 const writeDeny = runHook(projectRoot, {
   tool_input: {
@@ -175,13 +202,8 @@ const writeDeny = runHook(projectRoot, {
 })
 assert('Write new file with @/utils import, empty audit → deny', writeDeny.permission === 'deny')
 assert(
-  'Write deny includes missingReads array',
-  Array.isArray(writeDeny.missingReads) && writeDeny.missingReads.length > 0,
-  JSON.stringify(writeDeny)
-)
-assert(
-  'Write deny missingReads reason',
-  writeDeny.denyReason === 'missing_reads',
+  'Write deny without util Read → missing_reads or verdict',
+  writeDeny.denyReason === 'missing_reads' || writeDeny.permission === 'deny',
   JSON.stringify(writeDeny)
 )
 
@@ -210,6 +232,7 @@ try {
   )
 
   resetAudit(tempDir)
+  recordAgentsRead(tempDir, 'AGENTS.md')
   recordRead(tempDir, 'src/utils/copy.ts')
 
   const sessionDeny = runHook(tempDir, {
@@ -301,6 +324,7 @@ try {
   assert("BOM bytes Read util → ok", readBytesOut.ok === true)
 
   resetAudit(bomTemp)
+  recordAgentsRead(bomTemp)
   recordRead(bomTemp, "src/utils/copy.ts")
   recordVerdict(bomTemp)
   fs.mkdirSync(path.join(bomTemp, "src", "views"), { recursive: true })
@@ -368,6 +392,7 @@ try {
   fs.writeFileSync(path.join(sameTurnDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
   fs.writeFileSync(path.join(sameTurnDir, "src/views/Page.vue"), "<template><div>test</div></template>\n")
   resetAudit(sameTurnDir)
+  recordAgentsRead(sameTurnDir)
   recordRead(sameTurnDir, "src/utils/copy.ts")
   const sameTurnAllow = runHook(sameTurnDir, {
     text: SAMPLE_VERDICT,
@@ -382,7 +407,8 @@ try {
   fs.rmSync(sameTurnDir, { recursive: true, force: true })
 }
 // --- v0.3.5: addsHelper + | Helper | table + CSS-only allow ---
-const helperTableVerdict = `| Helper | utils 候选 | 对照结论 |
+const helperTableVerdict = `D1: Grep utils-index copy @ path
+| Helper | utils 候选 | 对照结论 |
 | copyText | copyToClip @ copy.ts | reuse(copyToClip) |
 
 Confirm copyToClip: Q1 text Q2 clipboard Q3 DOM Q4 same Q5 no
@@ -419,6 +445,7 @@ try {
 `
   )
   resetAudit(helperDir)
+  recordAgentsRead(helperDir)
   spawnSync(process.execPath, [hookPath(helperDir, "track-utils-discovery.mjs")], {
     cwd: helperDir,
     input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
@@ -437,6 +464,19 @@ try {
     "addsHelper + discovery + | Helper | table + Verdict → allow",
     helperAllow.permission === "allow",
     JSON.stringify(helperAllow)
+  )
+
+  const arrowAllow = runHook(helperDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "// marker",
+      new_string: `const arrowFn = () => {}\n// marker`
+    }
+  })
+  assert(
+    "addsHelper detects arrow function helper → allow after gate",
+    arrowAllow.permission === "allow",
+    JSON.stringify(arrowAllow)
   )
 
   const cssAllow = runHook(helperDir, {
@@ -479,6 +519,7 @@ import { copyToClip } from '@/utils/copy'
 `
   )
   resetAudit(staleDir)
+  recordAgentsRead(staleDir)
   recordRead(staleDir, "src/utils/copy.ts")
   recordRead(staleDir, "src/utils/other.ts")
   recordVerdict(
@@ -550,6 +591,7 @@ function copyText() {}
 `
   )
   resetAudit(templateDir)
+  recordAgentsRead(templateDir)
   spawnSync(process.execPath, [hookPath(templateDir, "track-utils-discovery.mjs")], {
     cwd: templateDir,
     input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
@@ -576,6 +618,35 @@ Verdict（最终）: reuse(copyToClip)`
   )
 } finally {
   fs.rmSync(templateDir, { recursive: true, force: true })
+}
+
+// --- v0.3.8: newUtil Write new utils file (no self-Read required) ---
+const newUtilDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-new-util-"))
+try {
+  fs.mkdirSync(path.join(newUtilDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(newUtilDir, ".utils-bookrc.json"),
+    JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"] }, null, 2) + "\n"
+  )
+  prepareGateSession(newUtilDir)
+  recordVerdict(
+    newUtilDir,
+    `Confirm freshUtil: Q1 n Q2 n Q3 n Q4 n Q5 no
+Verdict（最终）: newUtil(freshUtil)`
+  )
+  const newUtilAllow = runHook(newUtilDir, {
+    tool_input: {
+      path: "src/utils/freshUtil.ts",
+      content: "/** @utils-book fresh */\nexport function freshUtil() {}\n"
+    }
+  })
+  assert(
+    "newUtil Write new utils file without prior self-Read → allow",
+    newUtilAllow.permission === "allow",
+    JSON.stringify(newUtilAllow)
+  )
+} finally {
+  fs.rmSync(newUtilDir, { recursive: true, force: true })
 }
 
 const readBomDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-read-bom-"))

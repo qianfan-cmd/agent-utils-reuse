@@ -13,7 +13,9 @@ import { loadConfig } from '../lib/load-config.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
 
-const SAMPLE_VERDICT_WITH_TABLE = `Local helpers
+const SAMPLE_VERDICT_WITH_TABLE = `D1: Grep utils-index fileToBase64 @ path
+
+Local helpers
 | 本地函数 | utils 候选 | 对照结论 |
 | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |
 
@@ -50,6 +52,19 @@ function resetAudit(cwd) {
     cwd,
     encoding: 'utf8'
   })
+}
+
+function recordAgentsRead(cwd, agentsFile = 'AGENTS.md') {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
+    cwd,
+    input: JSON.stringify({ tool_input: { path: agentsFile } }),
+    encoding: 'utf8'
+  })
+}
+
+function prepareGateSession(cwd) {
+  resetAudit(cwd)
+  recordAgentsRead(cwd)
 }
 
 function recordIndexGrep(cwd, indexPath) {
@@ -142,7 +157,7 @@ if (fs.existsSync(bookrcPath)) {
   )
 }
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 
 const helperPatch = `function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -167,7 +182,7 @@ assert(
   JSON.stringify(denyNoDiscovery)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 recordLegacyIndexRead(projectRoot)
 
 const denyLegacyMd = runHook(projectRoot, helperWrite)
@@ -177,7 +192,7 @@ assert(
   JSON.stringify(denyLegacyMd)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 recordIndexGrep(projectRoot, indexPath)
 
 const denyNoVerdict = runHook(projectRoot, helperWrite)
@@ -187,7 +202,7 @@ assert(
   JSON.stringify(denyNoVerdict)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 recordIndexGrep(projectRoot, indexPath)
 recordVerdict(projectRoot, SAMPLE_VERDICT_NO_TABLE)
 
@@ -198,7 +213,7 @@ assert(
   JSON.stringify(denyNoTable)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 recordShellSearch(projectRoot)
 recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
 
@@ -209,7 +224,7 @@ assert(
   JSON.stringify(allowShellSearch)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 recordIndexGrep(projectRoot, indexPath)
 recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
 
@@ -220,7 +235,7 @@ assert(
   JSON.stringify(allowFull)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 recordUtilsGrep(projectRoot)
 recordVerdict(projectRoot, SAMPLE_VERDICT_WITH_TABLE)
 
@@ -231,7 +246,7 @@ assert(
   JSON.stringify(allowAfterGrep)
 )
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 
 const allowCommentOnly = runHook(projectRoot, {
   tool_input: {
@@ -266,7 +281,7 @@ assert(
 )
 assert(
   'Grep utilsDir records via d2-utils-dir',
-  absDiscAudit.via === 'd2-utils-dir',
+  absDiscAudit.via.includes('d2-utils-dir'),
   JSON.stringify(absDiscAudit)
 )
 
@@ -279,22 +294,23 @@ spawnSync(process.execPath, [hookPath(projectRoot, 'track-utils-discovery.mjs')]
 const indexDisc = JSON.parse(
   fs.readFileSync(path.join(projectRoot, '.cursor', '.utils-gate-discovery.json'), 'utf8')
 )
-assert('Grep utils-index records via grep-index', indexDisc.via === 'grep-index', JSON.stringify(indexDisc))
+assert('Grep utils-index records via grep-index', indexDisc.via.includes('grep-index'), JSON.stringify(indexDisc))
 
 resetAudit(projectRoot)
 recordShellSearch(projectRoot)
 const cliDisc = JSON.parse(
   fs.readFileSync(path.join(projectRoot, '.cursor', '.utils-gate-discovery.json'), 'utf8')
 )
-assert('Shell search records via cli', cliDisc.via === 'cli', JSON.stringify(cliDisc))
+assert('Shell search records via cli', cliDisc.via.includes('cli'), JSON.stringify(cliDisc))
 
-const HELPER_HEADER_VERDICT = `| Helper | utils 候选 | 对照结论 |
+const HELPER_HEADER_VERDICT = `D1: Grep utils-index fileToBase64 @ path
+| Helper | utils 候选 | 对照结论 |
 | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |
 
 Confirm readFileAsDataUrl: Q1 File Q2 data URL Q3 FileReader Q4 same as fileToBase64 Q5 no
 Verdict（最终）: reuse(fileToBase64)`
 
-resetAudit(projectRoot)
+prepareGateSession(projectRoot)
 spawnSync(process.execPath, [hookPath(projectRoot, 'track-utils-discovery.mjs')], {
   cwd: projectRoot,
   input: JSON.stringify({ tool_input: { pattern: 'fileToBase64', path: absUtilsPath } }),

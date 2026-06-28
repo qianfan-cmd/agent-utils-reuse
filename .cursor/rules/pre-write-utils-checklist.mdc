@@ -19,6 +19,6 @@ When you are about to **Write / StrReplace / EditNotebook** under **`remindWrite
 
 If any is false → output Discovery + Local helpers + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
 
-With **`hookMode: confirm`**, deny responses include **`missingReads`** / **`staleSymbols`** when applicable.
+With **`hookMode: confirm`** (default v0.3.8), deny includes **`missingReads`**, **`staleSymbols`**, **`missing_agents_read`**, **`sibling_q4_missing`**. Set **`hookMode: off`** for Rules-only.
 
-Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6. Default **`hookMode: off`** relies on Rules only.
+Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6.

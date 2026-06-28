@@ -7,7 +7,7 @@ alwaysApply: true
 
 动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read util 源码 export**（不能只看 feature 调用处）→ **Confirm**: Discovery + 分项 Q1–Q4 + `Verdict（最终）` in chat → **Implement**: Write（同一 assistant 轮，Verdict 在首个 Write 之前）。
 
-**Read util ≠ 门禁完成。** 默认 **`hookMode: off`**（Rules 约束）；opt-in **`hookMode: confirm`** 会拦缺 Verdict 的 Write。
+**Read util ≠ 门禁完成。** 默认 **`hookMode: confirm`**（v0.3.8）；设 **`off`** 则仅 Rules 约束。
 
 **已有 import / WIP 接线 / 无新 import — 不豁免。** 强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**。
 

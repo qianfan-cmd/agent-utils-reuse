@@ -6,10 +6,12 @@ export const CONFIG_FILENAME = '.utils-bookrc.json'
 export const AUDIT_FILENAME = '.utils-gate-reads.json'
 export const VERDICT_AUDIT_FILENAME = '.utils-gate-verdict.json'
 export const DISCOVERY_AUDIT_FILENAME = '.utils-gate-discovery.json'
+export const AGENTS_READ_AUDIT_FILENAME = '.utils-gate-agents-read.json'
 export const HOOK_ERROR_LOG = '.utils-gate-hook-error.log'
 export const HOOK_DEBUG_LOG = '.utils-gate-hook-debug.log'
 
 const DEFAULT_UTILS_DIR = 'src/utils'
+const DEFAULT_AGENTS_FILE = 'AGENTS.md'
 const DEFAULT_UTILS_BOOK_DIR = 'docs/agent-catalog/utils-book'
 const DEFAULT_UTILS_INDEX_FILE = 'docs/agent-catalog/utils-index.json'
 const DEFAULT_ALIASES = ['@/utils']
@@ -22,6 +24,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     utilsIndexFile: DEFAULT_UTILS_INDEX_FILE,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
+    agentsFile: DEFAULT_AGENTS_FILE,
     hookMode: 'off'
   }
   try {
@@ -39,6 +42,7 @@ export function loadHookConfig(cwd = process.cwd()) {
         String(p).replace(/\\/g, '/').replace(/\/+$/, '')
       )
     }
+    if (raw.agentsFile) base.agentsFile = String(raw.agentsFile).replace(/\\/g, '/')
     if (raw.hookMode) {
       const mode = String(raw.hookMode).toLowerCase()
       if (mode === 'remind') base.hookMode = 'remind'
@@ -277,8 +281,9 @@ export function extractVerdictSymbols(text) {
       .split('|')
       .map((c) => c.trim())
       .filter(Boolean)
-    if (cells.length >= 2 && !/^(本地函数|Helper|helper|函数|Local helpers)$/i.test(cells[0])) {
+    if (cells.length >= 2 && !/^(本地函数|Helper|helper|函数|Local helpers|Symbol|Util|symbol|util)$/i.test(cells[0])) {
       const first = cells[0].replace(/\s+@.*$/, '').trim()
+      if (/^Gate N\/A/i.test(first)) continue
       if (/^[a-zA-Z_$][\w$]*$/.test(first)) symbols.add(first)
     }
   }
@@ -316,9 +321,63 @@ function hasIndividualQ(text, n) {
   return new RegExp(`\\bQ${n}\\b`).test(text)
 }
 
+function rowHasQ1ToQ4(cellsOrLine) {
+  const text = Array.isArray(cellsOrLine) ? cellsOrLine.join(' ') : String(cellsOrLine)
+  return [1, 2, 3, 4].every((n) => hasIndividualQ(text, n))
+}
+
+function splitTableRow(line) {
+  const parts = line.split('|').map((c) => c.trim())
+  if (parts.length > 2 && parts[0] === '') return parts.slice(1, -1)
+  return parts.filter((c) => c.length > 0)
+}
+
+/**
+ * Bulk Confirm table: header with Q1–Q4 columns + data rows each containing Q1–Q4.
+ */
+export function textHasBulkConfirmTable(text) {
+  if (!text || typeof text !== 'string') return false
+
+  const tableLines = text
+    .split('\n')
+    .filter((line) => line.includes('|'))
+    .filter((line) => !/^\s*\|[-:\s|]+\|\s*$/.test(line))
+
+  if (tableLines.length < 2) return false
+
+  const headerCells = splitTableRow(tableLines[0])
+  const headerHasQCols = [1, 2, 3, 4].every((n) =>
+    headerCells.some((c) => new RegExp(`^Q${n}$`, 'i').test(c))
+  )
+
+  const dataRows = tableLines.slice(1).filter((line) => {
+    const firstCell = splitTableRow(line)[0] ?? ''
+    return !/^Gate N\/A/i.test(firstCell)
+  })
+
+  if (dataRows.length === 0) return false
+
+  if (headerHasQCols) {
+    const qIndices = [1, 2, 3, 4].map((n) =>
+      headerCells.findIndex((c) => new RegExp(`^Q${n}$`, 'i').test(c))
+    )
+    return dataRows.every((line) => {
+      const cells = splitTableRow(line)
+      return qIndices.every((i) => i >= 0 && cells[i] && cells[i] !== '—' && cells[i] !== '-')
+    })
+  }
+
+  return dataRows.every((line) => rowHasQ1ToQ4(line))
+}
+
+/** Used by textHasSubstantiveConfirm — bulk table with Q1–Q4 columns in header. */
+export function confirmTableHasQHeader(text) {
+  return /\|\s*Q1\s*\|/i.test(text) && /\|\s*Q4\s*\|/i.test(text)
+}
+
 /**
  * Message A must include individual Q1–Q4 (and Verdict marker + outcome token).
- * Rejects hollow "Q1-Q5 pass" style summaries.
+ * Accepts legacy prose Confirm or bulk Confirm table (≥1 data row with Q1–Q4 per row).
  */
 export function textHasSubstantiveConfirm(text) {
   if (!text || typeof text !== 'string') return false
@@ -328,9 +387,14 @@ export function textHasSubstantiveConfirm(text) {
 
   if (HOLLOW_CONFIRM_RES.some((re) => re.test(text))) return false
 
-  if (![1, 2, 3, 4].every((n) => hasIndividualQ(text, n))) return false
-
   if (!VERDICT_OUTCOME_RES.some((re) => re.test(text))) return false
+
+  const bulkHeader = /\|\s*Q1\s*\|/i.test(text) && /\|\s*Q4\s*\|/i.test(text)
+  if (bulkHeader) return textHasBulkConfirmTable(text)
+
+  if (textHasBulkConfirmTable(text)) return true
+
+  if (![1, 2, 3, 4].every((n) => hasIndividualQ(text, n))) return false
 
   return true
 }
@@ -347,8 +411,10 @@ export function textHasLocalHelpersTable(text) {
     /\|\s*Helper\s*\|/i.test(text) ||
     /\|\s*helper\s*\|/i.test(text) ||
     /\|\s*函数\s*\|/.test(text) ||
-    /\|\s*本地 helper\s*\|/i.test(text)
-  if (!hasHeader) return false
+    /\|\s*本地 helper\s*\|/i.test(text) ||
+    /\|\s*Symbol\s*\|/i.test(text) ||
+    /\|\s*Util\s*\|/i.test(text)
+  if (!hasHeader && !textHasBulkConfirmTable(text)) return false
 
   const tableLines = text
     .split('\n')
@@ -372,7 +438,7 @@ export function recordVerdict(text, cwd = process.cwd()) {
       recorded: true,
       at: new Date().toISOString(),
       snippet,
-      hasLocalHelpersTable: textHasLocalHelpersTable(text),
+      hasLocalHelpersTable: textHasLocalHelpersTable(text) || textHasBulkConfirmTable(text),
       symbols
     },
     cwd
@@ -398,11 +464,12 @@ export function hasLocalHelpersTableInVerdict(cwd = process.cwd()) {
   return loadVerdictAudit(cwd).hasLocalHelpersTable === true
 }
 
-/** Reset read + verdict + discovery session audits (sessionStart). */
+/** Reset read + verdict + discovery + agents session audits (sessionStart). */
 export function resetSessionAudits(cwd = process.cwd()) {
   resetAudit(cwd)
   resetVerdictAudit(cwd)
   resetDiscoveryAudit(cwd)
+  resetAgentsReadAudit(cwd)
 }
 
 export function normalizeAuditPath(p) {
@@ -420,11 +487,57 @@ export function recordRead(filePath, cwd = process.cwd()) {
 
 export function hasRead(filePath, cwd = process.cwd()) {
   const normalized = normalizeAuditPath(filePath)
-  const audit = loadAudit(cwd)
-  if (audit.reads.includes(normalized)) return true
-  // Also match if any read path ends with same basename under utils
-  const base = path.posix.basename(normalized)
-  return audit.reads.some((r) => r === normalized || r.endsWith(`/${base}`))
+  return loadAudit(cwd).reads.includes(normalized)
+}
+
+export function agentsReadAuditPath(cwd = process.cwd()) {
+  return path.join(cwd, '.cursor', AGENTS_READ_AUDIT_FILENAME)
+}
+
+export function loadAgentsReadAudit(cwd = process.cwd()) {
+  const filePath = agentsReadAuditPath(cwd)
+  if (!fs.existsSync(filePath)) return { recorded: false, at: null }
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    return { recorded: Boolean(raw.recorded), at: raw.at ?? null }
+  } catch {
+    return { recorded: false, at: null }
+  }
+}
+
+export function saveAgentsReadAudit(data, cwd = process.cwd()) {
+  const filePath = agentsReadAuditPath(cwd)
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+}
+
+export function resetAgentsReadAudit(cwd = process.cwd()) {
+  saveAgentsReadAudit({ recorded: false, at: null }, cwd)
+}
+
+export function recordAgentsRead(cwd = process.cwd()) {
+  saveAgentsReadAudit({ recorded: true, at: new Date().toISOString() }, cwd)
+}
+
+export function hasAgentsFileRead(cwd = process.cwd()) {
+  return loadAgentsReadAudit(cwd).recorded === true
+}
+
+export function pathIsAgentsFile(filePath, agentsFile) {
+  const normalized = normalizeAuditPath(filePath)
+  const agents = normalizeAuditPath(agentsFile)
+  return normalized === agents || normalized.endsWith(`/${agents}`)
+}
+
+export function readPayloadIsPartial(toolInput) {
+  if (!toolInput || typeof toolInput !== 'object') return false
+  return toolInput.offset != null || toolInput.limit != null
+}
+
+/** Skip Read of target util file when creating a new file under utilsDir. */
+export function shouldRequireSelfUtilRead(normalized, utilsDir, cwd = process.cwd()) {
+  if (!isUnderUtils(normalized, utilsDir)) return true
+  return fs.existsSync(path.join(cwd, normalized))
 }
 
 export function utilsPathRe(utilsDir) {
@@ -548,8 +661,7 @@ export function resolveUtilSpecToPaths(spec, config, cwd = process.cwd()) {
   }
 
   const existing = candidates.filter((c) => fs.existsSync(path.join(cwd, c)))
-  if (existing.length > 0) return existing.map(normalizeAuditPath)
-  return [normalizeAuditPath(candidates[0])]
+  return existing.map(normalizeAuditPath)
 }
 
 export function resolveContentUtilPaths(content, config, cwd = process.cwd()) {
@@ -593,10 +705,7 @@ export function mergeWritePayload(filePath, payload, cwd = process.cwd()) {
     if (base.includes(oldString)) {
       return base.replace(oldString, newString)
     }
-  }
-
-  if (newStr != null) {
-    return base ? `${base}\n${String(newStr)}` : String(newStr)
+    return base
   }
 
   return base
@@ -616,16 +725,27 @@ export function discoveryAuditPath(cwd = process.cwd()) {
 
 export function loadDiscoveryAudit(cwd = process.cwd()) {
   const filePath = discoveryAuditPath(cwd)
-  if (!fs.existsSync(filePath)) return { recorded: false, via: null, at: null }
+  if (!fs.existsSync(filePath)) {
+    return { recorded: false, d1: false, d2: false, via: [], at: null }
+  }
   try {
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    const viaList = Array.isArray(raw.via)
+      ? raw.via.map(String)
+      : raw.via
+        ? [String(raw.via)]
+        : []
+    const d1 = Boolean(raw.d1) || viaList.some((v) => v === 'cli' || v === 'grep-index')
+    const d2 = Boolean(raw.d2) || viaList.some((v) => v === 'd2-utils-dir')
     return {
-      recorded: Boolean(raw.recorded),
-      via: raw.via ?? null,
+      recorded: Boolean(raw.recorded) || viaList.length > 0,
+      d1,
+      d2,
+      via: viaList,
       at: raw.at ?? null
     }
   } catch {
-    return { recorded: false, via: null, at: null }
+    return { recorded: false, d1: false, d2: false, via: [], at: null }
   }
 }
 
@@ -636,14 +756,20 @@ export function saveDiscoveryAudit(data, cwd = process.cwd()) {
 }
 
 export function resetDiscoveryAudit(cwd = process.cwd()) {
-  saveDiscoveryAudit({ recorded: false, via: null, at: null }, cwd)
+  saveDiscoveryAudit({ recorded: false, d1: false, d2: false, via: [], at: null }, cwd)
 }
 
 export function recordDiscovery(via, cwd = process.cwd()) {
+  const prev = loadDiscoveryAudit(cwd)
+  const viaList = [...new Set([...prev.via, String(via)])]
+  const d1 = prev.d1 || via === 'cli' || via === 'grep-index'
+  const d2 = prev.d2 || via === 'd2-utils-dir'
   saveDiscoveryAudit(
     {
       recorded: true,
-      via,
+      d1,
+      d2,
+      via: viaList,
       at: new Date().toISOString()
     },
     cwd
@@ -652,6 +778,107 @@ export function recordDiscovery(via, cwd = process.cwd()) {
 
 export function hasDiscovery(cwd = process.cwd()) {
   return loadDiscoveryAudit(cwd).recorded === true
+}
+
+const D1_ZERO_D2_NARRATIVE_RES = [
+  /D1\s*[":].*(?:0\s*candidates?|zero\s*candidates?|无候选|零候选|no\s*candidates?)/i,
+  /D1.*(?:0|zero|无|零).*(?:→|->|-\s*>|\u2192).*D2/i,
+  /D1.*无候选.*D2/i
+]
+
+/** Chat must narrate D1 zero → D2 when session ran D2 after D1 with no util match. */
+export function textHasD1ZeroD2Narrative(text) {
+  if (!text || typeof text !== 'string') return false
+  return D1_ZERO_D2_NARRATIVE_RES.some((re) => re.test(text))
+}
+
+/** D1 line documents outcome: candidates listed, or zero → D2 narrative. */
+export function textHasD1OutcomeDocumented(text) {
+  if (!text || typeof text !== 'string') return false
+  if (textHasD1ZeroD2Narrative(text)) return true
+  const d1Line =
+    text.split('\n').find((l) => /\bD1\b/i.test(l) && !/\bD2\b/i.test(l)) ??
+    text.split('\n').find((l) => /\bD1\b/i.test(l))
+  if (!d1Line) return false
+  if (/0\s*candidates?|无候选|zero candidates?|零候选|no candidates?/i.test(d1Line)) {
+    return textHasD1ZeroD2Narrative(text)
+  }
+  return /[@`]|candidates?|候选|sym/i.test(d1Line)
+}
+
+export function needsDiscoveryOutcomeInChat(cwd = process.cwd()) {
+  const audit = loadDiscoveryAudit(cwd)
+  return audit.recorded
+}
+
+export function loadUtilsIndex(cwd = process.cwd(), config = loadHookConfig(cwd)) {
+  const indexPath = path.join(cwd, config.utilsIndexFile.replace(/\\/g, '/'))
+  if (!fs.existsSync(indexPath)) return null
+  try {
+    return JSON.parse(fs.readFileSync(indexPath, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+export function symbolPathFromIndex(index, symbol) {
+  if (!index?.symbols?.[symbol]?.[0]?.path) return null
+  return normalizeAuditPath(index.symbols[symbol][0].path)
+}
+
+function q4TextForSymbol(text, symbol) {
+  if (!text || !symbol) return ''
+  const symRe = new RegExp(`\\b${symbol}\\b`, 'i')
+  for (const line of text.split('\n')) {
+    if (!symRe.test(line)) continue
+    if (line.includes('|')) {
+      const cells = line.split('|').map((c) => c.trim()).filter(Boolean)
+      const symCell = cells.findIndex((c) => symRe.test(c))
+      if (symCell >= 0 && cells.length >= symCell + 5) {
+        return cells[symCell + 4] ?? line
+      }
+    }
+    if (/\bQ4\b/i.test(line)) return line
+  }
+  const blockRe = new RegExp(
+    `(?:Confirm[^\\n]*${symbol}|${symbol}[^\\n]*\\n)([\\s\\S]{0,400}?Q4[^\\n]*)`,
+    'i'
+  )
+  const block = text.match(blockRe)
+  return block?.[1] ?? text
+}
+
+function mentionsSiblingInQ4(q4Text, sibling) {
+  if (!q4Text || !sibling) return false
+  const s = String(sibling)
+  if (new RegExp(`\\b${s}\\b`, 'i').test(q4Text)) return true
+  if (new RegExp(`(?:reject|未选|排除|not)\\s+${s}`, 'i').test(q4Text)) return true
+  return false
+}
+
+/**
+ * When reusing symbol S from a multi-export util file, Q4 must mention a sibling export.
+ */
+export function getMissingSiblingMentions(requiredSymbols, verdictText, cwd = process.cwd(), config = loadHookConfig(cwd)) {
+  const index = loadUtilsIndex(cwd, config)
+  if (!index) return []
+
+  const siblingsByPath = index.siblingsByPath ?? {}
+  const missing = []
+  const text = String(verdictText ?? '')
+
+  for (const sym of [...new Set(requiredSymbols)]) {
+    const symPath = symbolPathFromIndex(index, sym)
+    if (!symPath) continue
+    const siblings = siblingsByPath[symPath]
+    if (!Array.isArray(siblings) || siblings.length < 2) continue
+    const others = siblings.filter((s) => s !== sym)
+    if (others.length === 0) continue
+    const q4 = q4TextForSymbol(text, sym)
+    if (others.some((s) => mentionsSiblingInQ4(q4, s))) continue
+    missing.push({ symbol: sym, path: symPath, siblings: others })
+  }
+  return missing
 }
 
 export function utilsBookDirRe(utilsBookDir) {
@@ -751,7 +978,8 @@ function patchTextForHelperScan(text, filePathHint = '') {
 }
 
 const NEW_FN_DECL_RE = /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)\s*\(/g
-const NEW_CONST_FN_RE = /(?:^|\n)\s*const\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s*)?\(/g
+const NEW_CONST_FN_RE =
+  /(?:^|\n)\s*const\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\(|(?:async\s*)?\([^)]*\)\s*=>)/g
 
 function extractFunctionNames(text) {
   const names = new Set()

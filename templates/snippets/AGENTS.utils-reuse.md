@@ -13,10 +13,10 @@ Before first business Write when gate applies:
 3. **Discovery (when triggered)**: D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`, **or** D2 Grep/SemanticSearch `utilsDir`. **Forbidden**: Read/Grep `utils-book/*.md` for Shortlist (v0.3.0)
 4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
 5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
-6. **Confirm phase** (chat, before first Write tool):
-   - Discovery line (when triggered)
-   - **Local helpers** table — one row per planned/**retained** helper
-   - **Confirm (Q1–Q5 per symbol)** — **Q1, Q2, Q3, Q4 must appear separately**; forbidden: `Q1-Q5 通过`
+6. **Confirm phase** (chat, before first Write tool — **not thinking-only**):
+   - Discovery line (when triggered); D1 zero → `D1 "<kw>": 0 candidates → D2: ...` in chat
+   - **Local helpers** or **Bulk Confirm table** (≥3 symbols: `| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |`)
+   - **Confirm (Q1–Q5 per symbol)** — **Q1, Q2, Q3, Q4 must appear separately** (or per table row); forbidden: `Q1-Q5 通过`
    - **`Verdict（最终）`** per row — five types below
 7. Then Write (**Implement phase** — same assistant response, after Confirm text)
 
@@ -60,7 +60,7 @@ For **each** util you will import or call **and each Local helpers table row**, 
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: off`, v0.3.6): Rules-only Confirm + Verdict before Write. Opt-in `hookMode: confirm` for hard deny (Read + Verdict + Discovery + Local helpers table).
+**Hook** (default `hookMode: confirm`, v0.3.8): Write deny until AGENTS.md Read + Confirm + Verdict. Set `off` for Rules-only.
 
 #### Export JSDoc (utilsDir — mandatory)
 

@@ -13,7 +13,7 @@ alwaysApply: true
 
 - **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: off` (v0.3.6)** — no Write tool deny; opt-in `confirm` for hard deny (see § Hook below).
+- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: confirm` (v0.3.8)** — Write deny until Read + Verdict; set `off` for Rules-only.
 - Hook (`hookMode: confirm` only) **fail-closed** + same-turn Verdict; denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without Local helpers table.
 
 **Confirm→Implement workflow:**
@@ -48,6 +48,14 @@ alwaysApply: true
 **Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Confirm phase (composable or newUtil extraction candidate). **Cross-feature component copy ≠ reuse(utils)** — do not label component reuse as `reuse(symbol)`.
 
 **D1 zero candidates → mandatory D2**: If D1 (CLI search or Grep `utils-index.json`) returns **no** candidates, you **must** run D2 (`Grep path:src/utils`) before writing util-semantics local helpers. **Forbidden**: skip D2 and featureLocal-duplicate when utils may exist.
+
+**Confirm in user-visible chat only** — not thinking-only; Hook cannot audit thinking.
+
+**Bulk Confirm (≥3 util symbols)**: one table with columns `Symbol / 本地函数 | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict` (or row-inline Q1–Q4) + **`Verdict（最终）`** summary. **featureLocal wrapper** = separate row. **Mixed page Gate N/A**: `Gate N/A — <区块名>：纯 UI` row; file-level `@/utils` does not exempt util blocks.
+
+**D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
+
+**Same-file siblings**: D1 returns 2+ exports @ same path → Q4 must mention rejected sibling (see `utils-index.json` `siblingsByPath`).
 
 **Gate N/A**: Pure UI / no `@/utils` / no util-semantics helpers → output **`Gate N/A: <reason>`** in Confirm phase (still no hollow Q1-Q5).
 
@@ -105,9 +113,9 @@ export function formatDateLocal(iso: string): string { ... }
 - **`Verdict（最终）`** must appear in a **chat before the first Write tool in this response** / StrReplace (same task).
 - **No** Write/StrReplace until chat includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `off`, v0.3.6)
+## Hook (default `confirm`, v0.3.8)
 
-Default **`hookMode: off`** — **no Write deny**; Confirm + Verdict enforced by Rules only. Avoids Agent Shell bypass when hook heuristics fail.
+Default **`hookMode: confirm`** — Write deny until Read + Verdict. Set **`off`** for Rules-only.
 
 **Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
 

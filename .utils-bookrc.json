@@ -14,7 +14,7 @@
   "utilsImportAliases": [
     "@/utils"
   ],
-  "hookMode": "off",
+  "hookMode": "confirm",
   "sourceGlobs": [
     "src/**/*.{vue,ts,tsx}"
   ],
