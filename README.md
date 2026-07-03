@@ -101,6 +101,14 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.9 → v0.3.10
+
+```bash
+pnpm upgrade:utils-reuse
+```
+
+**Fix**: `patchGitignore` now includes `.cursor/.utils-gate-agents-read.json` (v0.3.8+ AGENTS Read audit). Without it, `Gate verify: FAILED` after upgrade on projects that already had the older three audit lines.
+
 ### Upgrade v0.3.8 → v0.3.9
 
 ```bash
@@ -454,7 +462,7 @@ Rules **always** require Confirm + **`Verdict（最终）`** in chat before Writ
 }
 ```
 
-Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, and `.cursor/.utils-gate-discovery.json` to `.gitignore`.
+Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, `.cursor/.utils-gate-discovery.json`, and `.cursor/.utils-gate-agents-read.json` to `.gitignore`.
 
 ### Known limits
 

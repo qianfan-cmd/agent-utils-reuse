@@ -5,4 +5,5 @@ _smoke-init/
 .cursor/.utils-gate-reads.json
 .cursor/.utils-gate-verdict.json
 .cursor/.utils-gate-discovery.json
+.cursor/.utils-gate-agents-read.json
 *.utils-reuse-upstream
