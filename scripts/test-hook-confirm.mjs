@@ -2,7 +2,7 @@
 /**
  * Smoke tests for hookMode confirm + merged-file util detection + Verdict audit (v0.2.1).
  * Usage: node scripts/test-hook-confirm.mjs [projectRoot]
- * Default projectRoot: ../ai-web if exists, else examples/minimal
+ * Default projectRoot: examples/minimal
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -21,8 +21,6 @@ Verdict（最终）: reuse(uploadSingleFile)`
 
 function resolveProjectRoot(arg) {
   if (arg) return path.resolve(arg)
-  const aiWeb = path.resolve(pkgRoot, '../ai-web')
-  if (fs.existsSync(path.join(aiWeb, 'package.json'))) return aiWeb
   return path.resolve(pkgRoot, 'examples/minimal')
 }
 
@@ -189,7 +187,7 @@ if (hasFeature) {
     JSON.stringify(allow)
   )
 } else {
-  console.log('SKIP: feature vue fixture not found — run from ai-web or pass project root')
+  console.log('SKIP: feature vue fixture not found — pass project root as argv[2]')
 }
 
 prepareGateSession(projectRoot)
@@ -243,8 +241,8 @@ try {
     }
   })
   assert(
-    'Session Read util + StrReplace views (no @/utils in patch) without Verdict → deny',
-    sessionDeny.permission === 'deny',
+    'Session Read util + template-only StrReplace (no imports on patch) → allow without Verdict (v0.3.11 uiOnly)',
+    sessionDeny.permission === 'allow',
     JSON.stringify(sessionDeny)
   )
 
@@ -780,6 +778,65 @@ import { sortAsc } from '@/utils/array/sortArray'
   )
 } finally {
   fs.rmSync(siblingDir, { recursive: true, force: true })
+}
+
+// --- v0.3.11: #27 mixed page — file has @/utils, template-only patch → allow without Verdict ---
+const mixedUiDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-mixed-ui-"))
+try {
+  fs.mkdirSync(path.join(mixedUiDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(mixedUiDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(mixedUiDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"]
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(mixedUiDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(
+    path.join(mixedUiDir, "src", "views", "Mixed.vue"),
+    `<template><div class="skeleton">loading</div></template>
+<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+import { sortAsc } from '@/utils/array/sortArray'
+</script>
+`
+  )
+  prepareGateSession(mixedUiDir)
+  recordRead(mixedUiDir, "src/utils/copy.ts")
+  const mixedAllow = runHook(mixedUiDir, {
+    tool_input: {
+      path: "src/views/Mixed.vue",
+      old_string: '<div class="skeleton">loading</div>',
+      new_string: '<div class="skeleton">Loading…</div>'
+    }
+  })
+  assert(
+    "#27 template-only on file with existing @/utils → allow without Verdict",
+    mixedAllow.permission === "allow",
+    JSON.stringify(mixedAllow)
+  )
+
+  const mixedDeny = runHook(mixedUiDir, {
+    tool_input: {
+      path: "src/views/Mixed.vue",
+      old_string: "import { sortAsc }",
+      new_string: "import { sortAsc, copyToClip } from '@/utils/copy'"
+    }
+  })
+  assert(
+    "script patch adding util usage → deny (missing_reads or verdict)",
+    mixedDeny.permission === "deny",
+    JSON.stringify(mixedDeny)
+  )
+} finally {
+  fs.rmSync(mixedUiDir, { recursive: true, force: true })
 }
 
 

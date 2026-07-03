@@ -5,13 +5,14 @@ import {
   getBulkRowViolations,
   getConfirmText,
   getMissingSiblingMentions,
-  getStaleVerdictSymbols,
+  getVerdictCoverage,
   hasAgentsFileRead,
   hasDiscovery,
   hasLocalHelpersTableInVerdict,
   hasRead,
   hasVerdict,
   hookErrorDenyMessage,
+  isPatchUiOnly,
   isUnderUtils,
   loadHookConfig,
   loadVerdictAudit,
@@ -22,8 +23,8 @@ import {
   patchAddsLocalHelper,
   requiredSymbolsFromPatch,
   resolveContentUtilPaths,
+  resolvePatchUtilPaths,
   resolveTargetUtilPaths,
-  sessionHasUtilReads,
   parseHookJson,
   parseNestedJson,
   readHookStdin,
@@ -81,9 +82,13 @@ function denyAgentsReadMessage(agentsFile) {
   return `Denied: Read \`${agentsFile}\` in full (no limit/offset) this session before Write. See workspace-agent-gate.mdc and AGENTS.md.`
 }
 
-function denyStaleVerdictMessage(staleSymbols) {
+function denyStaleVerdictMessage(staleSymbols, alreadyCovered = []) {
   const list = staleSymbols.map((s) => `\`${s}\``).join(', ')
-  return `Denied: Prior Verdict does not cover util symbol(s) ${list} in this Write. Output Confirm + Verdict（最终） for the new symbol(s), then Write again. See ${PLACEMENT_SECTION}.`
+  const delta =
+    alreadyCovered.length > 0
+      ? ` Delta Confirm only — already covered: ${alreadyCovered.map((s) => `\`${s}\``).join(', ')}.`
+      : ''
+  return `Denied: Prior Verdict does not cover util symbol(s) ${list} in this Write. Output Confirm + Verdict（最终） for the new symbol(s) only (delta rows), then Write again.${delta} See ${PLACEMENT_SECTION}.`
 }
 
 function denySiblingQ4Message(missing) {
@@ -120,25 +125,31 @@ function collectRequiredReads(normalized, payload, config, cwd) {
   const requiredReads = new Set()
   const isRemind = matchesRemindPath(normalized, config.remindWritePaths)
   const isUtils = isUnderUtils(normalized, config.utilsDir)
+  const uiOnly = isPatchUiOnly(payload, normalized, config)
 
   if (isUtils && shouldRequireSelfUtilRead(normalized, config.utilsDir, cwd)) {
     requiredReads.add(normalized)
   }
 
   if (isRemind || isUtils) {
-    for (const p of resolveTargetUtilPaths(normalized, payload, config, cwd)) {
+    const utilPaths = uiOnly
+      ? resolvePatchUtilPaths(payload, config, cwd)
+      : resolveTargetUtilPaths(normalized, payload, config, cwd)
+    for (const p of utilPaths) {
       requiredReads.add(p)
     }
   }
 
-  const patchContent = [payload.content, payload.new_string, payload.newString]
-    .filter(Boolean)
-    .join('\n')
-  for (const p of resolveContentUtilPaths(patchContent, config, cwd)) {
-    requiredReads.add(p)
+  if (!uiOnly) {
+    const patchContent = [payload.content, payload.new_string, payload.newString]
+      .filter(Boolean)
+      .join('\n')
+    for (const p of resolveContentUtilPaths(patchContent, config, cwd)) {
+      requiredReads.add(p)
+    }
   }
 
-  return { requiredReads, isRemind, isUtils }
+  return { requiredReads, isRemind, isUtils, uiOnly }
 }
 
 function failClosedWrite(config, cwd, err, context) {
@@ -152,14 +163,6 @@ function failClosedWrite(config, cwd, err, context) {
       permission: 'deny',
       agent_message: hookErrorDenyMessage(err?.message || String(err))
     })
-  )
-}
-
-function gateNeedsVerdict(isRemind, isUtils, requiredReads, cwd) {
-  return (
-    isUtils ||
-    requiredReads.size > 0 ||
-    (isRemind && sessionHasUtilReads(cwd))
   )
 }
 
@@ -269,16 +272,6 @@ async function main() {
       }
     }
 
-    if (isRemind && sessionHasUtilReads(cwd) && !hasVerdict(cwd)) {
-      process.stdout.write(
-        JSON.stringify({
-          permission: 'deny',
-          agent_message: denyVerdictMessage()
-        })
-      )
-      return
-    }
-
     const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
 
     if (requiredReads.size === 0 && !isUtils && requiredSymbols.length === 0) {
@@ -309,14 +302,16 @@ async function main() {
       return
     }
 
-    const staleSymbols = getStaleVerdictSymbols(requiredSymbols, cwd)
-    if (staleSymbols.length > 0) {
+    const coverage = getVerdictCoverage(requiredSymbols, cwd)
+    if (coverage.needsConfirm.length > 0) {
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
           denyReason: 'verdict_stale_for_symbol',
-          staleSymbols,
-          agent_message: denyStaleVerdictMessage(staleSymbols)
+          staleSymbols: coverage.needsConfirm,
+          needsConfirm: coverage.needsConfirm,
+          alreadyCovered: coverage.alreadyCovered,
+          agent_message: denyStaleVerdictMessage(coverage.needsConfirm, coverage.alreadyCovered)
         })
       )
       return

@@ -146,7 +146,7 @@ try {
   assert.equal(hooksConfirm.hooks.preToolUse?.length, 1, 'confirm mode should install preToolUse')
   assert.equal(hooksConfirm.hooks.postToolUse?.length, 2, 'confirm mode should install postToolUse hooks')
 
-  // --- Gate completeness: simulate ai-web partial upgrade (stale hooks) ---
+  // --- Gate completeness: simulate partial upgrade (stale hooks) ---
   const discoveryHookPath = path.join(
     projectRoot,
     '.cursor',

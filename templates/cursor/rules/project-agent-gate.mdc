@@ -21,7 +21,7 @@ Default **`hookMode: confirm`**: Write deny until AGENTS.md Read + Confirm + Ver
 
 ## Project-specific core rule
 
-If your project has its own alwaysApply rule (e.g. `ai-web-agent-core.mdc`), set **`projectAgentCoreRule`** in `.utils-bookrc.json` and run **`init --force`** to inject the same bullets there. This file remains active as the package default.
+If your project has its own alwaysApply rule (e.g. `my-agent-core.mdc`), set **`projectAgentCoreRule`** in `.utils-bookrc.json` and run **`init --force`** to inject the same bullets there. This file remains active as the package default.
 
 ## Do NOT
 

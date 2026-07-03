@@ -205,6 +205,27 @@ flowchart TD
 
 **分批 Write（>5 reuse symbol）**：单轮 Confirm 超过 5 个 reuse → 优先 2+ 轮，每轮 ≤5 symbol + 一张表 + 部分 Write。
 
+**Delta Confirm（v0.3.11 — 同文件多轮增量）**
+
+同会话、patch **仅新增 import symbol** 时，不必重出整表：
+
+```markdown
+**Delta Confirm**（已有 reuse 行见上轮 Verdict）
+| Symbol | Read @ path | Q4 | Verdict |
+| newSym | newUtil.ts | … | reuse(newSym) |
+| Gate N/A — skeleton | — | pure UI block | Gate N/A |
+```
+
+Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCovered` — 只补 `needsConfirm` 行。
+
+**混页纯 UI（#27）**：文件顶已有 `@/utils`，本轮只改 template/style → 表内 `Gate N/A — <区块>` 或 **无 Confirm**（Hook uiOnly allow）。**不用** `// @gate-na` 注释。
+
+**Q4 sibling 一行模板**：`reject uploadMultipleFiles (sequential API N/A)` | `reject sortDesc (desc not needed)`
+
+**featureLocal 须附 D2**：util 语义 helper 的 Q4 写 `D2 Grep src/utils "<kw>": no export`；可选 **`strictD2: true`** in `.utils-bookrc.json`（未来 opt-in hook，见 README）。
+
+**strictD2（opt-in 设计，默认 off）**：`hookMode: confirm` + `"strictD2": true` 时，Discovery 仅有 D1 且无 D2 记录 → deny `d2_required_after_empty_d1`。纯 UI featureLocal 不受影响。
+
 | 本地函数 | utils / 组件候选 | 对照结论 |
 |----------|------------------|----------|
 | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |

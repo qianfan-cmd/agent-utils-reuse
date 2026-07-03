@@ -1,6 +1,6 @@
 {
   "recorded": true,
-  "at": "2026-06-28T18:33:11.416Z",
+  "at": "2026-07-03T19:01:16.872Z",
   "confirmText": "D1: Grep utils-index fileToBase64 @ path\n| Helper | utils 候选 | 对照结论 |\n| readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) |\n\nConfirm readFileAsDataUrl: Q1 File Q2 data URL Q3 FileReader Q4 same as fileToBase64 Q5 no\nVerdict（最终）: reuse(fileToBase64)",
   "snippet": "D1: Grep utils-index fileToBase64 @ path | Helper | utils 候选 | 对照结论 | | readFileAsDataUrl | fileToBase64 @ imageUploadUtils.ts | reuse(fileToBase64) | Confirm readFileAsDataUrl: Q1 File Q2 data URL Q3 FileReader Q4 same as fileToBase64 Q5 no Verdict（最终）: reuse(fileToBase64)",
   "hasLocalHelpersTable": true,

@@ -62,13 +62,17 @@ alwaysApply: true
 - **Legacy**（1–2 symbol）：分项 Q1–Q4 prose 仍接受；7 列 Bulk 表（Q1–Q4 分列）仍接受。
 - **D1 零候选 + D2 有结果（#28）**：**两行** — `noUtil(关键词)` 行 + reuse D2 结果行；禁止捆在一格。
 - **>5 reuse symbol**：优先分批（每批 ≤5 symbol：一张表 + 一次 Write）；Hook allow + remind。
+- **Delta Confirm（v0.3.11）**：同会话、同文件、patch **无新 import / 无 script 变更** → 仅 **新增 symbol 行** + `Gate N/A — <本轮区块>`；已 Confirm 的 symbol **勿重复** reuse 行（Hook `alreadyCovered` / `needsConfirm`）。
+- **混页纯 UI 增量（#27）**：仅改 `<template>` / `<style>`、patch 无新 `@/utils` → Hook **allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
 - **featureLocal wrapper** = separate row. **Mixed page Gate N/A**: `Gate N/A — <区块名>：纯 UI` row.
 
 **D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
 
-**Same-file siblings**: D1 returns 2+ exports @ same path → Q4 must mention rejected sibling (see `utils-index.json` `siblingsByPath`).
+**Same-file siblings**: D1 returns 2+ exports @ same path → Q4 must mention rejected sibling (see `utils-index.json` `siblingsByPath`). **Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
 
-**Gate N/A**: Pure UI / no `@/utils` / no util-semantics helpers → output **`Gate N/A: <reason>`** in Confirm phase (still no hollow Q1-Q5).
+**featureLocal + D2**：util 语义任务（upload/validate/convert/format…）若 Verdict 含 `featureLocal`，Q4 须写 **D2 Grep utilsDir 无 export** 或引用 Discovery 行；D1 零候选不得跳过 D2 叙事。
+
+**Gate N/A**: Pure UI / no `@/utils` in **patch** / no util-semantics helpers → **`Gate N/A: <reason>`** or uiOnly allow (v0.3.11 template/style patch).
 
 ## Gate applies — NOT exempt
 
@@ -80,9 +84,9 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
 
 **NOT exempt** (gate still applies):
 
-- No new import this task — **existing** `@/utils` in the file counts
-- WIP wiring only (events, IME, emit) — if utils are still called
-- Obvious reuse — still require Read export(s) + Confirm + Verdict in chat
+- **Existing** `@/utils` in file — **except** v0.3.11 **UI-only patch**（仅 template/style、无新 import）→ Hook allow without re-Confirm
+- WIP wiring only (events, IME, emit) — if utils are still called **in the patch**
+- Obvious reuse — still require Read export(s) + Confirm + Verdict in chat when patch adds/changes util usage
 - Helper **already in file** — still re-Confirm in Local helpers table when gate applies
 
 ## Mandatory flow

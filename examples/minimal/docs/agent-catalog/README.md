@@ -51,7 +51,7 @@ node node_modules/agent-utils-reuse/bin/cli.mjs search "剪贴板 复制" --limi
 
 **`utils-index.json` 是脚本生成的，禁止手改。** 你在 `src/utils/`（或 `.utils-bookrc.json` 里的 `utilsDir`）补好块注释后，必须 **重新跑生成命令**，索引才会带上新摘要。
 
-### 标准流程（消费项目 / ai-web 等）
+### 标准流程（任意消费项目）
 
 ```text
 1. 补 JSDoc（人工或 BACKFILL Agent 提示词）
@@ -77,7 +77,7 @@ export function copyToClip(text: string) { ... }
 **步骤 2 — 重新生成索引**（在**项目根**执行）：
 
 ```bash
-cd /path/to/your-project    # 例如 ai-web 仓库根，不是 docs/agent-catalog
+cd /path/to/your-project    # 项目根（含 package.json），不是 docs/agent-catalog
 pnpm gen:utils-book
 ```
 

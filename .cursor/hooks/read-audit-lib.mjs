@@ -325,10 +325,105 @@ export function countReuseSymbols(text) {
 }
 
 export function getStaleVerdictSymbols(requiredSymbols, cwd = process.cwd()) {
+  return getVerdictCoverage(requiredSymbols, cwd).needsConfirm
+}
+
+/** Split required patch symbols into already Confirm'd vs needing delta Confirm. */
+export function getVerdictCoverage(requiredSymbols, cwd = process.cwd()) {
   const audit = loadVerdictAudit(cwd)
-  if (!audit.recorded || !audit.symbols?.length) return []
-  const covered = new Set(audit.symbols.map((s) => s.toLowerCase()))
-  return [...new Set(requiredSymbols)].filter((s) => !covered.has(String(s).toLowerCase()))
+  const covered = new Set((audit.symbols ?? []).map((s) => s.toLowerCase()))
+  const unique = [...new Set(requiredSymbols ?? [])]
+  if (!audit.recorded || covered.size === 0) {
+    return { needsConfirm: unique, alreadyCovered: [], recorded: audit.recorded === true }
+  }
+  const needsConfirm = unique.filter((s) => !covered.has(String(s).toLowerCase()))
+  const alreadyCovered = unique.filter((s) => covered.has(String(s).toLowerCase()))
+  return { needsConfirm, alreadyCovered, recorded: true }
+}
+
+const UTILS_IMPORT_IN_TEXT_RE = /(?:from\s+['"]|import\s+['"])(@\/utils|@\/utils\/)/
+
+function patchTextMentionsUtilsImport(text, config) {
+  if (!text || typeof text !== 'string') return false
+  for (const alias of config.utilsImportAliases ?? ['@/utils']) {
+    const aliasNorm = String(alias).replace(/\\/g, '/').replace(/\/+$/, '')
+    const re = new RegExp(
+      `(?:from\\s+['"]|import\\s+['"])${aliasNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|['"])`,
+      'i'
+    )
+    if (re.test(text)) return true
+  }
+  const utilsPrefix = config.utilsDir?.replace(/\\/g, '/')
+  if (utilsPrefix && new RegExp(`from\\s+['"]\\.?/?${utilsPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(text)) {
+    return true
+  }
+  return UTILS_IMPORT_IN_TEXT_RE.test(text)
+}
+
+function looksLikeScriptDelta(text) {
+  if (!text || typeof text !== 'string') return false
+  return (
+    /^\s*(import|export|function|const|let|var|interface|type)\b/m.test(text) ||
+    /^\s*\/\//m.test(text) ||
+    /from\s+['"]/.test(text)
+  )
+}
+
+function vuePatchIsTemplateOrStyleOnly(newStr) {
+  if (/<template\b/i.test(newStr) || /<style\b/i.test(newStr)) return true
+  if (/<[a-z][\w-]*[\s>]/i.test(newStr) && !looksLikeScriptDelta(newStr)) return true
+  return false
+}
+
+/**
+ * StrReplace / Write patch touches only template or style (no script / no new @/utils in delta).
+ */
+export function isPatchUiOnly(payload, filePath = '', config = loadHookConfig()) {
+  if (!payload || typeof payload !== 'object') return false
+  const normalized = normalizeAuditPath(filePath || payload.path || payload.file_path || '')
+  const newStr = String(payload.new_string ?? payload.newString ?? '')
+  const content = payload.content != null ? String(payload.content) : ''
+
+  if (content) {
+    if (patchTextMentionsUtilsImport(content, config)) return false
+    if (/\.vue$/i.test(normalized) && /<script\b/i.test(content)) return false
+    return false
+  }
+
+  if (!newStr.trim()) return false
+  if (patchTextMentionsUtilsImport(newStr, config)) return false
+  if (/\.vue$/i.test(normalized)) {
+    if (/<script\b/i.test(newStr) || looksLikeScriptDelta(newStr)) return false
+    return vuePatchIsTemplateOrStyleOnly(newStr)
+  }
+  if (/\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(normalized)) return false
+  return true
+}
+
+export function patchTextForGate(payload) {
+  if (!payload || typeof payload !== 'object') return ''
+  if (payload.content != null) return String(payload.content)
+  return String(payload.new_string ?? payload.newString ?? '')
+}
+
+export function requiredSymbolsFromPatchDelta(normalized, payload, config, cwd = process.cwd()) {
+  const patchText = patchTextForGate(payload)
+  if (!patchText.trim()) return []
+  return extractImportedUtilsSymbols(patchText, config)
+}
+
+export function resolvePatchUtilPaths(payload, config, cwd = process.cwd()) {
+  const patchText = patchTextForGate(payload)
+  if (!patchText.trim()) return []
+  return resolveContentUtilPaths(patchText, config, cwd)
+}
+
+export function requiredSymbolsFromPatch(normalized, payload, config, cwd = process.cwd()) {
+  if (isPatchUiOnly(payload, normalized, config)) {
+    return requiredSymbolsFromPatchDelta(normalized, payload, config, cwd)
+  }
+  const merged = mergeWritePayload(normalized, payload, cwd)
+  return extractImportedUtilsSymbols(merged, config)
 }
 
 const VERDICT_MARKER_RES = [
@@ -713,11 +808,6 @@ export function extractImportedUtilsSymbols(content, config) {
     if (isUtilsImportSpec(m[2], config)) symbols.add(m[1])
   }
   return [...symbols]
-}
-
-export function requiredSymbolsFromPatch(normalized, payload, config, cwd = process.cwd()) {
-  const merged = mergeWritePayload(normalized, payload, cwd)
-  return extractImportedUtilsSymbols(merged, config)
 }
 
 export function extractUtilsImportSpecifiers(content, config) {

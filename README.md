@@ -22,7 +22,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: *
 
 **Two-phase workflow**: Message A = Identify + Discovery (when triggered) + Local helpers table + **per-symbol Confirm (Q1–Q4 separately)** + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
 
-**Any project** gets the same stack after init — test projects (e.g. ai-web) do not need hand-edited rules.
+**Any project** gets the same stack after init — no hand-edited rules per repo.
 
 **Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
 
@@ -100,6 +100,21 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/pre-write-utils-checklist.mdc` | Message A/B HARD STOP before Write (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
+
+### Upgrade v0.3.10 → v0.3.11
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Gate UX（测试反馈采纳）**:
+
+- **#27 uiOnly allow**: template/style-only patch on files with existing `@/utils` → allow without re-Confirm
+- **Delta Confirm**: Rules — only new symbol rows + `Gate N/A` block; Hook stale deny includes `alreadyCovered` / `needsConfirm`
+- **Q4 sibling templates** in `placement-decision.md`
+- **`strictD2`**: documented opt-in (default off); not implemented in hook yet
+- Test rubric guide: `docs/agent-catalog/TEST-RUBRIC-WRITING.zh.md`
 
 ### Upgrade v0.3.9 → v0.3.10
 
@@ -223,7 +238,7 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
-**Gate hardening (all init projects, not ai-web-specific):**
+**Gate hardening (all init projects):**
 
 - **Hook fail-closed** — `hookMode: confirm` errors deny Write (no silent allow)
 - **Session Read → Write** — after Read under `utilsDir`, Write under `remindWritePaths` without prior assistant `Verdict（最终）` → deny (even if patch has no `@/utils` import)
@@ -343,12 +358,12 @@ node node_modules/agent-utils-reuse/bin/cli.mjs status
 node node_modules/agent-utils-reuse/bin/cli.mjs verify
 ```
 
-**ai-web acceptance** after update:
+**Post-update acceptance** (any consumer project root):
 
 - `.cursor/hooks.json` → 2 `postToolUse` entries (Read + Grep/SemanticSearch)
 - `.cursor/hooks/track-utils-discovery.mjs` exists
 - `agent-utils-reuse verify` → `Gate verify: OK`
-- `pnpm test:hook-discovery .` (from agent-utils-reuse repo)
+- `pnpm test:hook-discovery .` (from agent-utils-reuse repo, pass `[projectRoot]`)
 
 ### Merge conflicts (like git pull)
 
