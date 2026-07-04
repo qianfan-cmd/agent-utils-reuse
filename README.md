@@ -101,6 +101,23 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.11 → v0.3.12
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+pnpm test:verdict-substance
+```
+
+**Gate UX（第二轮反馈）**:
+
+- **Delta minimal format**: Rules — `needsConfirm` + `Gate N/A` + one-line `Verdict（最终）`; no full-table re-Confirm
+- **partialReuse + wrapper**: separate bulk row template in `placement-decision.md`
+- **noUtil short template** + optional Hook `noutil_q4_invalid` (Q4 must cite D1 zero or D2 utilsDir)
+- **`search` CLI**: hit lines append `(siblings: …)` from `siblingsByPath`
+- **TEST-RUBRIC**: symbol + D1 keywords on test prompts (no business题号 mapping in package)
+- **Opt-in backlog** (doc only): `strictD2`, `forbiddenReadPaths`, `hookMode: audit` — see `placement-decision.md`
+
 ### Upgrade v0.3.10 → v0.3.11
 
 ```bash
@@ -437,6 +454,16 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `installedPackageVersion` | *(written by `update`)* | Last synced template/package version |
 | `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
 | `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
+
+### Opt-in backlog (v0.4+, documented only — not implemented in hook)
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `strictD2` | off | When `true` + `hookMode: confirm`, deny if D1 returned zero candidates but chat lacks D2 utilsDir proof |
+| `forbiddenReadPaths` | `[]` | Grading-only: Read hook warn/deny paths like `src/feature/**` (default off — normal dev needs Read feature) |
+| `hookMode: audit` | — | Structured JSONL Confirm for external graders — deferred; use `.cursor/.utils-gate-*.json` + deny JSON instead |
+
+See `docs/agent-catalog/placement-decision.md` for design notes.
 
 ### hookMode (v0.3.8)
 

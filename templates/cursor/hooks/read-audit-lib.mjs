@@ -1073,6 +1073,17 @@ function rowRequiresRead(verdictCell) {
   return /\b(reuse|partialReuse|newUtil)\s*\(/i.test(verdictCell ?? '')
 }
 
+/** noUtil row Q4 must document D1 zero candidates or D2 utilsDir grep (v0.3.12). */
+function noUtilQ4Valid(q4) {
+  const text = String(q4 ?? '').trim()
+  if (text.length < BULK_Q4_MIN_LEN) return false
+  return (
+    /0\s*candidates?|no candidates?|无候选|零候选/i.test(text) ||
+    /\bD2\b.*utils/i.test(text) ||
+    /Grep path:.*utils/i.test(text)
+  )
+}
+
 /**
  * Validate bulk Confirm table rows — Read column + Q4 substance for reuse rows.
  */
@@ -1085,7 +1096,17 @@ export function getBulkRowViolations(confirmText, cwd = process.cwd(), config = 
   for (const line of table.dataRows) {
     const row = parseBulkRow(line, table)
     if (!row) continue
-    if (/\bnoUtil\s*\(/i.test(row.verdictCell) || /^Gate N\/A/i.test(row.symbol)) continue
+    if (/\bnoUtil\s*\(/i.test(row.verdictCell)) {
+      if (!noUtilQ4Valid(row.q4)) {
+        violations.push({
+          symbol: row.symbol,
+          denyReason: 'noutil_q4_invalid',
+          reason: 'noUtil row Q4 must document D1 zero candidates or D2 Grep utilsDir'
+        })
+      }
+      continue
+    }
+    if (/^Gate N\/A/i.test(row.symbol)) continue
     if (!rowRequiresRead(row.verdictCell) && !/\breuse\b/i.test(row.verdictCell)) continue
 
     const needsRead = rowRequiresRead(row.verdictCell)

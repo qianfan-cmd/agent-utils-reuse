@@ -26,7 +26,11 @@ Before first business Write when gate applies:
    - **`Verdict（最终）`** per row — six types below
    - **>5 reuse symbols**: split into batches (≤5 per Confirm + Write)
    - **Delta Confirm (v0.3.11)**: same session, patch adds **only new import symbols** → table rows for new symbols + `Gate N/A — <block>` only; do not repeat already-Confirmed symbols (Hook deny JSON lists `alreadyCovered` / `needsConfirm`)
+   - **Delta minimal format (v0.3.12)**: `needsConfirm` rows + `Gate N/A` + one-line `Verdict（最终）` (delta symbols only) — do not re-print full table
    - **Mixed-page UI-only (#27)**: template/style patch with no new `@/utils` in delta → Hook allow without full re-Confirm
+   - **Copy/example JSON follow-up (v0.3.12)**: same symbol, template copy or example JSON only → uiOnly allow, no Delta table
+   - **partialReuse + featureLocal(wrapper)**: **separate row** in bulk compact (see `placement-decision.md` §3)
+   - **noUtil short template (#28)**: `D1 "kw": 0 candidates → D2: Grep path:src/utils "kw": 0 → noUtil(kw)`
 7. Then Write (**Implement phase** — same assistant response, after Confirm text)
 
 **Read util files does NOT complete the gate** — post-selection proof (Confirm + Verdict) is a separate hard step.

@@ -179,6 +179,22 @@ try {
   recordVerdict(COMPACT_BULK, bulkAuditDir)
   const violations = getBulkRowViolations(COMPACT_BULK, bulkAuditDir)
   assert('compact bulk row validation passes', violations.length === 0)
+
+  const NOUTIL_INVALID_Q4 = `| Symbol | Read @ path | Q4 | Verdict |
+| debounce | — | no shared utility for this page | noUtil(debounce) |
+
+Verdict（最终）: noUtil(debounce)`
+  const noUtilViolations = getBulkRowViolations(NOUTIL_INVALID_Q4, bulkAuditDir)
+  assert(
+    'noUtil row without D1/D2 narrative fails',
+    noUtilViolations.some((v) => v.denyReason === 'noutil_q4_invalid')
+  )
+  const NOUTIL_D2_Q4 = `| Symbol | Read @ path | Q4 | Verdict |
+| debounce | — | D2: Grep path:src/utils "debounce": 0 matches | noUtil(debounce) |`
+  assert(
+    'noUtil row with D2 Grep utils passes',
+    getBulkRowViolations(NOUTIL_D2_Q4, bulkAuditDir).length === 0
+  )
 } finally {
   fs.rmSync(bulkAuditDir, { recursive: true, force: true })
 }
