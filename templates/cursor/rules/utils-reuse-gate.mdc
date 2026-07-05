@@ -13,7 +13,7 @@ alwaysApply: true
 
 - **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: off` (v0.3.6)** — Rules only; opt-in **`hookMode: confirm`** for Write deny until Read + Verdict.
+- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: confirm` (v0.3.8)** — Write deny until Read + Verdict; set `off` for Rules-only.
 - Hook (`hookMode: confirm` only) **fail-closed** + same-turn Verdict; denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without Local helpers table.
 
 **Confirm→Implement workflow:**
@@ -49,12 +49,7 @@ alwaysApply: true
 
 **D1 zero candidates → mandatory D2**: If D1 (CLI search or Grep `utils-index.json`) returns **no** candidates, you **must** run D2 (`Grep path:src/utils`) before writing util-semantics local helpers. **Forbidden**: skip D2 and featureLocal-duplicate when utils may exist.
 
-**Confirm placement (v0.3.14)** — user-visible chat **preferred** (grading UX). Hook records via `afterAgentThought` / `afterAgentResponse` → `.cursor/.utils-gate-verdict.json`. **Same session**: if `recorded: true` and symbols in deny JSON `alreadyCovered` / audit.symbols → **do NOT re-print full bulk table**; **Delta rows only** for new symbols.
-
-**Anti-loop (forbidden)**:
-- Meta narration: 「下面先给出 Confirm」「门禁要求 Confirm 出现在可见回复」when bulk table + `Verdict（最终）` already appear above in this or prior recorded turn
-- Treat every Write deny as「没 Confirm」 — read **`denyReason`** first (`missing_reads`, `sibling_q4_missing`, `bulk_read_not_in_session`, `verdict_stale_for_symbol`, `verdict_missing_empty_payload`, `verdict_not_substantive`)
-- **Implement order**: bulk table + `Verdict（最终）` **before** the first Write tool in the **same** assistant message (not after a failed Write)
+**Confirm in user-visible chat only** — not thinking-only; Hook cannot audit thinking.
 
 **Bulk Confirm (≥3 util symbols) — compact default (v0.3.9)**:
 
@@ -66,18 +61,16 @@ alwaysApply: true
 - **`Verdict（最终）`** summary 仍必填。
 - **Legacy**（1–2 symbol）：分项 Q1–Q4 prose 仍接受；7 列 Bulk 表（Q1–Q4 分列）仍接受。
 - **D1 零候选 + D2 有结果（#28）**：**两行** — `noUtil(关键词)` 行 + reuse D2 结果行；禁止捆在一格。
+- **D1 零候选 + D2 无 export（#28）**：**noUtil 短模板** — `D1 "kw": 0 → D2 path:src/utils "kw": 0 → noUtil(kw)`；Hook 校验 Q4 含 D1/D2/零候选 token（`noutil_q4_invalid`）。
 - **>5 reuse symbol**：优先分批（每批 ≤5 symbol：一张表 + 一次 Write）；Hook allow + remind。
-- **Delta Confirm（v0.3.11）**：同会话、同文件、patch **无新 import / 无 script 变更** → 仅 **新增 symbol 行** + `Gate N/A — <本轮区块>`；已 Confirm 的 symbol **勿重复** reuse 行（Hook `alreadyCovered` / `needsConfirm`）。
-- **Delta Confirm 最小格式（v0.3.12）**：`needsConfirm` 行 + `Gate N/A` 区块行 + 一行 **`Verdict（最终）`**（仅列 delta symbol）；**禁止**重打 16 行整表。
-- **混页纯 UI 增量（#27）**：仅改 `<template>` / `<style>`、patch 无新 `@/utils` → Hook **allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
-- **文案/示例 JSON 追问（v0.3.12）**：同 symbol、仅 template 文案或示例 JSON 变更 → **uiOnly allow**，无需 Delta 表。
-- **partialReuse + featureLocal(wrapper)**：**必须单独一行**（Bulk compact）；禁止与 partialReuse 捆在一格 Verdict 散文。模板见 `placement-decision.md` §3。
-- **noUtil 短模板（#28）**：`D1 "kw": 0 candidates → D2: Grep path:src/utils "kw": 0 → noUtil(kw)`（Hook 轻校验 Q4 含 `0 candidates` 或 D2 utilsDir）。
-- **featureLocal wrapper** = separate row. **Mixed page Gate N/A**: `Gate N/A — <区块名>：纯 UI` row.
+- **Delta Confirm（v0.3.11–v0.3.12）**：同会话、patch **仅新增 import symbol** → 只输出 **新增 symbol 行** + `Gate N/A — <本轮区块>`；已 Confirm 的 symbol **勿重复**（Hook `alreadyCovered` / `needsConfirm`；`needsConfirm` 空且 session audit 已 record → **allow 无需本轮 Verdict**）。
+- **混页纯 UI（#27）**：仅改 `<template>` / `<style>` / 示例 JSON 文案、patch 无新 `@/utils` → Hook **uiOnly allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
+- **partialReuse + featureLocal(wrapper)**：可与 util **同表一行**，如 `partialReuse(validateHistoryImageUrls)+featureLocal(checkHistoryUrlItem)`；Hook **不强制** wrapper 单独行（Legacy ≥3 symbol 仍可用分项）。
+- **Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
 
-**D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof. **D1 同 path 多 hit**：chat 须括号注明 `sibling: uploadMultipleFiles, …`（或 `agent-utils-reuse search` 输出里的 siblings 提示）。
+**D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
 
-**Same-file siblings**: D1 returns 2+ exports @ same path → Q4 must mention rejected sibling (see `utils-index.json` `siblingsByPath`). **Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
+**Same-file siblings**: D1 / `agent-utils-reuse search` 命中行展示 `siblings @ path: …`（来自 `utils-index.json` `siblingsByPath`）→ Q4 须 `reject <sibling>` 或等价比较。**Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
 
 **featureLocal + D2**：util 语义任务（upload/validate/convert/format…）若 Verdict 含 `featureLocal`，Q4 须写 **D2 Grep utilsDir 无 export** 或引用 Discovery 行；D1 零候选不得跳过 D2 叙事。
 
@@ -139,7 +132,9 @@ export function formatDateLocal(iso: string): string { ... }
 
 ## Hook (default `confirm`, v0.3.8)
 
-Default **`hookMode: off`** — Rules only. Opt-in **`hookMode: confirm`** — Write deny until Read + Verdict. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
+Default **`hookMode: confirm`** — Write deny until Read + Verdict. Set **`off`** for Rules-only.
+
+**Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
 
 **`hookMode: remind`**: preToolUse allow + reminder only (see README).
 

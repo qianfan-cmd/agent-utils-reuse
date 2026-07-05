@@ -189,13 +189,7 @@ export function extractAssistantTextFromHookInput(input) {
     "agent_response",
     "assistant_response",
     "message",
-    "output",
-    "thought",
-    "thoughts",
-    "thinking",
-    "reasoning",
-    "assistant_thought",
-    "agent_thought"
+    "output"
   ]) {
     if (input[key] != null) {
       const s = messageContentToString(input[key])
@@ -496,7 +490,9 @@ function parseBulkTable(text) {
   if (!isCompact && !isLegacyQ) return null
 
   const dataRows = tableLines.slice(1).filter((line) => {
-    const first = splitTableRow(line)[0] ?? ''
+    const cells = splitTableRow(line)
+    const first = cells[0] ?? ''
+    if (/^(Symbol|Util|本地函数|Helper|helper|函数)$/i.test(first.trim())) return false
     return !/^Gate N\/A/i.test(first)
   })
 
@@ -633,16 +629,24 @@ export function textHasVerdict(text) {
 
 export function recordVerdict(text, cwd = process.cwd()) {
   if (!textHasSubstantiveConfirm(text)) return false
-  const confirmText = String(text).slice(0, CONFIRM_TEXT_MAX)
+  const prior = loadVerdictAudit(cwd)
+  const incoming = String(text).slice(0, CONFIRM_TEXT_MAX)
+  const confirmText =
+    prior.confirmText && prior.confirmText.trim() && !incoming.includes(prior.confirmText.slice(0, 120))
+      ? `${prior.confirmText}\n\n${incoming}`.slice(0, CONFIRM_TEXT_MAX)
+      : incoming
   const snippet = confirmText.replace(/\s+/g, ' ').trim().slice(0, 400)
-  const symbols = extractVerdictSymbols(confirmText)
+  const symbols = [...new Set([...(prior.symbols ?? []), ...extractVerdictSymbols(incoming)])]
   saveVerdictAudit(
     {
       recorded: true,
       at: new Date().toISOString(),
       confirmText,
       snippet,
-      hasLocalHelpersTable: textHasLocalHelpersTable(text) || textHasBulkConfirmTable(text),
+      hasLocalHelpersTable:
+        prior.hasLocalHelpersTable === true ||
+        textHasLocalHelpersTable(text) ||
+        textHasBulkConfirmTable(text),
       symbols
     },
     cwd
@@ -652,53 +656,6 @@ export function recordVerdict(text, cwd = process.cwd()) {
 
 export function hasVerdict(cwd = process.cwd()) {
   return loadVerdictAudit(cwd).recorded === true
-}
-
-/** Debug fields for Write deny JSON (v0.3.14). */
-export function verdictDenyExtras(cwd = process.cwd()) {
-  const audit = loadVerdictAudit(cwd)
-  const confirmText = audit.confirmText ?? ''
-  return {
-    sessionVerdictRecorded: audit.recorded === true,
-    confirmTextLength: confirmText.length,
-    verdictSymbols: audit.symbols ?? []
-  }
-}
-
-const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md §1.6 and §3'
-
-/**
- * Build deny payload when hasVerdict is false (v0.3.14 — split empty payload vs non-substantive).
- */
-export function buildVerdictDenyPayload(input, cwd = process.cwd()) {
-  const extras = verdictDenyExtras(cwd)
-  const payloadText = extractAssistantTextFromHookInput(input)
-  const trimmed = String(payloadText ?? '').trim()
-
-  if (!trimmed) {
-    return {
-      denyReason: 'verdict_missing_empty_payload',
-      agent_message:
-        `Denied (verdict_missing_empty_payload): preToolUse payload has no Confirm text. Output bulk table + Verdict（最终） in user-visible chat **before** the Write tool in the **same** assistant message. If sessionVerdictRecorded is true, do NOT re-print — fix denyReason (missing_reads, sibling_q4_missing, etc.). See ${PLACEMENT_SECTION}.`,
-      ...extras
-    }
-  }
-
-  if (!textHasSubstantiveConfirm(trimmed)) {
-    return {
-      denyReason: 'verdict_not_substantive',
-      agent_message:
-        `Denied (verdict_not_substantive): Assistant text lacks substantive Confirm — need Verdict（最终） + reuse/partialReuse/newUtil/noUtil outcome; bulk compact needs Q4 column. Forbidden: "Q1-Q5 通过". See ${PLACEMENT_SECTION}.`,
-      ...extras
-    }
-  }
-
-  return {
-    denyReason: 'verdict_missing',
-    agent_message:
-      `Denied: Read util / search / gen index do NOT complete the gate. Output substantive Confirm in chat **before** the first Write in this response. Include Verdict（最终）. If sessionVerdictRecorded is true, check denyReason — do not re-print full table. See ${PLACEMENT_SECTION}.`,
-    ...extras
-  }
 }
 
 export function tryEagerRecordVerdict(input, cwd = process.cwd(), context = 'preToolUse') {
@@ -1078,11 +1035,13 @@ function q4TextForSymbol(text, symbol) {
   if (!text || !symbol) return ''
   const table = parseBulkTable(text)
   if (table) {
+    let lastQ4 = ''
     for (const line of table.dataRows) {
       const row = parseBulkRow(line, table)
       if (!row || row.symbol.toLowerCase() !== symbol.toLowerCase()) continue
-      if (row.q4) return row.q4
+      if (row.q4) lastQ4 = row.q4
     }
+    if (lastQ4) return lastQ4
   }
   const symRe = new RegExp(`\\b${symbol}\\b`, 'i')
   for (const line of text.split('\n')) {

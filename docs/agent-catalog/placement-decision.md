@@ -216,7 +216,7 @@ flowchart TD
 | Gate N/A — skeleton | — | pure UI block | Gate N/A |
 ```
 
-Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCovered` — 只补 `needsConfirm` 行。
+Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCovered` — 只补 `needsConfirm` 行。`needsConfirm` 空且 session audit 已 record → Hook **allow**（v0.3.12，无需本轮 Verdict）。
 
 **Delta Confirm 最小格式（v0.3.12）** — 禁止重打整表：
 
@@ -242,12 +242,12 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 
 **文案/示例 JSON 追问（v0.3.12）**：用户仅改 template 文案或示例 JSON、util symbol 不变 → **uiOnly allow**，无需 Delta 表或 re-Confirm。
 
-**partialReuse + wrapper 单独一行（Bulk compact）**：
+**partialReuse + wrapper（Bulk compact — 可与 util 同表一行）**：
 
 | Symbol | Read @ path | Q4 | Verdict |
 | checkHistoryUrlItem | validateHistoryImageUrls.ts | partialReuse core; wrapper adds UI msg | partialReuse(validateHistoryImageUrls)+featureLocal(checkHistoryUrlItem) |
 
-禁止 `partialReuse(x)+featureLocal(y)` 散文捆在一格而无 wrapper 行。
+Hook **不强制** wrapper 单独行；禁止无 wrapper 行的 `partialReuse(x)+featureLocal(y)` 散文捆在一格。
 
 **noUtil 短模板（#28）**：
 

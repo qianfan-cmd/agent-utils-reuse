@@ -60,8 +60,8 @@ assert('no match returns empty', emptyResults.length === 0)
 const cliOut = runSearch(projectRoot, 'sortAsc', { limit: 3 })
 assert('runSearch includes sortAsc', cliOut.includes('sortAsc'))
 assert(
-  'runSearch shows siblings hint for sortAsc',
-  cliOut.includes('siblings:') && cliOut.includes('sortDesc'),
+  'runSearch includes siblings for multi-export path (v0.3.12)',
+  cliOut.includes('siblings @') && cliOut.includes('sortDesc'),
   cliOut
 )
 

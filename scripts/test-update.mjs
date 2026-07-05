@@ -10,7 +10,6 @@ import { UPSTREAM_SIDECAR_SUFFIX } from '../lib/gate-sync-manifest.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = path.resolve(__dirname, '..')
-const PACKAGE_JSON_PATH = path.join(PACKAGE_ROOT, 'package.json')
 const CLI = path.join(PACKAGE_ROOT, 'bin', 'cli.mjs')
 
 function runCli(args, cwd) {
@@ -20,39 +19,6 @@ function runCli(args, cwd) {
     shell: false
   })
   return result
-}
-
-function nmPackageJsonPath(projectRoot) {
-  return path.join(projectRoot, 'node_modules', 'agent-utils-reuse', 'package.json')
-}
-
-/** file: dev link often resolves to PACKAGE_ROOT — must not mutate repo package.json in tests. */
-function nodeModulesLinksPackageRoot(projectRoot) {
-  const nmPath = nmPackageJsonPath(projectRoot)
-  if (!fs.existsSync(nmPath)) return false
-  try {
-    return fs.realpathSync(nmPath) === fs.realpathSync(PACKAGE_JSON_PATH)
-  } catch {
-    return false
-  }
-}
-
-/**
- * Simulate stale node_modules package version for upgrade/repair path.
- * When dev `file:` link resolves to PACKAGE_ROOT, skip — would corrupt repo package.json
- * or leave installedPackageVersion stuck (mergeBookrc preserves existing stamp).
- */
-function simulateStaleNodeModulesVersion(projectRoot) {
-  if (nodeModulesLinksPackageRoot(projectRoot)) {
-    return null
-  }
-
-  const nmPkgPath = nmPackageJsonPath(projectRoot)
-  const backup = fs.readFileSync(nmPkgPath, 'utf8')
-  const nmPkg = JSON.parse(backup)
-  nmPkg.version = '0.1.9'
-  fs.writeFileSync(nmPkgPath, `${JSON.stringify(nmPkg, null, 2)}\n`, 'utf8')
-  return { path: nmPkgPath, content: backup }
 }
 
 function setupTempProject() {
@@ -97,9 +63,6 @@ function setupTempProject() {
 function readBookrc(dir) {
   return JSON.parse(fs.readFileSync(path.join(dir, '.utils-bookrc.json'), 'utf8'))
 }
-
-const packageJsonBackup = fs.readFileSync(PACKAGE_JSON_PATH, 'utf8')
-let nmPkgRestore = null
 
 try {
   const projectRoot = setupTempProject()
@@ -203,7 +166,10 @@ try {
   assert.equal(verifyDrift.status, 1, 'verify should fail on drift')
   assert.match(verifyDrift.stdout, /FAILED|Stale|Missing/i)
 
-  nmPkgRestore = simulateStaleNodeModulesVersion(projectRoot)
+  const nmPkgPath = path.join(projectRoot, 'node_modules', 'agent-utils-reuse', 'package.json')
+  const nmPkg = JSON.parse(fs.readFileSync(nmPkgPath, 'utf8'))
+  nmPkg.version = '0.1.9'
+  fs.writeFileSync(nmPkgPath, `${JSON.stringify(nmPkg, null, 2)}\n`, 'utf8')
 
   const repairUpdate = runCli(['update', '--yes'], projectRoot)
   assert.equal(repairUpdate.status, 0, repairUpdate.stderr)
@@ -230,14 +196,5 @@ try {
   console.log('test-update: all assertions passed')
 } catch (err) {
   console.error(err)
-  process.exitCode = 1
-} finally {
-  fs.writeFileSync(PACKAGE_JSON_PATH, packageJsonBackup, 'utf8')
-  if (nmPkgRestore) {
-    fs.writeFileSync(nmPkgRestore.path, nmPkgRestore.content, 'utf8')
-  }
-}
-
-if (process.exitCode) {
-  process.exit(process.exitCode)
+  process.exit(1)
 }

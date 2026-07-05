@@ -13,7 +13,7 @@ Before first business Write when gate applies:
 3. **Discovery (when triggered)**: D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`, **or** D2 Grep/SemanticSearch `utilsDir`. **Forbidden**: Read/Grep `utils-book/*.md` for Shortlist (v0.3.0)
 4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
 5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
-6. **Confirm phase** (user-visible chat preferred; Hook also records via afterAgentThought/afterAgentResponse → `.cursor/.utils-gate-verdict.json`):
+6. **Confirm phase** (chat, before first Write tool — **not thinking-only**):
    - Discovery line (when triggered); D1 zero → `D1 "<kw>": 0 candidates → D2: ...` in chat
    - **Local helpers** (1–2 symbol) or **Bulk compact** (≥3 symbols):
 
@@ -21,15 +21,9 @@ Before first business Write when gate applies:
 
    - **Confirm (五问 per symbol)** — legacy: Q1–Q4 separately; **bulk compact**: one Q4 cell per row (Q1–Q3 implied pass unless Q4 says must change util → newUtil); forbidden: `Q1-Q5 通过`
    - **`Verdict（最终）`** per row — six types below
-   - **Anti-loop (v0.3.14)**: session audit `recorded: true` + symbols in `alreadyCovered` → Delta only; on Write deny read `denyReason` — do NOT re-print full table; forbidden 「下面先给出 Confirm」
-   - **Implement order**: table + `Verdict（最终）` **before** first Write tool in same message
    - **>5 reuse symbols**: split into batches (≤5 per Confirm + Write)
    - **Delta Confirm (v0.3.11)**: same session, patch adds **only new import symbols** → table rows for new symbols + `Gate N/A — <block>` only; do not repeat already-Confirmed symbols (Hook deny JSON lists `alreadyCovered` / `needsConfirm`)
-   - **Delta minimal format (v0.3.12)**: `needsConfirm` rows + `Gate N/A` + one-line `Verdict（最终）` (delta symbols only) — do not re-print full table
    - **Mixed-page UI-only (#27)**: template/style patch with no new `@/utils` in delta → Hook allow without full re-Confirm
-   - **Copy/example JSON follow-up (v0.3.12)**: same symbol, template copy or example JSON only → uiOnly allow, no Delta table
-   - **partialReuse + featureLocal(wrapper)**: **separate row** in bulk compact (see `placement-decision.md` §3)
-   - **noUtil short template (#28)**: `D1 "kw": 0 candidates → D2: Grep path:src/utils "kw": 0 → noUtil(kw)`
 7. Then Write (**Implement phase** — same assistant response, after Confirm text)
 
 **Read util files does NOT complete the gate** — post-selection proof (Confirm + Verdict) is a separate hard step.
@@ -73,7 +67,7 @@ For **each** util you will import or call **and each Local helpers table row**, 
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: off`, v0.3.6): Rules-only Confirm + Verdict before Write. Opt-in `hookMode: confirm` for hard deny (Read + Verdict + Discovery + Local helpers table; bulk compact validates Read + Q4 per row; uiOnly template/style patches allow without re-Confirm).
+**Hook** (default `hookMode: confirm`, v0.3.9): Write deny until AGENTS.md Read + Confirm + Verdict; bulk compact validates Read + Q4 per row. Set `off` for Rules-only.
 
 #### Export JSDoc (utilsDir — mandatory)
 

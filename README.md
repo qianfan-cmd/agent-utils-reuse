@@ -101,46 +101,22 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
-### Upgrade v0.3.13 → v0.3.14
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Confirm anti-loop (v0.3.14)**:
-
-- Rules: session audit reuse — do NOT re-print full bulk table when `alreadyCovered`; read `denyReason` on deny
-- Hook: `verdict_missing_empty_payload` / `verdict_not_substantive` denyReason + `sessionVerdictRecorded` in deny JSON
-- `extractAssistantTextFromHookInput` includes thought/thinking fields (aligns with `afterAgentThought`)
-- placement-decision §3 Confirm 循环 anti-patterns
-
-### Upgrade v0.3.12 → v0.3.13
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:update
-pnpm check:version
-```
-
-**Fix**: `test-update` with `file:` dev link no longer overwrites repo `package.json` (was drifting to `0.1.9`). Default `hookMode` restored to `off` in `load-config.mjs`.
-
 ### Upgrade v0.3.11 → v0.3.12
 
 ```bash
 pnpm upgrade:utils-reuse
 pnpm test:hooks
 pnpm test:verdict-substance
+pnpm test:search-utils-index
 ```
 
-**Gate UX（第二轮反馈）**:
+**Gate UX（v2 反馈采纳）**:
 
-- **Delta minimal format**: Rules — `needsConfirm` + `Gate N/A` + one-line `Verdict（最终）`; no full-table re-Confirm
-- **partialReuse + wrapper**: separate bulk row template in `placement-decision.md`
-- **noUtil short template** + optional Hook `noutil_q4_invalid` (Q4 must cite D1 zero or D2 utilsDir)
-- **`search` CLI**: hit lines append `(siblings: …)` from `siblingsByPath`
-- **TEST-RUBRIC**: symbol + D1 keywords on test prompts (no business题号 mapping in package)
-- **Opt-in backlog** (doc only): `strictD2`, `forbiddenReadPaths`, `hookMode: audit` — see `placement-decision.md`
+- **sessionCoversPatch**: `needsConfirm` empty + session audit recorded → allow without this-turn Verdict
+- **Delta symbol merge**: `recordVerdict` accumulates symbols across delta confirms (confirmText append)
+- **noUtil Q4**: bulk `noUtil` rows require D1/D2/零候选 token (`noutil_q4_invalid`)
+- **D1 siblings**: `agent-utils-reuse search` prints `siblings @ path: …` from `siblingsByPath`
+- Rules: patch-scoped gate, partialReuse+wrapper same row, TEST-RUBRIC D1 keyword column
 
 ### Upgrade v0.3.10 → v0.3.11
 
@@ -196,7 +172,7 @@ pnpm test:verdict-substance
 
 **Batch Confirm + reliable confirm (v0.3.8):**
 
-- **Default `hookMode: off`** — Rules-only Confirm + Verdict; opt-in **`hookMode: confirm`** for Write deny until full **`AGENTS.md`** Read + util Read + chat Confirm + **`Verdict（最终）`**
+- **Default `hookMode: confirm`** — Write deny until full **`AGENTS.md`** Read + util Read + chat Confirm + **`Verdict（最终）`**
 - **Bulk Confirm table** (≥3 symbols): `| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |` — Hook accepts per-row Q columns
 - **`utils-index.json` `siblingsByPath`** — same-file multi-export → Q4 must mention sibling in chat
 - **Discovery chat**: D1 candidates or `D1 "<kw>": 0 candidates → D2: ...` (page comments ≠ proof)
@@ -470,7 +446,7 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `off` | `off` = Rules only (default v0.3.6); `confirm` = Write deny; `remind` = allow + reminder |
+| `hookMode` | `confirm` | `confirm` = Write deny (default v0.3.8); `off` = Rules only; `remind` = allow + reminder |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
@@ -479,22 +455,12 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
 | `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
 
-### Opt-in backlog (v0.4+, documented only — not implemented in hook)
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| `strictD2` | off | When `true` + `hookMode: confirm`, deny if D1 returned zero candidates but chat lacks D2 utilsDir proof |
-| `forbiddenReadPaths` | `[]` | Grading-only: Read hook warn/deny paths like `src/feature/**` (default off — normal dev needs Read feature) |
-| `hookMode: audit` | — | Structured JSONL Confirm for external graders — deferred; use `.cursor/.utils-gate-*.json` + deny JSON instead |
-
-See `docs/agent-catalog/placement-decision.md` for design notes.
-
 ### hookMode (v0.3.8)
 
 | Mode | Write deny | hooks.json |
 |------|------------|------------|
-| **`confirm`** (opt-in) | Yes | Full audit + preToolUse deny gate |
-| **`off`** (default) | No | Empty — no hooks registered |
+| **`confirm`** (default) | Yes | Full audit + preToolUse deny gate |
+| `off` | No | Empty — no hooks registered |
 | `remind` | No | `preToolUse` only (allow + reminder) |
 
 Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write.

@@ -10,6 +10,8 @@ import {
   extractVerdictSymbols,
   getBulkRowViolations,
   getMissingSiblingMentions,
+  getVerdictCoverage,
+  loadVerdictAudit,
   recordRead,
   recordVerdict,
   resetSessionAudits,
@@ -179,24 +181,51 @@ try {
   recordVerdict(COMPACT_BULK, bulkAuditDir)
   const violations = getBulkRowViolations(COMPACT_BULK, bulkAuditDir)
   assert('compact bulk row validation passes', violations.length === 0)
-
-  const NOUTIL_INVALID_Q4 = `| Symbol | Read @ path | Q4 | Verdict |
-| debounce | — | no shared utility for this page | noUtil(debounce) |
-
-Verdict（最终）: noUtil(debounce)`
-  const noUtilViolations = getBulkRowViolations(NOUTIL_INVALID_Q4, bulkAuditDir)
-  assert(
-    'noUtil row without D1/D2 narrative fails',
-    noUtilViolations.some((v) => v.denyReason === 'noutil_q4_invalid')
-  )
-  const NOUTIL_D2_Q4 = `| Symbol | Read @ path | Q4 | Verdict |
-| debounce | — | D2: Grep path:src/utils "debounce": 0 matches | noUtil(debounce) |`
-  assert(
-    'noUtil row with D2 Grep utils passes',
-    getBulkRowViolations(NOUTIL_D2_Q4, bulkAuditDir).length === 0
-  )
 } finally {
   fs.rmSync(bulkAuditDir, { recursive: true, force: true })
+}
+
+const NO_UTIL_BAD = `| Symbol | Read @ path | Q4 | Verdict |
+| debounce | — | no export | noUtil(debounce) |
+Verdict（最终）: noUtil(debounce)`
+const noUtilBad = getBulkRowViolations(NO_UTIL_BAD)
+assert(
+  'noUtil row Q4 without D1/D2 tokens → noutil_q4_invalid',
+  noUtilBad.length === 1 && noUtilBad[0].denyReason === 'noutil_q4_invalid'
+)
+
+const NO_UTIL_OK = `| Symbol | Read @ path | Q4 | Verdict |
+| debounce | — | D1 "debounce": 0 candidates → D2 Grep path:src/utils "debounce": 0 | noUtil(debounce) |
+Verdict（最终）: noUtil(debounce)`
+assert('noUtil short template Q4 → no violations', getBulkRowViolations(NO_UTIL_OK).length === 0)
+
+const mergeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-verdict-merge-'))
+try {
+  resetSessionAudits(mergeDir)
+  recordVerdict(
+    `| Symbol | Read @ path | Q4 | Verdict |
+| copyToClip | copy.ts | clip OK; same API | reuse(copyToClip) |
+Verdict（最终）: reuse(copyToClip)`,
+    mergeDir
+  )
+  recordVerdict(
+    `| Symbol | Read @ path | Q4 | Verdict |
+| otherUtil | other.ts | other OK; same use | reuse(otherUtil) |
+Verdict（最终）: reuse(otherUtil)`,
+    mergeDir
+  )
+  const merged = loadVerdictAudit(mergeDir)
+  assert(
+    'recordVerdict merges symbols across delta confirms',
+    merged.symbols.includes('copyToClip') && merged.symbols.includes('otherUtil'),
+    JSON.stringify(merged.symbols)
+  )
+  assert(
+    'getVerdictCoverage: prior symbol already covered',
+    getVerdictCoverage(['copyToClip'], mergeDir).needsConfirm.length === 0
+  )
+} finally {
+  fs.rmSync(mergeDir, { recursive: true, force: true })
 }
 
 if (process.exitCode) {

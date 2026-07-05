@@ -563,6 +563,85 @@ Verdict（最终）: reuse(copyToClip) + reuse(otherUtil)`
   fs.rmSync(staleDir, { recursive: true, force: true })
 }
 
+// --- v0.3.12: sessionCoversPatch — delta merge + allow without this-turn Verdict ---
+const coverDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-session-cover-"))
+try {
+  fs.mkdirSync(path.join(coverDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(coverDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(coverDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(coverDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(path.join(coverDir, "src", "utils", "other.ts"), "export function otherUtil() {}\n")
+  fs.writeFileSync(
+    path.join(coverDir, "src", "views", "Page.vue"),
+    `<template><div>test</div></template>
+<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+copyToClip()
+</script>
+`
+  )
+  resetAudit(coverDir)
+  recordAgentsRead(coverDir)
+  recordRead(coverDir, "src/utils/copy.ts")
+  recordVerdict(
+    coverDir,
+    `| Symbol | Read @ path | Q4 | Verdict |
+| copyToClip | copy.ts | clip OK; same API | reuse(copyToClip) |
+Verdict（最终）: reuse(copyToClip)`
+  )
+  const coverAllow = runHook(coverDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "copyToClip()",
+      new_string: "copyToClip('updated')"
+    }
+  })
+  assert(
+    "Session covers copyToClip + script patch same symbol → allow without new Verdict (v0.3.12)",
+    coverAllow.permission === "allow",
+    JSON.stringify(coverAllow)
+  )
+
+  recordRead(coverDir, "src/utils/other.ts")
+  recordVerdict(
+    coverDir,
+    `| Symbol | Read @ path | Q4 | Verdict |
+| otherUtil | other.ts | other OK; same use | reuse(otherUtil) |
+Verdict（最终）: reuse(otherUtil)`
+  )
+  fs.writeFileSync(
+    path.join(coverDir, "src", "views", "Page.vue"),
+    `<template><div>test</div></template>
+<script setup lang="ts">
+import { copyToClip, otherUtil } from '@/utils/other'
+copyToClip()
+otherUtil()
+</script>
+`
+  )
+  const mergedAllow = runHook(coverDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "copyToClip()",
+      new_string: "copyToClip()\notherUtil()"
+    }
+  })
+  assert(
+    "Delta recordVerdict merges symbols — both copyToClip and otherUtil covered",
+    mergedAllow.permission === "allow",
+    JSON.stringify(mergedAllow)
+  )
+} finally {
+  fs.rmSync(coverDir, { recursive: true, force: true })
+}
+
 const templateDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-template-only-"))
 try {
   fs.mkdirSync(path.join(templateDir, "src", "views"), { recursive: true })
@@ -837,140 +916,6 @@ import { sortAsc } from '@/utils/array/sortArray'
   )
 } finally {
   fs.rmSync(mixedUiDir, { recursive: true, force: true })
-}
-
-
-// --- v0.3.14: Confirm anti-loop — session verdict + empty payload ---
-const SESSION_COMPACT = `| Symbol | Read @ path | Q4 | Verdict |
-| sortAsc | sortArray.ts | ascending only; reject sortDesc | reuse(sortAsc) |
-
-**Verdict（最终）**：reuse(sortAsc)`
-
-const sessionVerdictDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-session-verdict-"))
-try {
-  fs.mkdirSync(path.join(sessionVerdictDir, "src", "views"), { recursive: true })
-  fs.mkdirSync(path.join(sessionVerdictDir, "src", "utils", "array"), { recursive: true })
-  fs.writeFileSync(
-    path.join(sessionVerdictDir, ".utils-bookrc.json"),
-    JSON.stringify(
-      {
-        hookMode: "confirm",
-        utilsDir: "src/utils",
-        utilsImportAliases: ["@/utils"],
-        remindWritePaths: ["src/views"]
-      },
-      null,
-      2
-    ) + "\n"
-  )
-  fs.writeFileSync(
-    path.join(sessionVerdictDir, "src/utils/array/sortArray.ts"),
-    "export function sortAsc() {}\nexport function sortDesc() {}\n"
-  )
-  fs.writeFileSync(
-    path.join(sessionVerdictDir, "src/views/Page.vue"),
-    `<script setup lang="ts">
-import { sortAsc } from '@/utils/array/sortArray'
-</script>
-<template><div>test</div></template>
-`
-  )
-  prepareGateSession(sessionVerdictDir)
-  recordRead(sessionVerdictDir, "src/utils/array/sortArray.ts")
-  recordVerdict(sessionVerdictDir, SESSION_COMPACT)
-
-  const sessionAllowEmptyPayload = runHook(sessionVerdictDir, {
-    tool_input: {
-      path: "src/views/Page.vue",
-      old_string: "test",
-      new_string: "test-updated"
-    }
-  })
-  assert(
-    "session Verdict recorded + empty payload.text → allow",
-    sessionAllowEmptyPayload.permission === "allow",
-    JSON.stringify(sessionAllowEmptyPayload)
-  )
-} finally {
-  fs.rmSync(sessionVerdictDir, { recursive: true, force: true })
-}
-
-const emptyPayloadDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-empty-payload-"))
-try {
-  fs.mkdirSync(path.join(emptyPayloadDir, "src", "views"), { recursive: true })
-  fs.mkdirSync(path.join(emptyPayloadDir, "src", "utils"), { recursive: true })
-  fs.writeFileSync(
-    path.join(emptyPayloadDir, ".utils-bookrc.json"),
-    JSON.stringify(
-      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
-      null,
-      2
-    ) + "\n"
-  )
-  fs.writeFileSync(path.join(emptyPayloadDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
-  fs.writeFileSync(
-    path.join(emptyPayloadDir, "src/views/Page.vue"),
-    `<script setup lang="ts">
-import { copyToClip } from '@/utils/copy'
-</script>
-<template><div>x</div></template>
-`
-  )
-  prepareGateSession(emptyPayloadDir)
-  recordRead(emptyPayloadDir, "src/utils/copy.ts")
-
-  const emptyPayloadDeny = runHook(emptyPayloadDir, {
-    tool_input: { path: "src/views/Page.vue", old_string: "x", new_string: "y" }
-  })
-  assert(
-    "no session Verdict + empty payload → deny verdict_missing_empty_payload",
-    emptyPayloadDeny.permission === "deny" &&
-      emptyPayloadDeny.denyReason === "verdict_missing_empty_payload",
-    JSON.stringify(emptyPayloadDeny)
-  )
-} finally {
-  fs.rmSync(emptyPayloadDir, { recursive: true, force: true })
-}
-
-const nonsubstantiveDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-nonsubstantive-"))
-try {
-  fs.mkdirSync(path.join(nonsubstantiveDir, "src", "views"), { recursive: true })
-  fs.mkdirSync(path.join(nonsubstantiveDir, "src", "utils"), { recursive: true })
-  fs.writeFileSync(
-    path.join(nonsubstantiveDir, ".utils-bookrc.json"),
-    JSON.stringify(
-      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
-      null,
-      2
-    ) + "\n"
-  )
-  fs.writeFileSync(path.join(nonsubstantiveDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
-  fs.writeFileSync(
-    path.join(nonsubstantiveDir, "src/views/Page.vue"),
-    `<script setup lang="ts">
-import { copyToClip } from '@/utils/copy'
-</script>
-<template><div>x</div></template>
-`
-  )
-  prepareGateSession(nonsubstantiveDir)
-  recordRead(nonsubstantiveDir, "src/utils/copy.ts")
-
-  const badTableNoMarker = `| Symbol | Read @ path | Q4 | Verdict |
-| copyToClip | copy.ts | same semantics for clipboard | reuse(copyToClip) |`
-
-  const nonsubstantiveDeny = runHook(nonsubstantiveDir, {
-    text: badTableNoMarker,
-    tool_input: { path: "src/views/Page.vue", old_string: "x", new_string: "y" }
-  })
-  assert(
-    "payload table without Verdict marker → deny verdict_not_substantive",
-    nonsubstantiveDeny.permission === "deny" &&
-      nonsubstantiveDeny.denyReason === "verdict_not_substantive",
-    JSON.stringify(nonsubstantiveDeny)
-  )
-} finally {
-  fs.rmSync(nonsubstantiveDir, { recursive: true, force: true })
 }
 
 
