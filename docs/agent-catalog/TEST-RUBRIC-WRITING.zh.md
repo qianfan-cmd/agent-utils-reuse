@@ -48,6 +48,8 @@
 - 第一轮：列出本批 **新增 symbol**
 - 后续轮：**Delta Confirm 最小格式**（见 `placement-decision.md` §3）— 仅 `needsConfirm` 行 + Gate N/A
 
+**阅卷（v0.3.14）**：Agent 不应在已有 session Verdict 后 **第二次输出 identical bulk 表**；出现「下面先给出 Confirm」meta 句 → 扣分。
+
 否则 Agent 可能每轮重出整表 — 属于体验预期，不是 Hook bug。
 
 ## KV / BACKFILL

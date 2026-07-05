@@ -49,7 +49,12 @@ alwaysApply: true
 
 **D1 zero candidates → mandatory D2**: If D1 (CLI search or Grep `utils-index.json`) returns **no** candidates, you **must** run D2 (`Grep path:src/utils`) before writing util-semantics local helpers. **Forbidden**: skip D2 and featureLocal-duplicate when utils may exist.
 
-**Confirm in user-visible chat only** — not thinking-only; Hook cannot audit thinking.
+**Confirm placement (v0.3.14)** — user-visible chat **preferred** (grading UX). Hook records via `afterAgentThought` / `afterAgentResponse` → `.cursor/.utils-gate-verdict.json`. **Same session**: if `recorded: true` and symbols in deny JSON `alreadyCovered` / audit.symbols → **do NOT re-print full bulk table**; **Delta rows only** for new symbols.
+
+**Anti-loop (forbidden)**:
+- Meta narration: 「下面先给出 Confirm」「门禁要求 Confirm 出现在可见回复」when bulk table + `Verdict（最终）` already appear above in this or prior recorded turn
+- Treat every Write deny as「没 Confirm」 — read **`denyReason`** first (`missing_reads`, `sibling_q4_missing`, `bulk_read_not_in_session`, `verdict_stale_for_symbol`, `verdict_missing_empty_payload`, `verdict_not_substantive`)
+- **Implement order**: bulk table + `Verdict（最终）` **before** the first Write tool in the **same** assistant message (not after a failed Write)
 
 **Bulk Confirm (≥3 util symbols) — compact default (v0.3.9)**:
 

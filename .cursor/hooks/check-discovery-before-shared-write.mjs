@@ -12,10 +12,10 @@ import {
   hasRead,
   hasVerdict,
   hookErrorDenyMessage,
+  buildVerdictDenyPayload,
   isPatchUiOnly,
   isUnderUtils,
   loadHookConfig,
-  loadVerdictAudit,
   logHookError,
   matchesRemindPath,
   needsDiscoveryOutcomeInChat,
@@ -65,8 +65,18 @@ function denyReadMessage(missingPaths) {
   return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. WIP/existing import does NOT exempt. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
-function denyVerdictMessage() {
-  return `Denied: Read util / search / gen index do NOT complete the gate. Output substantive Confirm in chat **before** the first Write in this response: **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. If you already output Verdict, run pnpm update:utils-reuse and check .cursor/.utils-gate-verdict.json. See ${PLACEMENT_SECTION}.`
+function denyVerdictPayload(input, cwd) {
+  return buildVerdictDenyPayload(input, cwd)
+}
+
+function writeVerdictDeny(input, cwd) {
+  const payload = denyVerdictPayload(input, cwd)
+  process.stdout.write(
+    JSON.stringify({
+      permission: 'deny',
+      ...payload
+    })
+  )
 }
 
 function denyDiscoveryMessage(config) {
@@ -252,12 +262,7 @@ async function main() {
       }
 
       if (!hasVerdict(cwd)) {
-        process.stdout.write(
-          JSON.stringify({
-            permission: 'deny',
-            agent_message: denyVerdictMessage()
-          })
-        )
+        writeVerdictDeny(input, cwd)
         return
       }
 
@@ -293,12 +298,7 @@ async function main() {
     }
 
     if (!hasVerdict(cwd)) {
-      process.stdout.write(
-        JSON.stringify({
-          permission: 'deny',
-          agent_message: denyVerdictMessage()
-        })
-      )
+      writeVerdictDeny(input, cwd)
       return
     }
 

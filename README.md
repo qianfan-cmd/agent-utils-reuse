@@ -101,6 +101,20 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.13 → v0.3.14
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Confirm anti-loop (v0.3.14)**:
+
+- Rules: session audit reuse — do NOT re-print full bulk table when `alreadyCovered`; read `denyReason` on deny
+- Hook: `verdict_missing_empty_payload` / `verdict_not_substantive` denyReason + `sessionVerdictRecorded` in deny JSON
+- `extractAssistantTextFromHookInput` includes thought/thinking fields (aligns with `afterAgentThought`)
+- placement-decision §3 Confirm 循环 anti-patterns
+
 ### Upgrade v0.3.12 → v0.3.13
 
 ```bash

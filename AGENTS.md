@@ -16,7 +16,7 @@ Before first business Write when gate applies:
 3. **Discovery (when triggered)**: D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`, **or** D2 Grep/SemanticSearch `utilsDir`. **Forbidden**: Read/Grep `utils-book/*.md` for Shortlist (v0.3.0)
 4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
 5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
-6. **Confirm phase** (chat, before first Write tool — **not thinking-only**):
+6. **Confirm phase** (user-visible preferred; Hook records via afterAgentThought/afterAgentResponse → `.cursor/.utils-gate-verdict.json`):
    - Discovery line (when triggered); D1 zero → `D1 "<kw>": 0 candidates → D2: ...` in chat
    - **Local helpers** (1–2 symbol) or **Bulk compact** (≥3 symbols):
 
@@ -24,6 +24,8 @@ Before first business Write when gate applies:
 
    - **Confirm (五问 per symbol)** — legacy: Q1–Q4 separately; **bulk compact**: one Q4 cell per row (Q1–Q3 implied pass unless Q4 says must change util → newUtil); forbidden: `Q1-Q5 通过`
    - **`Verdict（最终）`** per row — six types below
+   - **Anti-loop (v0.3.14)**: session audit recorded + `alreadyCovered` → Delta only; on deny read `denyReason`; forbidden 「下面先给出 Confirm」
+   - **Implement order**: table + `Verdict（最终）` **before** first Write tool in same message
    - **>5 reuse symbols**: split into batches (≤5 per Confirm + Write)
    - **Delta Confirm (v0.3.11)**: same session, patch adds **only new import symbols** → table rows for new symbols + `Gate N/A — <block>` only; do not repeat already-Confirmed symbols (Hook deny JSON lists `alreadyCovered` / `needsConfirm`)
    - **Delta minimal format (v0.3.12)**: `needsConfirm` rows + `Gate N/A` + one-line `Verdict（最终）` (delta symbols only) — do not re-print full table

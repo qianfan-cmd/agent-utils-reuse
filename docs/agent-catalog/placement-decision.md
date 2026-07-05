@@ -229,6 +229,15 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 **Verdict（最终）**：reuse(newSym)
 ```
 
+**Confirm 循环（v0.3.14 — 反模式）**
+
+| 模式 | 说明 |
+|------|------|
+| **正确** | 同一条 assistant 消息：bulk 表 + `Verdict（最终）` → **再** Write |
+| **错误** | 表 → Write → deny → 「下面先给出 Confirm」→ 整表重打 |
+| **多批** | 第一批 session audit 已 record → 第二批只 Delta + 新 symbol Write |
+| **deny 后** | 读 `denyReason`（`missing_reads` / `sibling_q4_missing` / `verdict_missing_empty_payload` 等），**禁止**一律当成没 Confirm |
+
 **混页纯 UI（#27）**：文件顶已有 `@/utils`，本轮只改 template/style → 表内 `Gate N/A — <区块>` 或 **无 Confirm**（Hook uiOnly allow）。**不用** `// @gate-na` 注释。
 
 **文案/示例 JSON 追问（v0.3.12）**：用户仅改 template 文案或示例 JSON、util symbol 不变 → **uiOnly allow**，无需 Delta 表或 re-Confirm。
