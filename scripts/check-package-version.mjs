@@ -18,4 +18,9 @@ if (pkg.version !== expected) {
   console.error(`Bump: npm version ${expected} --no-git-tag-version`)
   process.exit(1)
 }
+if (pkg.version === '0.1.9') {
+  console.error('package.json version is 0.1.9 — likely corrupted by test-update before v0.3.13 fix')
+  console.error('Restore from git or set version to match README upgrade heading')
+  process.exit(1)
+}
 console.log(`check-package-version: OK (${pkg.version})`)

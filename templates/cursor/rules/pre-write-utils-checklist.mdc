@@ -20,6 +20,6 @@ When you are about to **Write / StrReplace / EditNotebook** under **`remindWrite
 
 If any is false → output Discovery + Local helpers / bulk table + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
 
-With **`hookMode: confirm`** (default v0.3.9), deny includes **`missingReads`**, **`staleSymbols`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**. Deny JSON in `agent_message`. Set **`hookMode: off`** for Rules-only.
+With **`hookMode: confirm`** (opt-in), deny includes **`missingReads`**, **`staleSymbols`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**, **`noutil_q4_invalid`**. Deny JSON in `agent_message`. Default **`hookMode: off`** — Rules-only.
 
 Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6.

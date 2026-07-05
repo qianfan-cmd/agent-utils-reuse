@@ -101,6 +101,16 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.12 → v0.3.13
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:update
+pnpm check:version
+```
+
+**Fix**: `test-update` with `file:` dev link no longer overwrites repo `package.json` (was drifting to `0.1.9`). Default `hookMode` restored to `off` in `load-config.mjs`.
+
 ### Upgrade v0.3.11 → v0.3.12
 
 ```bash
@@ -172,7 +182,7 @@ pnpm test:verdict-substance
 
 **Batch Confirm + reliable confirm (v0.3.8):**
 
-- **Default `hookMode: confirm`** — Write deny until full **`AGENTS.md`** Read + util Read + chat Confirm + **`Verdict（最终）`**
+- **Default `hookMode: off`** — Rules-only Confirm + Verdict; opt-in **`hookMode: confirm`** for Write deny until full **`AGENTS.md`** Read + util Read + chat Confirm + **`Verdict（最终）`**
 - **Bulk Confirm table** (≥3 symbols): `| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |` — Hook accepts per-row Q columns
 - **`utils-index.json` `siblingsByPath`** — same-file multi-export → Q4 must mention sibling in chat
 - **Discovery chat**: D1 candidates or `D1 "<kw>": 0 candidates → D2: ...` (page comments ≠ proof)
@@ -446,7 +456,7 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `confirm` | `confirm` = Write deny (default v0.3.8); `off` = Rules only; `remind` = allow + reminder |
+| `hookMode` | `off` | `off` = Rules only (default v0.3.6); `confirm` = Write deny; `remind` = allow + reminder |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
@@ -469,8 +479,8 @@ See `docs/agent-catalog/placement-decision.md` for design notes.
 
 | Mode | Write deny | hooks.json |
 |------|------------|------------|
-| **`confirm`** (default) | Yes | Full audit + preToolUse deny gate |
-| `off` | No | Empty — no hooks registered |
+| **`confirm`** (opt-in) | Yes | Full audit + preToolUse deny gate |
+| **`off`** (default) | No | Empty — no hooks registered |
 | `remind` | No | `preToolUse` only (allow + reminder) |
 
 Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write.

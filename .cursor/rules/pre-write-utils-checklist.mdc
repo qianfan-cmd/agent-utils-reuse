@@ -11,15 +11,15 @@ When you are about to **Write / StrReplace / EditNotebook** under **`remindWrite
 
 **Do not call Write tools** until **all** are true in chat **before the first Write in this response**:
 
-1. **Confirm per symbol** — legacy (1–2): individual Q1–Q4; **bulk compact (≥3)**: `| Symbol | Read @ path | Q4 | Verdict |` with substantive Q4 per row — **not** `Q1-Q5 通过`
+1. **Confirm per symbol** — legacy (1–2): individual Q1–Q4; **bulk compact (≥3)**: `| Symbol | Read @ path | Q4 | Verdict |`; **delta (v0.3.11)**: only new symbol rows + `Gate N/A — <block>` — **not** `Q1-Q5 通过`
 2. **`Verdict（最终）`** with reuse / newUtil / **noUtil** / featureLocal / **partialReuse**
 3. Verdict is **before** the first Write tool call (same assistant turn OK)
 4. **Read util source export(s)** you will call — **forbidden**: Confirm from index summary or feature call sites only
-5. Pure UI / no utils → **`Gate N/A: <reason>`** in chat
+5. Pure UI / template-style-only patch → **`Gate N/A`** or Hook uiOnly allow (no full re-Confirm)
 6. **>5 reuse symbols** → prefer split batches (≤5 symbol Confirm + Write per round)
 
 If any is false → output Discovery + Local helpers / bulk table + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
 
-With **`hookMode: confirm`** (default v0.3.9), deny includes **`missingReads`**, **`staleSymbols`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**. Deny JSON in `agent_message`. Set **`hookMode: off`** for Rules-only.
+With **`hookMode: confirm`** (opt-in), deny includes **`missingReads`**, **`staleSymbols`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**, **`noutil_q4_invalid`**. Deny JSON in `agent_message`. Default **`hookMode: off`** — Rules-only.
 
 Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6.

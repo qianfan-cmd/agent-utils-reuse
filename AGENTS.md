@@ -74,7 +74,7 @@ For **each** util you will import or call **and each Local helpers table row**, 
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: confirm`, v0.3.11): Write deny until AGENTS.md Read + Confirm + Verdict; bulk compact validates Read + Q4 per row; uiOnly template/style patches allow without re-Confirm. Set `off` for Rules-only.
+**Hook** (default `hookMode: off`, v0.3.6): Rules-only Confirm + Verdict before Write. Opt-in `hookMode: confirm` for hard deny (Read + Verdict; bulk compact validates Read + Q4 per row; uiOnly template/style patches allow without re-Confirm).
 
 #### Export JSDoc (utilsDir — mandatory)
 

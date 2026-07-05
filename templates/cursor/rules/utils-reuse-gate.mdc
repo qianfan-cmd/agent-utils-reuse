@@ -13,7 +13,7 @@ alwaysApply: true
 
 - **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: confirm` (v0.3.8)** — Write deny until Read + Verdict; set `off` for Rules-only.
+- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: off` (v0.3.6)** — Rules only; opt-in **`hookMode: confirm`** for Write deny until Read + Verdict.
 - Hook (`hookMode: confirm` only) **fail-closed** + same-turn Verdict; denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without Local helpers table.
 
 **Confirm→Implement workflow:**
@@ -134,9 +134,7 @@ export function formatDateLocal(iso: string): string { ... }
 
 ## Hook (default `confirm`, v0.3.8)
 
-Default **`hookMode: confirm`** — Write deny until Read + Verdict. Set **`off`** for Rules-only.
-
-**Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
+Default **`hookMode: off`** — Rules only. Opt-in **`hookMode: confirm`** — Write deny until Read + Verdict. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
 
 **`hookMode: remind`**: preToolUse allow + reminder only (see README).
 

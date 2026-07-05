@@ -17,7 +17,7 @@ Installed by **`agent-utils-reuse init`**. Works in **any** project root with `A
 
 ## Hook (v0.3.8 — default confirm)
 
-Default **`hookMode: confirm`**: Write deny until AGENTS.md Read + Confirm + Verdict. Set **`off`** for Rules-only.
+Default **`hookMode: off`**: Rules-only Confirm + Verdict. Opt-in **`hookMode: confirm`**: Write deny until AGENTS.md Read + Confirm + Verdict.
 
 ## Project-specific core rule
 
