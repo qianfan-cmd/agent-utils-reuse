@@ -35,12 +35,6 @@ function resetSession(cwd) {
   if (fs.existsSync(verdictPath)) fs.unlinkSync(verdictPath)
 }
 
-function patchBookrc(cwd, patch) {
-  const bookrcPath = path.join(cwd, '.utils-bookrc.json')
-  const base = JSON.parse(fs.readFileSync(bookrcPath, 'utf8'))
-  fs.writeFileSync(bookrcPath, `${JSON.stringify({ ...base, ...patch }, null, 2)}\n`, 'utf8')
-}
-
 function recordAgentsRead(cwd) {
   spawnSync(process.execPath, [hookPath('track-utils-reads.mjs')], {
     cwd,
@@ -73,8 +67,20 @@ function recordVerdict(cwd, text) {
   })
 }
 
+function writeConfirmBookrc(cwd, extra = {}) {
+  const bookrcPath = path.join(cwd, '.utils-bookrc.json')
+  const base = fs.existsSync(bookrcPath)
+    ? JSON.parse(fs.readFileSync(bookrcPath, 'utf8'))
+    : {}
+  fs.writeFileSync(
+    bookrcPath,
+    `${JSON.stringify({ ...base, hookMode: 'confirm', ...extra }, null, 2)}\n`,
+    'utf8'
+  )
+}
+
 function setupConfirmProject() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-utils-reuse-confirm-flow-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-utils-reuse-confirm-gate-'))
   const minimal = path.join(PACKAGE_ROOT, 'examples/minimal')
   for (const rel of ['src', 'docs', 'AGENTS.md', 'package.json']) {
     const from = path.join(minimal, rel)
@@ -87,11 +93,7 @@ function setupConfirmProject() {
     }
   }
   fs.mkdirSync(path.join(dir, '.cursor'), { recursive: true })
-  const minimalBookrc = path.join(minimal, '.utils-bookrc.json')
-  if (fs.existsSync(minimalBookrc)) {
-    fs.copyFileSync(minimalBookrc, path.join(dir, '.utils-bookrc.json'))
-  }
-  patchBookrc(dir, { hookMode: 'confirm', sameTurnAllow: true })
+  writeConfirmBookrc(dir)
   return dir
 }
 
@@ -167,18 +169,20 @@ try {
     tool_input: {
       path: 'src/views/ExamPage.vue',
       old_string: '<script',
-      new_string: '<script\nimport { a, b, c, d, e, f } from "@/utils/batch"\n'
+      new_string:
+        '<script\nimport { a, b, c, d, e, f } from "@/utils/batch"\n'
     }
   })
   assert.equal(batchDeny.permission, 'deny', JSON.stringify(batchDeny))
   assert.equal(batchDeny.denyReason, 'batch_limit_exceeded')
 
   resetSession(cwd)
+  writeConfirmBookrc(cwd, { sameTurnAllow: false })
   recordAgentsRead(cwd)
   recordRead(cwd, 'src/utils/array/sortArray.ts')
   recordDiscovery(cwd, { path: 'docs/agent-catalog/utils-index.json', pattern: 'sortAsc' })
 
-  const sameTurnAllow = runHook(gateHook, cwd, {
+  const sameTurnDeny = runHook(gateHook, cwd, {
     text: D1_CONFIRM,
     tool_input: {
       path: 'src/views/ExamPage.vue',
@@ -186,26 +190,9 @@ try {
       new_string: '<script\nimport { sortAsc } from "@/utils/array/sortArray"\n'
     }
   })
-  assert.equal(sameTurnAllow.permission, 'allow', JSON.stringify(sameTurnAllow))
+  assert.equal(sameTurnDeny.permission, 'deny', JSON.stringify(sameTurnDeny))
+  assert.equal(sameTurnDeny.denyReason, 'verdict_not_recorded')
 
-  patchBookrc(cwd, { sameTurnAllow: false })
-  resetSession(cwd)
-  recordAgentsRead(cwd)
-  recordRead(cwd, 'src/utils/array/sortArray.ts')
-  recordDiscovery(cwd, { path: 'docs/agent-catalog/utils-index.json', pattern: 'sortAsc' })
-
-  const splitTurnDeny = runHook(gateHook, cwd, {
-    text: D1_CONFIRM,
-    tool_input: {
-      path: 'src/views/ExamPage.vue',
-      old_string: '<script',
-      new_string: '<script\nimport { sortAsc } from "@/utils/array/sortArray"\n'
-    }
-  })
-  assert.equal(splitTurnDeny.permission, 'deny', JSON.stringify(splitTurnDeny))
-  assert.equal(splitTurnDeny.denyReason, 'verdict_not_recorded')
-
-  patchBookrc(cwd, { sameTurnAllow: true })
   resetSession(cwd)
   recordAgentsRead(cwd)
   recordRead(cwd, 'src/utils/array/sortArray.ts')

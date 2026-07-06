@@ -9,17 +9,14 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
-## v0.3.22
-
-**Remove `examMode`** — workflow checks are standard **`hookMode: confirm`** behavior (Discovery for util patch, prefer D1, strict batch). Opt out per flag with explicit `false`. D1.5 business lookup default on via `allowBusinessDiscovery: true`.
-
 ## v0.3.21
 
-**Gate flow hardening**
+**Gate flow hardening (confirm mode)**
 
-- Index health in `status`; `verify-index` command
-- `hookMode: confirm` enables Discovery/batch/prefer-cli checks by default
-- D1.5 `business-lookup`; denies `missing_discovery_for_util`, `prefer_cli_search`
+- **`hookMode: confirm`** defaults: `requireDiscoveryForUtilGate`, `preferCliSearch`, `strictBatchLimit`, `allowBusinessDiscovery` (opt out with `false`)
+- **Index health** in `status`; `verify-index` command
+- **D1.5 business-lookup** for feature-path Grep
+- Denies: `missing_discovery_for_util`, `prefer_cli_search` (only when `hookMode: confirm`)
 
 ## v0.3.20
 

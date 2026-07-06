@@ -1,9 +1,7 @@
 {
-  "recorded": true,
-  "d1": true,
+  "recorded": false,
+  "d1": false,
   "d2": false,
-  "via": [
-    "grep-index"
-  ],
-  "at": "2026-07-06T18:55:12.410Z"
+  "via": [],
+  "at": null
 }

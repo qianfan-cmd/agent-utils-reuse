@@ -300,13 +300,7 @@ async function main() {
 
     const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
 
-    const addsHelper =
-      !isLightGate &&
-      isRemind &&
-      patchAddsLocalHelper(payload, normalized) &&
-      !isUtils
-
-    if (!gateApplies({ isUtils, requiredSymbols, requiredReads }) && !addsHelper) {
+    if (!gateApplies({ isUtils, requiredSymbols, requiredReads })) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
@@ -377,6 +371,12 @@ async function main() {
       process.stdout.write(JSON.stringify({ permission: 'allow', uiOnly: true }))
       return
     }
+
+    const addsHelper =
+      !isLightGate &&
+      isRemind &&
+      patchAddsLocalHelper(payload, normalized) &&
+      !isUtils
 
     if (addsHelper) {
       if (!hasDiscovery(cwd)) {

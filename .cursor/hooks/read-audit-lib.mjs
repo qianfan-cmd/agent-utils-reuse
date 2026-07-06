@@ -20,19 +20,19 @@ const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src
 const DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN = 5
 const PARSE_HOOK_LARGE_STDIN_BYTES = 16384
 
-/** Mirrors lib/load-config.mjs resolveConfirmGateFlags for hook runtime. */
+/** `hookMode: confirm` enables full gate flow by default; explicit `false` opts out. */
 function resolveConfirmGateFlags(raw, hookMode) {
   const isConfirm = hookMode === 'confirm'
-  const tri = (key, confirmDefault) => {
+  const pick = (key) => {
     if (raw[key] === true) return true
     if (raw[key] === false) return false
-    return confirmDefault
+    return isConfirm
   }
   return {
-    requireDiscoveryForUtilGate: tri('requireDiscoveryForUtilGate', isConfirm),
-    preferCliSearch: tri('preferCliSearch', isConfirm),
-    strictBatchLimit: tri('strictBatchLimit', isConfirm),
-    allowBusinessDiscovery: tri('allowBusinessDiscovery', true)
+    requireDiscoveryForUtilGate: pick('requireDiscoveryForUtilGate'),
+    preferCliSearch: pick('preferCliSearch'),
+    strictBatchLimit: pick('strictBatchLimit'),
+    allowBusinessDiscovery: pick('allowBusinessDiscovery')
   }
 }
 
@@ -229,7 +229,7 @@ export function loadHookConfig(cwd = process.cwd()) {
     requireDiscoveryForUtilGate: false,
     preferCliSearch: false,
     strictBatchLimit: false,
-    allowBusinessDiscovery: true
+    allowBusinessDiscovery: false
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)
@@ -573,7 +573,7 @@ export function getDiscoveryPathLabel(cwd = process.cwd()) {
   return audit.via[0] ?? 'none'
 }
 
-/** Whether session Discovery satisfies preferCliSearch when enabled. */
+/** Whether session Discovery satisfies preferCliSearch when enabled in bookrc. */
 export function discoverySatisfiesPreferCli(config, audit) {
   if (!config?.preferCliSearch) return true
   const via = audit?.via ?? []

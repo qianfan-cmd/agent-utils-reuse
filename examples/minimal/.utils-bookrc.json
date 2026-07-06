@@ -1,4 +1,9 @@
 {
+  "hookMode": "confirm",
+  "requireDiscoveryForUtilGate": false,
+  "preferCliSearch": false,
+  "strictBatchLimit": false,
+  "allowBusinessDiscovery": false,
   "projectRoot": ".",
   "utilsDir": "src/utils",
   "catalogDir": "docs/agent-catalog",
@@ -6,6 +11,5 @@
   "skillsDir": ".cursor/skills",
   "agentsFile": "AGENTS.md",
   "jsdocTag": "@utils-book",
-  "hookMode": "confirm",
   "utilsIndexFile": "docs/agent-catalog/utils-index.json"
 }

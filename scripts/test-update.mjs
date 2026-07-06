@@ -11,6 +11,7 @@ import { UPSTREAM_SIDECAR_SUFFIX } from '../lib/gate-sync-manifest.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = path.resolve(__dirname, '..')
 const CLI = path.join(PACKAGE_ROOT, 'bin', 'cli.mjs')
+const CANONICAL_PKG_PATH = path.join(PACKAGE_ROOT, 'package.json')
 
 function runCli(args, cwd) {
   const result = spawnSync(process.execPath, [CLI, ...args], {
@@ -65,7 +66,16 @@ function readBookrc(dir) {
   return JSON.parse(fs.readFileSync(path.join(dir, '.utils-bookrc.json'), 'utf8'))
 }
 
+let canonicalPkgSnapshot
 try {
+  canonicalPkgSnapshot = fs.readFileSync(CANONICAL_PKG_PATH, 'utf8')
+
+  const versionCheck = spawnSync(process.execPath, [path.join(__dirname, 'check-package-version.mjs')], {
+    encoding: 'utf8',
+    shell: false
+  })
+  assert.equal(versionCheck.status, 0, `check-package-version failed:\n${versionCheck.stderr}${versionCheck.stdout}`)
+
   const projectRoot = setupTempProject()
   const catalogDir = 'docs/agent-catalog'
   const placementPath = path.join(projectRoot, catalogDir, 'placement-decision.md')
@@ -191,35 +201,45 @@ try {
   assert.equal(verifyDrift.status, 1, 'verify should fail on drift')
   assert.match(verifyDrift.stdout, /FAILED|Stale|Missing/i)
 
+  // Simulate stale node_modules version. file: may alias PACKAGE_ROOT — restore in inner finally.
   const nmPkgPath = path.join(projectRoot, 'node_modules', 'agent-utils-reuse', 'package.json')
-  const nmPkg = JSON.parse(fs.readFileSync(nmPkgPath, 'utf8'))
-  nmPkg.version = '0.1.9'
-  fs.writeFileSync(nmPkgPath, `${JSON.stringify(nmPkg, null, 2)}\n`, 'utf8')
+  const nmPkgSnapshot = fs.readFileSync(nmPkgPath, 'utf8')
+  try {
+    const nmPkg = JSON.parse(nmPkgSnapshot)
+    nmPkg.version = '0.0.0-stale-test'
+    fs.writeFileSync(nmPkgPath, `${JSON.stringify(nmPkg, null, 2)}\n`, 'utf8')
 
-  const repairUpdate = runCli(['update', '--yes'], projectRoot)
-  assert.equal(repairUpdate.status, 0, repairUpdate.stderr)
-  assert.match(repairUpdate.stdout, /Gate verify: OK/)
+    const repairUpdate = runCli(['update', '--yes'], projectRoot)
+    assert.equal(repairUpdate.status, 0, repairUpdate.stderr)
+    assert.match(repairUpdate.stdout, /Gate verify: OK/)
 
-  const hooksAfter = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
-  assert.equal(hooksAfter.hooks.preToolUse?.length, 1, 'confirm hooks.json should have preToolUse after repair')
-  assert.equal(hooksAfter.hooks.postToolUse?.length, 2, 'confirm hooks.json should have Read + Grep postToolUse')
-  assert.ok(fs.existsSync(discoveryHookPath), 'track-utils-discovery.mjs should be restored')
+    const hooksAfter = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+    assert.equal(hooksAfter.hooks.preToolUse?.length, 1, 'confirm hooks.json should have preToolUse after repair')
+    assert.equal(hooksAfter.hooks.postToolUse?.length, 2, 'confirm hooks.json should have Read + Grep postToolUse')
+    assert.ok(fs.existsSync(discoveryHookPath), 'track-utils-discovery.mjs should be restored')
 
-  const verifyOk = runCli(['verify'], projectRoot)
-  assert.equal(verifyOk.status, 0, verifyOk.stderr)
+    const verifyOk = runCli(['verify'], projectRoot)
+    assert.equal(verifyOk.status, 0, verifyOk.stderr)
 
-  const bookrcFinal = readBookrc(projectRoot)
-  assert.ok(
-    bookrcFinal.gateOverwriteHashes,
-    'gateOverwriteHashes should be persisted after successful verify'
-  )
+    const bookrcFinal = readBookrc(projectRoot)
+    assert.ok(
+      bookrcFinal.gateOverwriteHashes,
+      'gateOverwriteHashes should be persisted after successful verify'
+    )
 
-  const status = runCli(['status'], projectRoot)
-  assert.equal(status.status, 0, status.stderr)
-  assert.match(status.stdout, /gate OK|in sync/i)
+    const status = runCli(['status'], projectRoot)
+    assert.equal(status.status, 0, status.stderr)
+    assert.match(status.stdout, /gate OK|in sync/i)
+  } finally {
+    fs.writeFileSync(nmPkgPath, nmPkgSnapshot, 'utf8')
+  }
 
   console.log('test-update: all assertions passed')
 } catch (err) {
   console.error(err)
   process.exit(1)
+} finally {
+  if (typeof canonicalPkgSnapshot === 'string') {
+    fs.writeFileSync(CANONICAL_PKG_PATH, canonicalPkgSnapshot, 'utf8')
+  }
 }

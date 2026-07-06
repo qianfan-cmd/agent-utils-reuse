@@ -26,14 +26,12 @@
 | `remindWritePaths` | `src/feature` 等 | Write 扫描路径 |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | code-before-edit |
 | `projectAgentCoreRule` | `null` | 注入自有 core rule |
-| `requireDiscoveryForUtilGate` | `false`（`hookMode: confirm` 时为 `true`） | util import Write 须 Discovery |
-| `preferCliSearch` | `false`（`confirm` 时为 `true`） | 须 cli 或 grep-index Discovery |
-| `strictBatchLimit` | `false`（`confirm` 时为 `true`） | patch >5 import 一律 deny |
-| `allowBusinessDiscovery` | `true` | 承认 D1.5 业务反查 |
+| `requireDiscoveryForUtilGate` | `false`* | util import Write 须 Discovery |
+| `preferCliSearch` | `false`* | 须 cli 或 grep-index Discovery |
+| `strictBatchLimit` | `false`* | patch >5 import 一律 deny |
+| `allowBusinessDiscovery` | `false`* | 承认 D1.5 业务反查 |
 
-## confirm 模式下的标准流程
-
-**`hookMode: confirm`** 时默认启用完整门禁流程（Discovery、分批、Read + Verdict）；可用显式 `false` 关闭单项。任务前：`pnpm gen:utils-book` → `agent-utils-reuse status` / `verify-index`。
+\* **`hookMode: confirm`** 时默认 **`true`**，可在 bookrc 显式设 `false` 关闭。
 
 ## hookMode
 

@@ -13,20 +13,23 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
 
-const D1_LINE = 'D1 "util": uploadSingleFile @ src/utils/uploadSingleFile.ts'
-
-const SAMPLE_VERDICT = `${D1_LINE}
-
-Confirm uploadSingleFile: Q1 file input Q2 upload API Q3 side effects Q4 matches Q5 no
+const SAMPLE_VERDICT = `Confirm uploadSingleFile: Q1 file input Q2 upload API Q3 side effects Q4 matches Q5 no
 Verdict（最终）: reuse(uploadSingleFile)`
+
+/** Test harness: confirm hooks without Discovery/batch defaults (see test-confirm-gate-flow.mjs). */
+const TEST_CONFIRM_GATE_OPTOUT = {
+  requireDiscoveryForUtilGate: false,
+  preferCliSearch: false,
+  strictBatchLimit: false,
+  allowBusinessDiscovery: false
+}
+
+function mergeTestConfirmBookrc(rc = {}) {
+  return { hookMode: 'confirm', ...TEST_CONFIRM_GATE_OPTOUT, ...rc }
+}
 
 const HOLLOW_VERDICT = `Confirm: Q1-Q5 通过
 Verdict（最终）: reuse(uploadSingleFile)`
-
-function withD1(text) {
-  if (/\bD1\b/i.test(text)) return text
-  return `${D1_LINE}\n\n${text}`
-}
 
 function resolveProjectRoot(arg) {
   if (arg) return path.resolve(arg)
@@ -63,16 +66,6 @@ function resetAudit(cwd) {
   })
 }
 
-function recordDiscoveryD1(cwd) {
-  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-discovery.mjs')], {
-    cwd,
-    input: JSON.stringify({
-      tool_input: { path: 'docs/agent-catalog/utils-index.json', pattern: 'upload' }
-    }),
-    encoding: 'utf8'
-  })
-}
-
 function recordAgentsRead(cwd, agentsFile = 'AGENTS.md') {
   spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
     cwd,
@@ -84,7 +77,6 @@ function recordAgentsRead(cwd, agentsFile = 'AGENTS.md') {
 function prepareGateSession(cwd, agentsFile = 'AGENTS.md') {
   resetAudit(cwd)
   recordAgentsRead(cwd, agentsFile)
-  recordDiscoveryD1(cwd)
 }
 
 function recordRead(cwd, filePath) {
@@ -98,7 +90,7 @@ function recordRead(cwd, filePath) {
 function recordVerdict(cwd, text = SAMPLE_VERDICT) {
   const r = spawnSync(process.execPath, [hookPath(cwd, 'track-utils-verdict.mjs')], {
     cwd,
-    input: JSON.stringify({ text: withD1(text) }),
+    input: JSON.stringify({ text }),
     encoding: 'utf8'
   })
   const out = (r.stdout || '').trim()
@@ -126,12 +118,19 @@ console.log(`Project root: ${projectRoot}`)
 const bookrcPath = path.join(projectRoot, '.utils-bookrc.json')
 if (fs.existsSync(bookrcPath)) {
   const rc = JSON.parse(fs.readFileSync(bookrcPath, 'utf8'))
-  rc.hookMode = 'confirm'
-  fs.writeFileSync(bookrcPath, `${JSON.stringify(rc, null, 2)}\n`)
+  fs.writeFileSync(bookrcPath, `${JSON.stringify(mergeTestConfirmBookrc(rc), null, 2)}\n`)
 } else {
   fs.writeFileSync(
     bookrcPath,
-    `${JSON.stringify({ hookMode: 'confirm', utilsDir: 'src/utils', utilsImportAliases: ['@/utils'], remindWritePaths: ['src/feature', 'src/components', 'src/hooks', 'src/views'] }, null, 2)}\n`
+    `${JSON.stringify(
+      mergeTestConfirmBookrc({
+        utilsDir: 'src/utils',
+        utilsImportAliases: ['@/utils'],
+        remindWritePaths: ['src/feature', 'src/components', 'src/hooks', 'src/views']
+      }),
+      null,
+      2
+    )}\n`
   )
 }
 
@@ -251,12 +250,11 @@ try {
   fs.writeFileSync(
     path.join(tempDir, '.utils-bookrc.json'),
     `${JSON.stringify(
-      {
-        hookMode: 'confirm',
+      mergeTestConfirmBookrc({
         utilsDir: 'src/utils',
         utilsImportAliases: ['@/utils'],
         remindWritePaths: ['src/views']
-      },
+      }),
       null,
       2
     )}\n`
@@ -319,13 +317,12 @@ try {
   fs.writeFileSync(
     path.join(tempDir, '.utils-bookrc.json'),
     `${JSON.stringify(
-      {
-        hookMode: 'confirm',
+      mergeTestConfirmBookrc({
         sameTurnAllow: false,
         utilsDir: 'src/utils',
         utilsImportAliases: ['@/utils'],
         remindWritePaths: ['src/views']
-      },
+      }),
       null,
       2
     )}\n`,
@@ -366,7 +363,7 @@ function runHookRaw(cwd, scriptName, rawInput) {
 const bomTemp = fs.mkdtempSync(path.join(os.tmpdir(), "gate-bom-"))
 try {
   fs.mkdirSync(path.join(bomTemp, "src", "utils"), { recursive: true })
-  fs.writeFileSync(path.join(bomTemp, ".utils-bookrc.json"), JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils" }, null, 2) + "\n")
+  fs.writeFileSync(path.join(bomTemp, ".utils-bookrc.json"), JSON.stringify({ hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils" }, null, 2) + "\n")
   resetAudit(bomTemp)
   const bomPayload = "\uFEFF" + JSON.stringify({ tool_input: { path: "src/utils/foo.ts" } })
   const readOut = runHookRaw(bomTemp, "track-utils-reads.mjs", bomPayload)
@@ -394,7 +391,6 @@ try {
 
   resetAudit(bomTemp)
   recordAgentsRead(bomTemp)
-  recordDiscoveryD1(bomTemp)
   recordRead(bomTemp, "src/utils/copy.ts")
   recordVerdict(bomTemp)
   fs.mkdirSync(path.join(bomTemp, "src", "views"), { recursive: true })
@@ -405,7 +401,7 @@ try {
   fs.writeFileSync(
     path.join(bomTemp, ".utils-bookrc.json"),
     JSON.stringify(
-      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
+      { hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
       null,
       2
     ) + "\n"
@@ -457,13 +453,12 @@ try {
   fs.mkdirSync(path.join(sameTurnDir, "src", "utils"), { recursive: true })
   fs.writeFileSync(
     path.join(sameTurnDir, ".utils-bookrc.json"),
-    JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] }, null, 2) + "\n"
+    JSON.stringify({ hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] }, null, 2) + "\n"
   )
   fs.writeFileSync(path.join(sameTurnDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
   fs.writeFileSync(path.join(sameTurnDir, "src/views/Page.vue"), "<template><div>test</div></template>\n")
   resetAudit(sameTurnDir)
   recordAgentsRead(sameTurnDir)
-  recordDiscoveryD1(sameTurnDir)
   recordRead(sameTurnDir, "src/utils/copy.ts")
   const sameTurnAllow = runHook(sameTurnDir, {
     text: SAMPLE_VERDICT,
@@ -487,7 +482,7 @@ try {
     path.join(sameTurnDefaultDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
         remindWritePaths: ["src/views"]
@@ -507,7 +502,6 @@ copyToClip()
   )
   resetAudit(sameTurnDefaultDir)
   recordAgentsRead(sameTurnDefaultDir)
-  recordDiscoveryD1(sameTurnDefaultDir)
   recordRead(sameTurnDefaultDir, "src/utils/copy.ts")
   const defaultAllow = runHook(sameTurnDefaultDir, {
     tool_input: {
@@ -518,8 +512,7 @@ copyToClip()
   })
   assert(
     "default sameTurnAllow (omitted) + reads OK + no payload.text → deny (v0.3.17)",
-    defaultAllow.permission === "deny" &&
-      (defaultAllow.denyReason === "verdict_not_recorded" || defaultAllow.denyReason === "d1_outcome_missing"),
+    defaultAllow.permission === "deny" && defaultAllow.denyReason === "verdict_not_recorded",
     JSON.stringify(defaultAllow)
   )
 } finally {
@@ -535,7 +528,7 @@ try {
     path.join(sameTurnOptDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         sameTurnAllow: true,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
@@ -556,7 +549,6 @@ copyToClip()
   )
   resetAudit(sameTurnOptDir)
   recordAgentsRead(sameTurnOptDir)
-  recordDiscoveryD1(sameTurnOptDir)
   recordRead(sameTurnOptDir, "src/utils/copy.ts")
   const optAllow = runHook(sameTurnOptDir, {
     tool_input: {
@@ -567,8 +559,7 @@ copyToClip()
   })
   assert(
     "sameTurnAllow true + reads OK + no payload.text → deny (v0.3.17)",
-    optAllow.permission === "deny" &&
-      (optAllow.denyReason === "verdict_not_recorded" || optAllow.denyReason === "d1_outcome_missing"),
+    optAllow.permission === "deny" && optAllow.denyReason === "verdict_not_recorded",
     JSON.stringify(optAllow)
   )
 } finally {
@@ -583,7 +574,7 @@ try {
     path.join(sameTurnStrictDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         sameTurnAllow: false,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
@@ -604,7 +595,6 @@ copyToClip()
   )
   resetAudit(sameTurnStrictDir)
   recordAgentsRead(sameTurnStrictDir)
-  recordDiscoveryD1(sameTurnStrictDir)
   recordRead(sameTurnStrictDir, "src/utils/copy.ts")
   const strictDeny = runHook(sameTurnStrictDir, {
     tool_input: {
@@ -615,8 +605,7 @@ copyToClip()
   })
   assert(
     "sameTurnAllow false + no payload.text → deny verdict_not_recorded",
-    strictDeny.permission === "deny" &&
-      (strictDeny.denyReason === "verdict_not_recorded" || strictDeny.denyReason === "d1_outcome_missing"),
+    strictDeny.permission === "deny" && strictDeny.denyReason === "verdict_not_recorded",
     JSON.stringify(strictDeny)
   )
 } finally {
@@ -639,7 +628,7 @@ try {
     path.join(helperDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
         remindWritePaths: ["src/views"],
@@ -663,7 +652,11 @@ try {
   )
   resetAudit(helperDir)
   recordAgentsRead(helperDir)
-  recordDiscoveryD1(helperDir)
+  spawnSync(process.execPath, [hookPath(helperDir, "track-utils-discovery.mjs")], {
+    cwd: helperDir,
+    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
+    encoding: "utf8"
+  })
   recordVerdict(helperDir, helperTableVerdict)
 
   const helperAllow = runHook(helperDir, {
@@ -716,7 +709,7 @@ try {
   fs.writeFileSync(
     path.join(staleDir, ".utils-bookrc.json"),
     JSON.stringify(
-      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
+      { hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
       null,
       2
     ) + "\n"
@@ -733,7 +726,6 @@ import { copyToClip } from '@/utils/copy'
   )
   resetAudit(staleDir)
   recordAgentsRead(staleDir)
-  recordDiscoveryD1(staleDir)
   recordRead(staleDir, "src/utils/copy.ts")
   recordRead(staleDir, "src/utils/other.ts")
   recordVerdict(
@@ -787,7 +779,7 @@ try {
   fs.writeFileSync(
     path.join(coverDir, ".utils-bookrc.json"),
     JSON.stringify(
-      { hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
+      { hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils", utilsImportAliases: ["@/utils"], remindWritePaths: ["src/views"] },
       null,
       2
     ) + "\n"
@@ -805,7 +797,6 @@ copyToClip()
   )
   resetAudit(coverDir)
   recordAgentsRead(coverDir)
-  recordDiscoveryD1(coverDir)
   recordRead(coverDir, "src/utils/copy.ts")
   recordVerdict(
     coverDir,
@@ -866,7 +857,7 @@ try {
     path.join(templateDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
         remindWritePaths: ["src/views"],
@@ -886,7 +877,11 @@ function copyText() {}
   )
   resetAudit(templateDir)
   recordAgentsRead(templateDir)
-  recordDiscoveryD1(templateDir)
+  spawnSync(process.execPath, [hookPath(templateDir, "track-utils-discovery.mjs")], {
+    cwd: templateDir,
+    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
+    encoding: "utf8"
+  })
   recordVerdict(
     templateDir,
     `| Helper | utils | verdict |
@@ -916,7 +911,7 @@ try {
   fs.mkdirSync(path.join(newUtilDir, "src", "utils"), { recursive: true })
   fs.writeFileSync(
     path.join(newUtilDir, ".utils-bookrc.json"),
-    JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils", utilsImportAliases: ["@/utils"] }, null, 2) + "\n"
+    JSON.stringify({ hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils", utilsImportAliases: ["@/utils"] }, null, 2) + "\n"
   )
   prepareGateSession(newUtilDir)
   recordVerdict(
@@ -944,7 +939,7 @@ try {
   fs.mkdirSync(path.join(readBomDir, "src", "utils"), { recursive: true })
   fs.writeFileSync(
     path.join(readBomDir, ".utils-bookrc.json"),
-    JSON.stringify({ hookMode: "confirm", utilsDir: "src/utils" }, null, 2) + "\n"
+    JSON.stringify({ hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false, utilsDir: "src/utils" }, null, 2) + "\n"
   )
   resetAudit(readBomDir)
   const readBomPayload = Buffer.concat([
@@ -974,7 +969,7 @@ try {
     path.join(siblingDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
         remindWritePaths: ["src/views"],
@@ -1081,7 +1076,7 @@ try {
     path.join(mixedUiDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
         remindWritePaths: ["src/views"]
@@ -1145,7 +1140,7 @@ try {
     path.join(parseSafeDir, ".utils-bookrc.json"),
     JSON.stringify(
       {
-        hookMode: "confirm",
+        hookMode: "confirm", requireDiscoveryForUtilGate: false, preferCliSearch: false, strictBatchLimit: false, allowBusinessDiscovery: false,
         sameTurnAllow: true,
         utilsDir: "src/utils",
         utilsImportAliases: ["@/utils"],
@@ -1167,7 +1162,6 @@ copyToClip()
   )
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
-  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
 
   const malformedPayload =
@@ -1176,15 +1170,13 @@ copyToClip()
   assert(
     "malformed JSON with extractable path + no Confirm → deny verdict_not_recorded",
     malformedDeny.permission === "deny" &&
-      (malformedDeny.denyReason === "verdict_not_recorded" ||
-        malformedDeny.denyReason === "parse_error" ||
-        malformedDeny.denyReason === "d1_outcome_missing"),
+      (malformedDeny.denyReason === "verdict_not_recorded" || malformedDeny.denyReason === "parse_error"),
     JSON.stringify(malformedDeny)
   )
 
   spawnSync(process.execPath, [hookPath(parseSafeDir, "track-utils-discovery.mjs")], {
     cwd: parseSafeDir,
-    input: JSON.stringify({ tool_input: { path: "docs/agent-catalog/utils-index.json", pattern: "copy" } }),
+    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
     encoding: "utf8"
   })
   const helperNoVerdict = runHook(parseSafeDir, {
@@ -1198,8 +1190,7 @@ copyToClip()
     "addsHelper + sameTurnAllow + reads OK + no verdict → deny (v0.3.17)",
     helperNoVerdict.permission === "deny" &&
       (helperNoVerdict.denyReason === "verdict_not_recorded" ||
-        helperNoVerdict.denyReason === "local_helpers_table_missing" ||
-        helperNoVerdict.denyReason === "d1_outcome_missing"),
+        helperNoVerdict.denyReason === "local_helpers_table_missing"),
     JSON.stringify(helperNoVerdict)
   )
 
@@ -1269,7 +1260,6 @@ copyToClip()
 
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
-  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
   const transcriptOnlyPayload = JSON.stringify({
     transcript_path: transcriptFixture,
@@ -1298,7 +1288,6 @@ copyToClip()
 
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
-  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
   const bigContent = "x".repeat(17000)
   const largeBroken = `{"transcript_path":"${transcriptFixture.replace(/\\/g, "\\\\")}","tool_input":{"path":"src/views/Page.vue","contents":"${bigContent}"},"broken":`
@@ -1332,7 +1321,6 @@ copyToClip()
   )
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
-  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/url.ts")
   const urlConfirm = `${SAMPLE_VERDICT}\n| Symbol | Read @ path | Q4 | Verdict |\n| UrlUtils | src/utils/url.ts | OK reject sibling | reuse(UrlUtils.replaceIntranetUrl) |`
   const urlTranscript = path.join(parseSafeDir, "url-transcript.jsonl")
