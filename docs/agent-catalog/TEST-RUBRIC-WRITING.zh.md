@@ -34,6 +34,7 @@
 | 纯 UI 区块 | `#27 skeleton 无 utils` | 是（uiOnly allow，v0.3.11+） |
 | 禁止读 feature | 题面「禁止 Read 某 feature 组件源码」 | 否（Rules/人工阅卷） |
 | 分轮增量 | 第一轮列 **新增 symbol**；后续 **Delta Confirm** | 是（`needsConfirm` / `alreadyCovered`，v0.3.12） |
+| 同轮 Confirm+Write | **默认**单轮六步（`sameTurnAllow` 默认 true）；strict 设 `false` 或分两轮 | 是（默认 allow+remind；strict → `verdict_not_recorded`） |
 
 ## 分轮增量卷
 

@@ -8,7 +8,24 @@
 
 ---
 
-## 0. 复用原则（默认宽松）
+## 0. 单轮标准流程（默认 — v0.3.14）
+
+**一轮对话内完成**（同一条 assistant 回复：先 Confirm 文本，再 Write 工具）：
+
+| 阶段 | Agent 动作 | 工具 / 输出 |
+|------|------------|-------------|
+| **1 分析** | Read 业务代码、现有 import | Read feature / views |
+| **2 Discovery** | D1 `agent-utils-reuse search "<kw>"` 或 Grep `utils-index.json`；零候选 → D2 Grep `utilsDir` | Shell / Grep |
+| **3 Identify** | 列出 `symbol @ path` + 拟写/保留 helper | chat 一行 |
+| **4 Read** | Read 将调用的 **util export** 源码（同文件 sibling 须 Grep） | Read `@/utils/...` |
+| **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
+| **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
+
+Hook 默认 **`sameTurnAllow: true`**（confirm 项目）：步骤 5 在 chat 中完成后，步骤 6 同轮放行（须 session 已 Read util + AGENTS.md）。阅卷 strict：设 `"sameTurnAllow": false` 并分两轮 Write。
+
+---
+
+## 0.1 复用原则（默认宽松）
 
 1. **已实现勿重写** — 同语义、同存储/API 契约的逻辑，禁止在 feature 再抄 regex/DOM/序列化。
 2. **子集 / 单函数 import** — 类或文件里有很多 export，只 `import` 并调用需要的一个即可。
@@ -233,10 +250,12 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 
 | 模式 | 说明 |
 |------|------|
-| **正确** | 同一条 assistant 消息：bulk 表 + `Verdict（最终）` → **再** Write |
-| **错误** | 表 → Write → deny → 「下面先给出 Confirm」→ 整表重打 |
+| **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write；`sameTurnAllow` 默认 true |
+| **正确（strict 阅卷）** | 分两轮：第 1 轮 Confirm → `afterAgentResponse` record → 第 2 轮 Write；或 `sameTurnAllow: false` |
+| **正确（同轮 strict）** | `sameTurnAllow: false` 且同轮 Write → 须 `preToolUse` payload 含 assistant text |
+| **错误** | 表 → Write → `verdict_not_recorded` → 重读 AGENTS（未读 denyReason） |
 | **多批** | 第一批 session audit 已 record → 第二批只 Delta + 新 symbol Write |
-| **deny 后** | 读 `denyReason`（`missing_reads` / `sibling_q4_missing` 等），**禁止**一律当成没 Confirm |
+| **deny 后** | 读 `denyReason`（`verdict_not_recorded` / `missing_reads` / `sibling_q4_missing` 等），**禁止**一律当成没 Confirm |
 
 **Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
 

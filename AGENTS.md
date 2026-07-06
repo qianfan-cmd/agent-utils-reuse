@@ -9,7 +9,18 @@
 
 **Mandatory gate** (`.cursor/rules/utils-reuse-gate.mdc`) — **NOT exempt**: existing `@/utils` in file, WIP wiring, no new import, **existing local helpers still in use**.
 
-Before first business Write when gate applies:
+**Single-turn standard flow (default — v0.3.14)** — one assistant response, Confirm **before** first Write:
+
+| Step | Action |
+|------|--------|
+| 1 **Analyze** | Read `AGENTS.md` in full; read business code + existing imports |
+| 2 **Discovery** | D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`; if zero → D2 Grep/SemanticSearch `utilsDir` |
+| 3 **Identify** | List each `symbol @ path` + planned/retained feature helpers |
+| 4 **Read** | Read each util export you will call in **util source**; Grep same-file siblings |
+| 5 **Confirm** | Bulk compact (≥3) or Legacy Q1–Q4 + **`Verdict（最终）`** in chat |
+| 6 **Implement** | Write / StrReplace **after** step 5 text (same turn; default `sameTurnAllow: true`) |
+
+Before first business Write when gate applies (detail):
 
 1. Read `AGENTS.md` in full
 2. Understand task / read business code and existing imports
@@ -71,7 +82,7 @@ For **each** util you will import or call **and each Local helpers table row**, 
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: confirm`, v0.3.11): Write deny until AGENTS.md Read + Confirm + Verdict; bulk compact validates Read + Q4 per row; uiOnly template/style patches allow without re-Confirm. Set `off` for Rules-only.
+**Hook** (default `hookMode: confirm`, v0.3.14): Enforces AGENTS.md Read + util Read + Confirm in chat; **`sameTurnAllow: true` by default** — same-turn Confirm then Write when Reads satisfied; set `"sameTurnAllow": false` for strict bulk/sibling audit. Set `hookMode: off` for Rules-only.
 
 #### Export JSDoc (utilsDir — mandatory)
 

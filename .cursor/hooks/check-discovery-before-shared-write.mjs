@@ -15,8 +15,8 @@ import {
   isPatchUiOnly,
   isUnderUtils,
   loadHookConfig,
-  loadVerdictAudit,
   logHookError,
+  markSameTurnBypass,
   matchesRemindPath,
   needsDiscoveryOutcomeInChat,
   normalizeAuditPath,
@@ -65,8 +65,16 @@ function denyReadMessage(missingPaths) {
   return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. WIP/existing import does NOT exempt. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
-function denyVerdictMessage() {
-  return `Denied: Read util / search / gen index do NOT complete the gate. Output substantive Confirm in chat **before** the first Write in this response: **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse. If you already output Verdict, run pnpm update:utils-reuse and check .cursor/.utils-gate-verdict.json. See ${PLACEMENT_SECTION}.`
+function denyVerdictMessage(config) {
+  const strict =
+    config?.sameTurnAllow === false
+      ? ' Strict mode (`sameTurnAllow: false`): split turns (Confirm first, Write next) or ensure preToolUse payload includes assistant text.'
+      : ' Default sameTurnAllow allows same-turn Write when Reads + AGENTS are satisfied — Confirm must still be in chat before Write.'
+  return `Denied: Read util / search / gen index do NOT complete the gate. Output substantive Confirm in chat **before** the first Write in this response: **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse.${strict} Check .cursor/.utils-gate-verdict.json and .cursor/.utils-gate-hook-debug.log. See ${PLACEMENT_SECTION}.`
+}
+
+function remindSameTurnAllowMessage() {
+  return `Reminder: same-turn Implement allowed (default sameTurnAllow). Confirm + Verdict must already be in chat before Write; Hook enforces Read util + AGENTS.md this session. See ${PLACEMENT_SECTION}.`
 }
 
 function denyDiscoveryMessage(config) {
@@ -255,7 +263,7 @@ async function main() {
         process.stdout.write(
           JSON.stringify({
             permission: 'deny',
-            agent_message: denyVerdictMessage()
+            agent_message: denyVerdictMessage(config)
           })
         )
         return
@@ -298,11 +306,39 @@ async function main() {
       coverage.needsConfirm.length === 0 &&
       requiredSymbols.length > 0
 
+    const eagerText = extractAssistantTextFromHookInput(input) || ''
+    const payloadHadAssistantText = Boolean(eagerText.trim())
+
+    const sameTurnBypass =
+      config.sameTurnAllow === true &&
+      !hasVerdict(cwd) &&
+      !payloadHadAssistantText &&
+      !sessionCoversPatch &&
+      hasAgentsFileRead(cwd) &&
+      requiredReads.size > 0
+
+    if (sameTurnBypass) {
+      markSameTurnBypass(cwd)
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'allow',
+          sameTurnBypass: true,
+          sessionVerdictRecorded: false,
+          payloadHadAssistantText: false,
+          agent_message: remindSameTurnAllowMessage()
+        })
+      )
+      return
+    }
+
     if (!sessionCoversPatch && !hasVerdict(cwd)) {
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
-          agent_message: denyVerdictMessage()
+          denyReason: 'verdict_not_recorded',
+          sessionVerdictRecorded: false,
+          payloadHadAssistantText,
+          agent_message: denyVerdictMessage(config)
         })
       )
       return
@@ -322,7 +358,6 @@ async function main() {
       return
     }
 
-    const eagerText = extractAssistantTextFromHookInput(input) || ''
     const confirmText = getConfirmText(cwd, eagerText)
 
     const bulkViolations = getBulkRowViolations(confirmText, cwd, config)

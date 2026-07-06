@@ -228,6 +228,23 @@ Verdict（最终）: reuse(otherUtil)`,
   fs.rmSync(mergeDir, { recursive: true, force: true })
 }
 
+const HALF_WIDTH_MARKER = `| Symbol | Read @ path | Q4 | Verdict |
+| copyToClip | copy.ts | clip OK; same API | reuse(copyToClip) |
+Verdict (最终): reuse(copyToClip)`
+assert('Verdict (最终) half-width marker passes substantive', textHasSubstantiveConfirm(HALF_WIDTH_MARKER))
+
+const BULK_TABLE_ONLY = `| Symbol | Read @ path | Q4 | Verdict |
+| copyToClip | copy.ts | clip OK; same API | reuse(copyToClip) |`
+assert('bulk compact without Verdict（最终） line passes', textHasSubstantiveConfirm(BULK_TABLE_ONLY))
+
+const halfDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-half-verdict-'))
+try {
+  resetSessionAudits(halfDir)
+  assert('half-width marker recordVerdict succeeds', recordVerdict(HALF_WIDTH_MARKER, halfDir) === true)
+} finally {
+  fs.rmSync(halfDir, { recursive: true, force: true })
+}
+
 if (process.exitCode) {
   console.error('\nSome verdict substance tests failed.')
   process.exit(1)

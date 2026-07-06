@@ -167,10 +167,28 @@ if (hasFeature) {
     }
   })
   assert(
-    'After Read util files but no Verdict → deny',
-    denyVerdict.permission === 'deny',
+    'After Read util files but no Verdict → allow (default sameTurnAllow v0.3.14)',
+    denyVerdict.permission === 'allow' && denyVerdict.sameTurnBypass === true,
     JSON.stringify(denyVerdict)
   )
+
+  const rcStrict = JSON.parse(fs.readFileSync(bookrcPath, 'utf8'))
+  rcStrict.sameTurnAllow = false
+  fs.writeFileSync(bookrcPath, `${JSON.stringify(rcStrict, null, 2)}\n`)
+  const denyVerdictStrict = runHook(projectRoot, {
+    tool_input: {
+      path: featureVue,
+      old_string: '// hook-test-marker',
+      new_string: '// hook-test-marker-updated'
+    }
+  })
+  assert(
+    'sameTurnAllow false + no Verdict → deny verdict_not_recorded',
+    denyVerdictStrict.permission === 'deny' && denyVerdictStrict.denyReason === 'verdict_not_recorded',
+    JSON.stringify(denyVerdictStrict)
+  )
+  delete rcStrict.sameTurnAllow
+  fs.writeFileSync(bookrcPath, `${JSON.stringify(rcStrict, null, 2)}\n`)
 
   recordVerdict(projectRoot)
 
@@ -404,6 +422,146 @@ try {
 } finally {
   fs.rmSync(sameTurnDir, { recursive: true, force: true })
 }
+
+// --- v0.3.14: sameTurnAllow default (no payload.text, reads OK) ---
+const sameTurnDefaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-same-turn-default-"))
+try {
+  fs.mkdirSync(path.join(sameTurnDefaultDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(sameTurnDefaultDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(sameTurnDefaultDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"]
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(sameTurnDefaultDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(
+    path.join(sameTurnDefaultDir, "src/views/Page.vue"),
+    `<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+copyToClip()
+</script>
+`
+  )
+  resetAudit(sameTurnDefaultDir)
+  recordAgentsRead(sameTurnDefaultDir)
+  recordRead(sameTurnDefaultDir, "src/utils/copy.ts")
+  const defaultAllow = runHook(sameTurnDefaultDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "copyToClip()",
+      new_string: "copyToClip('x')"
+    }
+  })
+  assert(
+    "default sameTurnAllow (omitted) + reads OK + no payload.text → allow (v0.3.14)",
+    defaultAllow.permission === "allow" && defaultAllow.sameTurnBypass === true,
+    JSON.stringify(defaultAllow)
+  )
+} finally {
+  fs.rmSync(sameTurnDefaultDir, { recursive: true, force: true })
+}
+
+// --- v0.3.13: sameTurnAllow explicit true (no payload.text, reads OK) ---
+const sameTurnOptDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-same-turn-opt-"))
+try {
+  fs.mkdirSync(path.join(sameTurnOptDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(sameTurnOptDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(sameTurnOptDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        sameTurnAllow: true,
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"]
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(sameTurnOptDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(
+    path.join(sameTurnOptDir, "src", "views", "Page.vue"),
+    `<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+copyToClip()
+</script>
+`
+  )
+  resetAudit(sameTurnOptDir)
+  recordAgentsRead(sameTurnOptDir)
+  recordRead(sameTurnOptDir, "src/utils/copy.ts")
+  const optAllow = runHook(sameTurnOptDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "copyToClip()",
+      new_string: "copyToClip('x')"
+    }
+  })
+  assert(
+    "sameTurnAllow true + reads OK + no payload.text → allow",
+    optAllow.permission === "allow" && optAllow.sameTurnBypass === true,
+    JSON.stringify(optAllow)
+  )
+} finally {
+  fs.rmSync(sameTurnOptDir, { recursive: true, force: true })
+}
+
+const sameTurnStrictDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-same-turn-strict-"))
+try {
+  fs.mkdirSync(path.join(sameTurnStrictDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(sameTurnStrictDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(sameTurnStrictDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        sameTurnAllow: false,
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"]
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(sameTurnStrictDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(
+    path.join(sameTurnStrictDir, "src", "views", "Page.vue"),
+    `<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+copyToClip()
+</script>
+`
+  )
+  resetAudit(sameTurnStrictDir)
+  recordAgentsRead(sameTurnStrictDir)
+  recordRead(sameTurnStrictDir, "src/utils/copy.ts")
+  const strictDeny = runHook(sameTurnStrictDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "copyToClip()",
+      new_string: "copyToClip('x')"
+    }
+  })
+  assert(
+    "sameTurnAllow false + no payload.text → deny verdict_not_recorded",
+    strictDeny.permission === "deny" && strictDeny.denyReason === "verdict_not_recorded",
+    JSON.stringify(strictDeny)
+  )
+} finally {
+  fs.rmSync(sameTurnStrictDir, { recursive: true, force: true })
+}
+
 // --- v0.3.5: addsHelper + | Helper | table + CSS-only allow ---
 const helperTableVerdict = `D1: Grep utils-index copy @ path
 | Helper | utils 候选 | 对照结论 |
@@ -878,12 +1036,16 @@ try {
     ) + "\n"
   )
   fs.writeFileSync(path.join(mixedUiDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+  fs.mkdirSync(path.join(mixedUiDir, "src", "utils", "array"), { recursive: true })
+  fs.writeFileSync(
+    path.join(mixedUiDir, "src", "utils", "array", "sortArray.ts"),
+    "export function sortAsc() {}\n"
+  )
   fs.writeFileSync(
     path.join(mixedUiDir, "src", "views", "Mixed.vue"),
     `<template><div class="skeleton">loading</div></template>
 <script setup lang="ts">
 import { copyToClip } from '@/utils/copy'
-import { sortAsc } from '@/utils/array/sortArray'
 </script>
 `
   )
@@ -905,12 +1067,13 @@ import { sortAsc } from '@/utils/array/sortArray'
   const mixedDeny = runHook(mixedUiDir, {
     tool_input: {
       path: "src/views/Mixed.vue",
-      old_string: "import { sortAsc }",
-      new_string: "import { sortAsc, copyToClip } from '@/utils/copy'"
+      old_string: "import { copyToClip } from '@/utils/copy'",
+      new_string:
+        "import { copyToClip } from '@/utils/copy'\nimport sortUtil from '@/utils/array/sortArray'"
     }
   })
   assert(
-    "script patch adding util usage → deny (missing_reads or verdict)",
+    "script patch adding unread util import → deny (missing_reads or verdict)",
     mixedDeny.permission === "deny",
     JSON.stringify(mixedDeny)
   )

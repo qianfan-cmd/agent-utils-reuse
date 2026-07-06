@@ -101,6 +101,46 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.13 → v0.3.14
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Single-turn standard flow (default product experience)**:
+
+- **`sameTurnAllow: true` by default** (confirm projects) — analyze → D1/D2 → Read util → Confirm + `Verdict（最终）` → **same-turn Write** when Reads + AGENTS satisfied
+- **`placement-decision.md` §0** — six-step single-turn table; strict audit: `"sameTurnAllow": false` or split turns
+- **`verdict_not_recorded`** deny only when **`sameTurnAllow: false`**
+- Upgrade merges `sameTurnAllow: true` into existing `.utils-bookrc.json` when field missing
+
+Default consumer config after upgrade:
+
+```json
+{ "hookMode": "confirm", "sameTurnAllow": true }
+```
+
+### Upgrade v0.3.12 → v0.3.13
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Same-turn Confirm+Write fix**:
+
+- **`sameTurnAllow: true`** (opt-in in `.utils-bookrc.json`): Confirm in chat but hook payload has no assistant text → **allow+remind** when util Reads + AGENTS.md Read are satisfied (skips bulk/sibling audit this turn)
+- **`denyReason: verdict_not_recorded`** on generic Verdict deny (+ `payloadHadAssistantText` / `sessionVerdictRecorded`)
+- **Verdict marker**: accepts `Verdict (最终):` half-width; bulk compact table Verdict column may omit separate `Verdict（最终）` line
+- **Payload keys**: extended `extractAssistantTextFromHookInput` (see `.cursor/.utils-gate-hook-debug.log`)
+
+Consumer test project with bulk Confirm + same-turn Write:
+
+```json
+{ "hookMode": "confirm", "sameTurnAllow": true }
+```
+
 ### Upgrade v0.3.11 → v0.3.12
 
 ```bash

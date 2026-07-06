@@ -8,7 +8,7 @@
 
 | 任务 | 典型操作 | Message A 五问？ |
 |------|----------|------------------|
-| **业务实现** | `src/views` 等接 `@/utils`、改 feature 代码 | **必须** — Confirm 阶段（Discovery + Local helpers + 分项 Q1–Q4 + `Verdict（最终）`）→ **同轮** Implement（Write） |
+| **业务实现** | `src/views` 等接 `@/utils`、改 feature 代码 | **必须** — **单轮六步**（§0 placement-decision）：Discovery → Read util → Confirm → **同轮** Write（`sameTurnAllow` 默认 true） |
 | **索引维护** | 补 `@utils-book` → `pnpm gen:utils-book` → search 自测 | **不要** Write feature；见 [BACKFILL](./BACKFILL-UTILS-BOOK.zh.md) |
 
 ```text

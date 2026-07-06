@@ -25,7 +25,8 @@ export function loadHookConfig(cwd = process.cwd()) {
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
     agentsFile: DEFAULT_AGENTS_FILE,
-    hookMode: 'off'
+    hookMode: 'off',
+    sameTurnAllow: true
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)
@@ -49,6 +50,7 @@ export function loadHookConfig(cwd = process.cwd()) {
       else if (mode === 'confirm') base.hookMode = 'confirm'
       else base.hookMode = 'off'
     }
+    if (raw.sameTurnAllow === false) base.sameTurnAllow = false
   } catch {
     /* defaults */
   }
@@ -186,10 +188,16 @@ export function extractAssistantTextFromHookInput(input) {
     "agent_message",
     "assistant_message",
     "assistant_message_text",
+    "assistantMessage",
+    "last_assistant_message",
+    "lastAssistantMessage",
+    "assistant_visible_message",
     "agent_response",
     "assistant_response",
     "message",
-    "output"
+    "output",
+    "transcript",
+    "turn_content"
   ]) {
     if (input[key] != null) {
       const s = messageContentToString(input[key])
@@ -207,13 +215,11 @@ export function extractAssistantTextFromHookInput(input) {
     const s = messageContentToString(msg.content ?? msg.text ?? msg.message)
     if (s.trim()) return s
   }
-  if (input.hook_input && typeof input.hook_input === 'object') {
-    const nested = extractAssistantTextFromHookInput(input.hook_input)
-    if (nested.trim()) return nested
-  }
-  if (input.turn && typeof input.turn === 'object') {
-    const nested = extractAssistantTextFromHookInput(input.turn)
-    if (nested.trim()) return nested
+  for (const nestedKey of ["hook_input", "turn", "conversation_turn"]) {
+    if (input[nestedKey] && typeof input[nestedKey] === "object") {
+      const nested = extractAssistantTextFromHookInput(input[nestedKey])
+      if (nested.trim()) return nested
+    }
   }
   return ""
 }
@@ -428,6 +434,7 @@ export function requiredSymbolsFromPatch(normalized, payload, config, cwd = proc
 
 const VERDICT_MARKER_RES = [
   /Verdict（最终）/,
+  /Verdict\s*[（(]\s*最终\s*[）)]/,
   /Verdict\s*[:：]/,
   /Verdict（/
 ]
@@ -576,21 +583,24 @@ export function confirmTableHasQHeader(text) {
 /**
  * Message A must include individual Q1–Q4 (and Verdict marker + outcome token).
  * Accepts legacy prose Confirm or bulk Confirm table (≥1 data row with Q1–Q4 per row).
+ * v0.3.13: bulk compact with Verdict-column outcomes may omit separate Verdict（最终） line.
  */
 export function textHasSubstantiveConfirm(text) {
   if (!text || typeof text !== 'string') return false
-
-  const hasMarker = VERDICT_MARKER_RES.some((re) => re.test(text))
-  if (!hasMarker) return false
 
   if (HOLLOW_CONFIRM_RES.some((re) => re.test(text))) return false
 
   if (!VERDICT_OUTCOME_RES.some((re) => re.test(text))) return false
 
+  if (textHasBulkCompactTable(text)) return true
+
   const bulkHeader = confirmTableHasQHeader(text)
   if (bulkHeader) return textHasBulkConfirmTable(text)
 
   if (textHasBulkConfirmTable(text)) return true
+
+  const hasMarker = VERDICT_MARKER_RES.some((re) => re.test(text))
+  if (!hasMarker) return false
 
   if (![1, 2, 3, 4].every((n) => hasIndividualQ(text, n))) return false
 
@@ -656,6 +666,24 @@ export function recordVerdict(text, cwd = process.cwd()) {
 
 export function hasVerdict(cwd = process.cwd()) {
   return loadVerdictAudit(cwd).recorded === true
+}
+
+/** Opt-in same-turn bypass audit flag (v0.3.13). */
+export function markSameTurnBypass(cwd = process.cwd()) {
+  const prior = loadVerdictAudit(cwd)
+  saveVerdictAudit(
+    {
+      recorded: prior.recorded === true,
+      at: prior.at,
+      confirmText: prior.confirmText,
+      snippet: prior.snippet,
+      hasLocalHelpersTable: prior.hasLocalHelpersTable === true,
+      symbols: prior.symbols ?? [],
+      sameTurnBypass: true,
+      sameTurnBypassAt: new Date().toISOString()
+    },
+    cwd
+  )
 }
 
 export function tryEagerRecordVerdict(input, cwd = process.cwd(), context = 'preToolUse') {

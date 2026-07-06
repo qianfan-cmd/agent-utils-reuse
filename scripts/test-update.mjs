@@ -56,6 +56,7 @@ function setupTempProject() {
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
   assert.equal(pkg.scripts['upgrade:utils-reuse'], 'agent-utils-reuse upgrade --yes')
   assert.equal(pkg.scripts['update:utils-reuse'], 'agent-utils-reuse update --yes')
+  assert.equal(readBookrc(dir).sameTurnAllow, true, 'init bookrc should default sameTurnAllow: true')
 
   return dir
 }
@@ -116,6 +117,7 @@ try {
   const bookrcAfter = readBookrc(projectRoot)
   assert.ok(!bookrcAfter.gateHeuristics, 'obsolete keys should be pruned')
   assert.ok(!bookrcAfter.discoveryCachePath)
+  assert.equal(bookrcAfter.sameTurnAllow, true, 'update merge should add sameTurnAllow: true when missing')
 
   const accept = runCli(['update', '--yes', '--accept-upstream'], projectRoot)
   assert.equal(accept.status, 0, accept.stderr)
@@ -127,12 +129,27 @@ try {
   const hooksJsonPath = path.join(projectRoot, '.cursor', 'hooks.json')
 
   const hooksAfterInit = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
-  assert.ok(!hooksAfterInit.hooks?.preToolUse, 'default off: hooks.json should have no preToolUse')
   assert.equal(
-    Object.keys(hooksAfterInit.hooks ?? {}).length,
-    0,
-    'default off: hooks.json should have no registered hooks'
+    hooksAfterInit.hooks?.preToolUse?.length,
+    1,
+    'default confirm: hooks.json should have preToolUse'
   )
+  assert.equal(
+    hooksAfterInit.hooks?.postToolUse?.length,
+    2,
+    'default confirm: hooks.json should have Read + Grep postToolUse'
+  )
+
+  // --- hookMode: off removes hooks ---
+  fs.writeFileSync(
+    path.join(projectRoot, '.utils-bookrc.json'),
+    `${JSON.stringify({ ...readBookrc(projectRoot), hookMode: 'off' }, null, 2)}\n`,
+    'utf8'
+  )
+  const offUpdate = runCli(['update', '--yes'], projectRoot)
+  assert.equal(offUpdate.status, 0, offUpdate.stderr)
+  const hooksOff = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+  assert.ok(!hooksOff.hooks?.preToolUse, 'hookMode off: hooks.json should have no preToolUse')
 
   // --- hookMode: confirm restores full hooks ---
   fs.writeFileSync(

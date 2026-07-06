@@ -21,7 +21,7 @@ alwaysApply: true
 1. **Confirm phase** — Identify + Discovery (when triggered) + **Local helpers** table + Confirm (Q1–Q5 **per symbol**) + **`Verdict（最终）` in chat**.
 2. **Implement phase** — Write / StrReplace **in the same assistant response**, after Confirm text (before first Write tool).
 
-**Confirm→Implement same turn**: Discovery + Local helpers + 分项 Q1–Q4 + `Verdict（最终）` in chat **before** the first Write tool in **this assistant response**.
+**Confirm→Implement same turn (default v0.3.14)**: 单轮六步 — 分析 → D1/D2 → Read util → Confirm 表 + `Verdict（最终）` → Write（同一条 assistant 回复）。Hook 默认 **`sameTurnAllow: true`**；显式 `"sameTurnAllow": false` 时须 payload.text 或分两轮。
 
 **Before first business Write / StrReplace**: chat must include substantive **Confirm (Q1–Q5 per util and per local helper row)** and **`Verdict（最终）`** **before** the first Write tool in this response. **Forbidden**: empty "Q1–Q5 pass"; Write before Verdict text.
 
@@ -58,7 +58,7 @@ alwaysApply: true
 
 - **Bulk compact = 五问合法压缩**：Q1–Q3 默认等价通过；**Q4 一行**须含替换结论；同文件 sibling 须 `reject <sibling>` 或等价。
 - **Read @ path**：须与本 session Read 的 util 文件一致（partial Read export 段 + 同文件 `Grep ^export` 即可）。
-- **`Verdict（最终）`** summary 仍必填。
+- **`Verdict（最终）`** summary 仍推荐；**v0.3.13**：bulk compact 表 **Verdict 列**含 `reuse(`/`partialReuse(` 时可无单独 summary 行；`Verdict (最终):` 半角括号亦接受。
 - **Legacy**（1–2 symbol）：分项 Q1–Q4 prose 仍接受；7 列 Bulk 表（Q1–Q4 分列）仍接受。
 - **D1 零候选 + D2 有结果（#28）**：**两行** — `noUtil(关键词)` 行 + reuse D2 结果行；禁止捆在一格。
 - **D1 零候选 + D2 无 export（#28）**：**noUtil 短模板** — `D1 "kw": 0 → D2 path:src/utils "kw": 0 → noUtil(kw)`；Hook 校验 Q4 含 D1/D2/零候选 token（`noutil_q4_invalid`）。
@@ -67,6 +67,7 @@ alwaysApply: true
 - **混页纯 UI（#27）**：仅改 `<template>` / `<style>` / 示例 JSON 文案、patch 无新 `@/utils` → Hook **uiOnly allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
 - **partialReuse + featureLocal(wrapper)**：可与 util **同表一行**，如 `partialReuse(validateHistoryImageUrls)+featureLocal(checkHistoryUrlItem)`；Hook **不强制** wrapper 单独行（Legacy ≥3 symbol 仍可用分项）。
 - **Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
+- **同轮 Confirm+Write（v0.3.14 默认）**：`sameTurnAllow: true`（confirm 项目默认）— chat 已 Confirm + session Read util + AGENTS → **同轮 Write allow+remind**。阅卷 strict：设 `"sameTurnAllow": false` 或分两轮。
 
 **D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
 
@@ -130,9 +131,9 @@ export function formatDateLocal(iso: string): string { ... }
 - **`Verdict（最终）`** must appear in a **chat before the first Write tool in this response** / StrReplace (same task).
 - **No** Write/StrReplace until chat includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `confirm`, v0.3.8)
+## Hook (default `confirm`, v0.3.14)
 
-Default **`hookMode: confirm`** — Write deny until Read + Verdict. Set **`off`** for Rules-only.
+Default **`hookMode: confirm`** — enforces AGENTS.md Read + util Read + Confirm in chat. **`sameTurnAllow: true` by default** — same-turn Confirm then Write when Reads satisfied; set **`"sameTurnAllow": false`** for strict bulk/sibling audit (payload.text or split turns). Set **`off`** for Rules-only.
 
 **Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
 
@@ -164,7 +165,6 @@ Set `"hookMode": "confirm"` or `"remind"` in `.utils-bookrc.json` (see README). 
 - Skip Confirm because reuse seems obvious or "no new import"
 - Output hollow **Q1–Q5 通过** without individual Q1–Q4 lines
 - Read `AGENTS.md` with limit/offset only
-- Put Verdict and first Write in the same message (Hook will deny)
 - Add or change a utils **export** without **`/** */`** immediately above it (see Export JSDoc)
 - Add util-semantics **local helpers** without Discovery (D1/D2) + Local helpers table in Confirm phase
 - **Rewrite** a whole helper when a **same-file sibling export** already covers the core logic — prefer reuse or thin featureLocal wrapper
