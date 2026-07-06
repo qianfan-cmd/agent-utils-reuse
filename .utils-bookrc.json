@@ -14,33 +14,34 @@
   "utilsImportAliases": [
     "@/utils"
   ],
-  "hookMode": "confirm",
+  "hookMode": "off",
   "sourceGlobs": [
     "src/**/*.{vue,ts,tsx}"
   ],
   "projectRoot": ".",
   "gateFileHashes": {
-    "docs/agent-catalog/placement-decision.md": "sha256:ab90b502ea92fe39ebb34cb33e182c3aef91241c96b62593dc4eea44ce90a3a8",
+    "docs/agent-catalog/placement-decision.md": "sha256:e1fadfa232fefa707eaf34d6577975d52c801dc893273c50fa6e1a486ae9cfae",
     "docs/agent-catalog/MERGE-AGENTS.md": "sha256:957fceb01531d642559e933b1a97cc13f578d9a0830e83d80a50af3e9e97a743",
-    "docs/agent-catalog/README.md": "sha256:8289465bc8db280a31b684de543f4ae3c31f5b3c9678c3a87fe1479bc224f0ef",
+    "docs/agent-catalog/README.md": "sha256:4236ae637a5d1ff6f79f11b95d370524002a2bb2c74242a062147e588704409d",
     "docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md": "sha256:95802c747bac90297483543852250a7d01cd033afad480d7cbc0e8ad774c0d13",
     "docs/agent-catalog/BACKFILL-UTILS-BOOK.en.md": "sha256:f46ebae7186cf8f93a4625ecb2763ffbbca22aa16b63ce17dd9752b43080a746"
   },
   "gateOverwriteHashes": {
-    ".cursor/rules/workspace-agent-gate.mdc": "sha256:a4cb717cadecedde71abaed358fedc3ea9aa59e2d3034392701d77ab209f7a13",
-    ".cursor/rules/utils-reuse-gate.mdc": "sha256:6468b3c5fd124b246254ee7f6e6327cdfb0ad5660d66e9c33abd36bb732a45cf",
+    ".cursor/rules/workspace-agent-gate.mdc": "sha256:82077cd9058fcc9270363a7ffd57f0ea0e0ffac02b473ffe31dc1430fb3a9a66",
+    ".cursor/rules/utils-reuse-gate.mdc": "sha256:592a79b465fa1126b13e20685710421aa6962b636c0222e4b8bc4bca41e0c447",
     ".cursor/rules/code-before-edit.mdc": "sha256:ca609baea3b25af3acf516461c93813e23a9408944e7608d9df6246f25b4c9a5",
-    ".cursor/rules/reuse-first.mdc": "sha256:109c9ad212d6eeb7055e176fe90e31729c00e183c50e56dca4e88ac954bd42f1",
-    ".cursor/rules/project-agent-gate.mdc": "sha256:535023aee3710b4ccdeff3bdf9229e7d8aee3eddbd7a170449bf330eca02b662",
-    ".cursor/hooks/check-discovery-before-shared-write.mjs": "sha256:000cb25492c48b5b9a50a768a780ea6da7604fc7f302f2b770afad12c483747e",
-    ".cursor/hooks/read-audit-lib.mjs": "sha256:ebd5d53e6ecc0eb5d2cadb0da3e648c8c32b3f0c9d6fbdd45f923e7bd49a2856",
-    ".cursor/hooks/track-utils-reads.mjs": "sha256:3fd521d5033e35dafe3792d900f3134f79e7cda3b63e4103968963891ccddad6",
+    ".cursor/rules/reuse-first.mdc": "sha256:d86a1f0ae43662e96f8e0ce7b97d63d7fb73c2fc3a4fc9990361ed8c19bd91aa",
+    ".cursor/rules/project-agent-gate.mdc": "sha256:95e80e97a525452d30cf0fb153d07f858ec7a6df71ae09118846d9753c9789e9",
+    ".cursor/hooks/check-discovery-before-shared-write.mjs": "sha256:c65d5b8d38df16fdcd9a9bb6741d36b4e541e7d1317f0ed7dca0335ad366d285",
+    ".cursor/hooks/read-audit-lib.mjs": "sha256:cdd406bd49564c487c59407154862475836c5913aae083ebd660acd6825d59b0",
+    ".cursor/hooks/track-utils-reads.mjs": "sha256:3548fb78c9085317a7706de31748a484891ba497479116c24ee3e4e5a8088313",
     ".cursor/hooks/track-utils-verdict.mjs": "sha256:0f43211c2e2c1aad2bf8226b0ca0f380e6c758aeaec202b198ab50785bfd0263",
     ".cursor/skills/reuse-before-create/SKILL.md": "sha256:1481d899762e21eca7dbde0aff93ca1146e07f6ad94c8371f331616c3116707f",
     ".cursor/hooks.json": "sha256:887820009578e8dc55e174da5873b4025cde40c5b0c33e750b69238b3c158079",
-    ".cursor/rules/pre-write-utils-checklist.mdc": "sha256:0870f10e8600acf9c98da1e055a8b6f9ab213bdbb0a4eb174fd5f2bc6141b986",
+    ".cursor/rules/pre-write-utils-checklist.mdc": "sha256:abf1fbd12ec833e3e49464feb471ef18c43ca51a60703263b4c278292fc41d75",
     ".cursor/hooks/track-utils-discovery.mjs": "sha256:785b704d0cf07b030eb0182c1aa72543951ca380073040d7d0b76df71bce801a"
   },
   "installedPackageVersion": "0.3.5",
-  "utilsIndexFile": "docs/agent-catalog/utils-index.json"
+  "utilsIndexFile": "docs/agent-catalog/utils-index.json",
+  "sameTurnAllow": true
 }

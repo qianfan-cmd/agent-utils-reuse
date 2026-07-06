@@ -82,7 +82,7 @@ For **each** util you will import or call **and each Local helpers table row**, 
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: confirm`, v0.3.14): Enforces AGENTS.md Read + util Read + Confirm in chat; **`sameTurnAllow: true` by default** — same-turn Confirm then Write when Reads satisfied; set `"sameTurnAllow": false` for strict bulk/sibling audit. Set `hookMode: off` for Rules-only.
+**Hook** (default `hookMode: off`, v0.3.15): Rules-only — Confirm + Verdict in chat before Write; **no Write tool deny**. Opt-in **`hookMode: confirm`** for hard gate (AGENTS.md Read + util Read + Confirm); confirm projects default **`sameTurnAllow: true`** for same-turn Implement.
 
 #### Export JSDoc (utilsDir — mandatory)
 

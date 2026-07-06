@@ -21,7 +21,7 @@
 | **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
 | **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
 
-Hook 默认 **`sameTurnAllow: true`**（confirm 项目）：步骤 5 在 chat 中完成后，步骤 6 同轮放行（须 session 已 Read util + AGENTS.md）。阅卷 strict：设 `"sameTurnAllow": false` 并分两轮 Write。
+Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** 时 **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后，步骤 6 同轮放行（须 session 已 Read util + AGENTS.md）。阅卷 strict：设 `"sameTurnAllow": false` 并分两轮 Write。
 
 ---
 
@@ -250,12 +250,14 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 
 | 模式 | 说明 |
 |------|------|
-| **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write；`sameTurnAllow` 默认 true |
+| **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write（Rules；`hookMode: off` 不拦 Write） |
 | **正确（strict 阅卷）** | 分两轮：第 1 轮 Confirm → `afterAgentResponse` record → 第 2 轮 Write；或 `sameTurnAllow: false` |
 | **正确（同轮 strict）** | `sameTurnAllow: false` 且同轮 Write → 须 `preToolUse` payload 含 assistant text |
 | **错误** | 表 → Write → `verdict_not_recorded` → 重读 AGENTS（未读 denyReason） |
 | **多批** | 第一批 session audit 已 record → 第二批只 Delta + 新 symbol Write |
 | **deny 后** | 读 `denyReason`（`verdict_not_recorded` / `missing_reads` / `sibling_q4_missing` 等），**禁止**一律当成没 Confirm |
+
+**Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
 
 **混页纯 UI（#27）**：文件顶已有 `@/utils`，本轮只改 template/style → 表内 `Gate N/A — <区块>` 或 **无 Confirm**（Hook uiOnly allow）。**不用** `// @gate-na` 注释。
 
@@ -275,21 +277,13 @@ Hook **不强制** wrapper 单独行；禁止无 wrapper 行的 `partialReuse(x)
 
 **Verdict（最终）**：noUtil(debounce)
 
-**D1 同 path 多 export**：chat 列 `uploadFiles @ imageUploadUtils.ts (siblings: uploadMultipleFiles, uploadSingleFile)`；`agent-utils-reuse search` 命中行亦展示 siblings。
+**D1 同 path 多 export**：chat 列 `uploadFiles @ imageUploadUtils.ts (siblings: uploadMultipleFiles, uploadSingleFile)`；`agent-utils-reuse search` 命中行亦展示 siblings（v0.3.12）。
 
 **Q4 sibling 一行模板**：`reject uploadMultipleFiles (sequential API N/A)` | `reject sortDesc (desc not needed)`
 
 **featureLocal 须附 D2**：util 语义 helper 的 Q4 写 `D2 Grep src/utils "<kw>": no export`；可选 **`strictD2: true`** in `.utils-bookrc.json`（未来 opt-in hook，见 README）。
 
 **strictD2（opt-in 设计，默认 off）**：`hookMode: confirm` + `"strictD2": true` 时，Discovery 仅有 D1 且无 D2 记录 → deny `d2_required_after_empty_d1`。纯 UI featureLocal 不受影响。
-
-**Opt-in backlog（v0.4+ 评估，默认均未实现）**：
-
-| 配置 | 用途 | 默认 |
-|------|------|------|
-| `strictD2: true` | D1 零候选未跑 D2 → deny | off |
-| `forbiddenReadPaths: ["src/feature/**"]` | 阅卷：Read hook warn/deny feature 路径 | off |
-| `hookMode: audit` | JSONL 结构化 Confirm 供外部阅卷脚本 | 未实现；用 `.utils-gate-*.json` + deny JSON |
 
 | 本地函数 | utils / 组件候选 | 对照结论 |
 |----------|------------------|----------|

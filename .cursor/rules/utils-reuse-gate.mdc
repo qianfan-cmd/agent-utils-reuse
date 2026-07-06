@@ -13,8 +13,8 @@ alwaysApply: true
 
 - **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
 - **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
-- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: confirm` (v0.3.8)** — Write deny until Read + Verdict; set `off` for Rules-only.
-- Hook (`hookMode: confirm` only) **fail-closed** + same-turn Verdict; denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without Local helpers table.
+- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: off` (v0.3.15)** — no Write deny; Rules only.
+- Hook (`hookMode: confirm` opt-in) **fail-closed** + same-turn Verdict; denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without Local helpers table.
 
 **Confirm→Implement workflow:**
 
@@ -131,9 +131,9 @@ export function formatDateLocal(iso: string): string { ... }
 - **`Verdict（最终）`** must appear in a **chat before the first Write tool in this response** / StrReplace (same task).
 - **No** Write/StrReplace until chat includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
 
-## Hook (default `confirm`, v0.3.14)
+## Hook (default `off`, v0.3.15)
 
-Default **`hookMode: confirm`** — enforces AGENTS.md Read + util Read + Confirm in chat. **`sameTurnAllow: true` by default** — same-turn Confirm then Write when Reads satisfied; set **`"sameTurnAllow": false`** for strict bulk/sibling audit (payload.text or split turns). Set **`off`** for Rules-only.
+Default **`hookMode: off`** — Rules-only Confirm + Verdict; **no Write deny**. Opt-in **`hookMode: confirm`** — enforces AGENTS.md Read + util Read + Confirm; **`sameTurnAllow: true` by default** when confirm is enabled. Set **`"sameTurnAllow": false`** for strict bulk/sibling audit. **`remind`**: allow + reminder only.
 
 **Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
 

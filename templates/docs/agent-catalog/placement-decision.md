@@ -21,7 +21,7 @@
 | **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
 | **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
 
-Hook 默认 **`sameTurnAllow: true`**（confirm 项目）：步骤 5 在 chat 中完成后，步骤 6 同轮放行（须 session 已 Read util + AGENTS.md）。阅卷 strict：设 `"sameTurnAllow": false` 并分两轮 Write。
+Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** 时 **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后，步骤 6 同轮放行（须 session 已 Read util + AGENTS.md）。阅卷 strict：设 `"sameTurnAllow": false` 并分两轮 Write。
 
 ---
 
@@ -250,7 +250,7 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 
 | 模式 | 说明 |
 |------|------|
-| **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write；`sameTurnAllow` 默认 true |
+| **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write（Rules；`hookMode: off` 不拦 Write） |
 | **正确（strict 阅卷）** | 分两轮：第 1 轮 Confirm → `afterAgentResponse` record → 第 2 轮 Write；或 `sameTurnAllow: false` |
 | **正确（同轮 strict）** | `sameTurnAllow: false` 且同轮 Write → 须 `preToolUse` payload 含 assistant text |
 | **错误** | 表 → Write → `verdict_not_recorded` → 重读 AGENTS（未读 denyReason） |

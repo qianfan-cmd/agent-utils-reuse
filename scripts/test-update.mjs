@@ -129,16 +129,28 @@ try {
   const hooksJsonPath = path.join(projectRoot, '.cursor', 'hooks.json')
 
   const hooksAfterInit = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
-  assert.equal(
-    hooksAfterInit.hooks?.preToolUse?.length,
-    1,
-    'default confirm: hooks.json should have preToolUse'
+  assert.equal(readBookrc(projectRoot).hookMode, 'off', 'init bookrc should default hookMode: off')
+  assert.ok(
+    !hooksAfterInit.hooks?.preToolUse,
+    'default off: hooks.json should have no preToolUse'
   )
   assert.equal(
-    hooksAfterInit.hooks?.postToolUse?.length,
-    2,
-    'default confirm: hooks.json should have Read + Grep postToolUse'
+    Object.keys(hooksAfterInit.hooks ?? {}).length,
+    0,
+    'default off: hooks.json should have no registered hooks'
   )
+
+  // --- hookMode: confirm restores full hooks (opt-in) ---
+  fs.writeFileSync(
+    path.join(projectRoot, '.utils-bookrc.json'),
+    `${JSON.stringify({ ...readBookrc(projectRoot), hookMode: 'confirm' }, null, 2)}\n`,
+    'utf8'
+  )
+  const confirmUpdate = runCli(['update', '--yes'], projectRoot)
+  assert.equal(confirmUpdate.status, 0, confirmUpdate.stderr)
+  const hooksConfirm = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
+  assert.equal(hooksConfirm.hooks.preToolUse?.length, 1, 'confirm mode should install preToolUse')
+  assert.equal(hooksConfirm.hooks.postToolUse?.length, 2, 'confirm mode should install postToolUse hooks')
 
   // --- hookMode: off removes hooks ---
   fs.writeFileSync(
@@ -151,17 +163,13 @@ try {
   const hooksOff = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
   assert.ok(!hooksOff.hooks?.preToolUse, 'hookMode off: hooks.json should have no preToolUse')
 
-  // --- hookMode: confirm restores full hooks ---
+  // --- back to confirm for gate repair tests ---
   fs.writeFileSync(
     path.join(projectRoot, '.utils-bookrc.json'),
     `${JSON.stringify({ ...readBookrc(projectRoot), hookMode: 'confirm' }, null, 2)}\n`,
     'utf8'
   )
-  const confirmUpdate = runCli(['update', '--yes'], projectRoot)
-  assert.equal(confirmUpdate.status, 0, confirmUpdate.stderr)
-  const hooksConfirm = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf8'))
-  assert.equal(hooksConfirm.hooks.preToolUse?.length, 1, 'confirm mode should install preToolUse')
-  assert.equal(hooksConfirm.hooks.postToolUse?.length, 2, 'confirm mode should install postToolUse hooks')
+  runCli(['update', '--yes'], projectRoot)
 
   // --- Gate completeness: simulate partial upgrade (stale hooks) ---
   const discoveryHookPath = path.join(

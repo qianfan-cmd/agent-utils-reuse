@@ -20,6 +20,6 @@ When you are about to **Write / StrReplace / EditNotebook** under **`remindWrite
 
 If any is false → output Discovery + Local helpers / bulk table + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
 
-With **`hookMode: confirm`** (default v0.3.9), deny includes **`verdict_not_recorded`** (only when **`sameTurnAllow: false`**), **`missingReads`**, **`staleSymbols`**, **`needsConfirm`**, **`alreadyCovered`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**, **`noutil_q4_invalid`**. Same-turn Write: **default `sameTurnAllow: true`** — Confirm in chat then Write same turn; set **`sameTurnAllow: false`** for strict audit. Debug payload: `.cursor/.utils-gate-hook-debug.log`. Set **`hookMode: off`** for Rules-only.
+With **`hookMode: confirm`** (opt-in), deny includes **`verdict_not_recorded`** (only when **`sameTurnAllow: false`**), **`missingReads`**, **`staleSymbols`**, **`needsConfirm`**, **`alreadyCovered`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**, **`noutil_q4_invalid`**. Default **`hookMode: off`** — Rules only, no Write deny. Debug payload: `.cursor/.utils-gate-hook-debug.log`.
 
 Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6.

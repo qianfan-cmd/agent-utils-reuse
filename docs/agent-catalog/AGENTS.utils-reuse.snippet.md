@@ -16,18 +16,36 @@
 
 **Mandatory gate** (`.cursor/rules/utils-reuse-gate.mdc`) — **NOT exempt**: existing `@/utils` in file, WIP wiring, no new import, **existing local helpers still in use**.
 
-Before first business Write when gate applies:
+**Single-turn standard flow (default — v0.3.14)** — one assistant response, Confirm **before** first Write:
+
+| Step | Action |
+|------|--------|
+| 1 **Analyze** | Read `AGENTS.md` in full; read business code + existing imports |
+| 2 **Discovery** | D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`; if zero → D2 Grep/SemanticSearch `utilsDir` |
+| 3 **Identify** | List each `symbol @ path` + planned/retained feature helpers |
+| 4 **Read** | Read each util export you will call in **util source**; Grep same-file siblings |
+| 5 **Confirm** | Bulk compact (≥3) or Legacy Q1–Q4 + **`Verdict（最终）`** in chat |
+| 6 **Implement** | Write / StrReplace **after** step 5 text (same turn; default `sameTurnAllow: true`) |
+
+Before first business Write when gate applies (detail):
 
 1. Read `AGENTS.md` in full
 2. Understand task / read business code and existing imports
 3. **Discovery (when triggered)**: D1 `agent-utils-reuse search "<keywords>"` or Grep `utils-index.json`, **or** D2 Grep/SemanticSearch `utilsDir`. **Forbidden**: Read/Grep `utils-book/*.md` for Shortlist (v0.3.0)
 4. **Identify** each util `symbol @ path` **and** each planned/retained feature helper
 5. **Read** each export/method you will call in the **util source file** — partial Read OK; Grep **within that util file** OK; **same-file sibling** exports must be checked
-6. **Confirm phase** (chat, before first Write tool):
-   - Discovery line (when triggered)
-   - **Local helpers** table — one row per planned/**retained** helper
-   - **Confirm (Q1–Q5 per symbol)** — **Q1, Q2, Q3, Q4 must appear separately**; forbidden: `Q1-Q5 通过`
-   - **`Verdict（最终）`** per row — five types below
+6. **Confirm phase** (chat, before first Write tool — **not thinking-only**):
+   - Discovery line (when triggered); D1 zero → `D1 "<kw>": 0 candidates → D2: ...` in chat
+   - **Local helpers** (1–2 symbol) or **Bulk compact** (≥3 symbols):
+
+     | Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
+
+   - **Confirm (五问 per symbol)** — legacy: Q1–Q4 separately; **bulk compact**: one Q4 cell per row (Q1–Q3 implied pass unless Q4 says must change util → newUtil); forbidden: `Q1-Q5 通过`
+   - **`Verdict（最终）`** per row — six types below
+   - **>5 reuse symbols**: split into batches (≤5 per Confirm + Write)
+   - **Delta Confirm (v0.3.12)**: same session, patch adds **only new import symbols** → table rows for new symbols + `Gate N/A — <block>` only; do not repeat already-Confirmed symbols; when Hook `needsConfirm` is empty and session audit recorded → **allow without this-turn Verdict**
+   - **Patch-scoped gate (v0.3.12)**: existing `@/utils` at file top does **not** trigger whole-file re-Confirm; only **this patch's new import/call** or util-semantics local helper enters Confirm
+   - **Mixed-page UI-only (#27)**: template/style/example JSON patch with no new `@/utils` in delta → Hook allow without full re-Confirm
 7. Then Write (**Implement phase** — same assistant response, after Confirm text)
 
 **Read util files does NOT complete the gate** — post-selection proof (Confirm + Verdict) is a separate hard step.
@@ -65,12 +83,13 @@ For **each** util you will import or call **and each Local helpers table row**, 
 | **reuse(sym)** | Q1–Q4 pass, Q5 no |
 | **partialReuse(sym)+featureLocal(wrapper)** | Util covers core; page wraps types/messages/fields |
 | **newUtil(name)** | Hard failure and shared; or Q5 yes |
+| **noUtil(sym)** | D1/D2: no shared export for this keyword; not featureLocal |
 | **featureLocal(reason)** | Page-local only; strong UI/state coupling |
 | **featureLocal+placement debt** | Copied from component; note extraction candidate |
 
 **Plan → Implement**: **`Verdict（最终）`** in chat **before** first business Write/StrReplace (same assistant turn OK). Earlier Read/Search allowed.
 
-**Hook** (default `hookMode: off`, v0.3.6): Rules-only Confirm + Verdict before Write. Opt-in `hookMode: confirm` for hard deny (Read + Verdict + Discovery + Local helpers table).
+**Hook** (default `hookMode: off`, v0.3.15): Rules-only — Confirm + Verdict in chat before Write; **no Write tool deny**. Opt-in **`hookMode: confirm`** for hard gate (AGENTS.md Read + util Read + Confirm); confirm projects default **`sameTurnAllow: true`** for same-turn Implement.
 
 #### Export JSDoc (utilsDir — mandatory)
 

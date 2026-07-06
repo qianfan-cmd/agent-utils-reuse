@@ -17,7 +17,7 @@ Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: *
 | Layer | Role |
 |-------|------|
 | **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`upgrade:utils-reuse`** or **`update:utils-reuse`** |
-| **Hook (default confirm)** | Rules + Write deny until AGENTS.md Read + Confirm + Verdict; set `off` for Rules-only |
+| **Hook (default off)** | Rules-only Confirm + Verdict; no Write deny; opt-in `confirm` for acceptance |
 | **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
 
 **Two-phase workflow**: Message A = Identify + Discovery (when triggered) + Local helpers table + **per-symbol Confirm (Q1–Q4 separately)** + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
@@ -100,6 +100,30 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/pre-write-utils-checklist.mdc` | Message A/B HARD STOP before Write (alwaysApply) |
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
+
+### Upgrade v0.3.14 → v0.3.15
+
+```bash
+pnpm upgrade:utils-reuse
+```
+
+**Default `hookMode: off` again** — no Write tool deny; Rules still require Confirm + `Verdict（最终）` in chat before Write.
+
+- **`load-config` / init / example bookrc** default `hookMode: off`
+- Existing projects with explicit `"hookMode": "confirm"` **unchanged** on upgrade
+- **`hooks.json`** empty by default (no preToolUse)
+
+Default consumer config after upgrade:
+
+```json
+{ "hookMode": "off" }
+```
+
+Acceptance / strict audit:
+
+```json
+{ "hookMode": "confirm", "sameTurnAllow": false }
+```
 
 ### Upgrade v0.3.13 → v0.3.14
 
@@ -486,7 +510,7 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `skillsDir` | `.cursor/skills` | For `skills.md` index |
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `confirm` | `confirm` = Write deny (default v0.3.8); `off` = Rules only; `remind` = allow + reminder |
+| `hookMode` | `off` | `off` = Rules only (default v0.3.15); `confirm` = Write deny; `remind` = allow + reminder |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
@@ -495,12 +519,12 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
 | `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
 
-### hookMode (v0.3.8)
+### hookMode (v0.3.15)
 
 | Mode | Write deny | hooks.json |
 |------|------------|------------|
-| **`confirm`** (default) | Yes | Full audit + preToolUse deny gate |
-| `off` | No | Empty — no hooks registered |
+| **`off`** (default) | No | Empty — no hooks registered |
+| `confirm` | Yes | Full audit + preToolUse deny gate |
 | `remind` | No | `preToolUse` only (allow + reminder) |
 
 Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write.
