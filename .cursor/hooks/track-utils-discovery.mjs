@@ -10,6 +10,7 @@ import {
   readHookStdin,
   recordDiscovery,
   shellCommandIsUtilsSearch,
+  toolInputTargetsFeatureBusinessLookup,
   toolInputTargetsUtilsDir,
   toolInputTargetsUtilsIndex
 } from './read-audit-lib.mjs'
@@ -57,6 +58,8 @@ async function main() {
       recordDiscovery('cli', cwd)
     } else if (toolInputTargetsUtilsIndex(toolInput, config, cwd)) {
       recordDiscovery('grep-index', cwd)
+    } else if (toolInputTargetsFeatureBusinessLookup(toolInput, config, cwd)) {
+      recordDiscovery('business-lookup', cwd)
     } else if (toolInputTargetsUtilsDir(toolInput, config, cwd)) {
       recordDiscovery('d2-utils-dir', cwd)
     }

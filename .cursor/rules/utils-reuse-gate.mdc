@@ -67,9 +67,13 @@ alwaysApply: true
 - **混页纯 UI（#27）**：仅改 `<template>` / `<style>` / 示例 JSON 文案、patch 无新 `@/utils` → Hook **uiOnly allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
 - **partialReuse + featureLocal(wrapper)**：可与 util **同表一行**，如 `partialReuse(validateHistoryImageUrls)+featureLocal(checkHistoryUrlItem)`；Hook **不强制** wrapper 单独行（Legacy ≥3 symbol 仍可用分项）。
 - **Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
-- **同轮 Confirm+Write（v0.3.17）**：`sameTurnAllow: true` — chat **须含可检测的 Confirm 文本** + session Read util + AGENTS → 同轮 Write allow；**仅有 Read 不放行**。JSON 解析失败 **fail-closed deny**。阅卷 strict：设 `"sameTurnAllow": false` 或分两轮。
+- **同轮 Confirm+Write（v0.3.17）**：`sameTurnAllow: true` — chat **须含可检测的 Confirm 文本** + session Read util + AGENTS → 同轮 Write allow；**仅有 Read 不放行**。JSON 解析失败 **fail-closed deny**。分轮严格：设 `"sameTurnAllow": false` 或分两轮 assistant 回复。
 
 **D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
+
+**D1.5 业务反查**：`Grep` feature 路径（`remindWritePaths`）从调用点反查 util 合法；Confirm 写 `D1.5: Grep <feature> → sym @ path`（`allowBusinessDiscovery`，默认开启）。
+
+**confirm 标准流程**：`hookMode: confirm` 默认启用 Discovery（util patch）、D1 优先、分批上限；任务前 `pnpm gen:utils-book` + `agent-utils-reuse status`（Index health）。
 
 **Same-file siblings**: D1 / `agent-utils-reuse search` 命中行展示 `siblings @ path: …`（来自 `utils-index.json` `siblingsByPath`）→ Q4 须 `reject <sibling>` 或等价比较。**Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
 

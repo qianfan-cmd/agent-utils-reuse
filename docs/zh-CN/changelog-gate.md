@@ -9,6 +9,18 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.22
+
+**移除 `examMode`** — Discovery/分批/D1 优先等并入通用 **`hookMode: confirm`** 默认行为；可用显式 `false` 关闭单项。D1.5 业务反查默认开启。
+
+## v0.3.21
+
+**门禁流程补强**
+
+- `status` Index health；`verify-index`
+- `hookMode: confirm` 默认启用 Discovery/分批等硬拦
+- D1.5 `business-lookup`
+
 ## v0.3.20
 
 **`uninstall` 子命令** — 一键移除门禁文件、`docs/agent-catalog`、生成的 index/book、合并的 `AGENTS.md` 块，以及 `package.json` 中的依赖与脚本。不删除 `src/utils` JSDoc。可用 `--dry-run` 预览。

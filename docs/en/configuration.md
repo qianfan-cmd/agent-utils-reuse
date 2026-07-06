@@ -29,6 +29,20 @@
 | `installedPackageVersion` | *(written by update)* | Last synced version |
 | `gateFileHashes` | *(written by update)* | Mergeable doc hashes |
 | `gateOverwriteHashes` | *(written by update)* | Overwrite-tier file hashes |
+| `requireDiscoveryForUtilGate` | `false` (`true` when `hookMode: confirm`) | Util import Write requires Discovery |
+| `preferCliSearch` | `false` (`true` when `confirm`) | Require `cli` or `grep-index` Discovery |
+| `strictBatchLimit` | `false` (`true` when `confirm`) | Always deny patch with >5 import symbols |
+| `allowBusinessDiscovery` | `true` | Accept D1.5 feature-path Grep as Discovery |
+
+## confirm mode workflow
+
+With **`hookMode: confirm`**, the gate enforces the standard Confirm flow by default:
+
+- Discovery (D1 cli / grep-index, or D1.5 business lookup) before util import Write
+- Batch limit (≤5 symbols per patch)
+- Read util + Verdict in chat before Write (`sameTurnAllow: true` allows same-turn)
+
+Set any flag to `false` in `.utils-bookrc.json` to opt out. Before agent tasks: `pnpm gen:utils-book` then `agent-utils-reuse status` / `verify-index`.
 
 ## hookMode
 

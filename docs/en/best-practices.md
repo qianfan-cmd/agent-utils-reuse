@@ -20,8 +20,16 @@
 | Scenario | Setting |
 |----------|---------|
 | Daily development | `hookMode: off` — Rules enforce Confirm |
-| Acceptance / CI audit | `hookMode: confirm`, `sameTurnAllow: true` |
-| Strict split-turn grading | `sameTurnAllow: false` |
+| Acceptance / hard gate | `hookMode: confirm`, `sameTurnAllow: true` |
+| Split-turn only | `sameTurnAllow: false` |
+
+Before agent tasks with utils reuse:
+
+```bash
+pnpm gen:utils-book
+agent-utils-reuse status
+agent-utils-reuse verify-index
+```
 
 v0.3.18: with `confirm`, same-turn Confirm can be read from Cursor `transcript_path` when preToolUse payload lacks assistant text.
 

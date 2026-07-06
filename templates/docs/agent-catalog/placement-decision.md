@@ -21,7 +21,7 @@
 | **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
 | **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
 
-Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS + **本轮可检测的 Confirm 文本**）；**v0.3.18**：preToolUse 无 payload 文本时从 **`transcript_path`** 回读 assistant Confirm 并 eager record；**v0.3.17**：JSON 解析失败 **fail-closed deny**（不再 parse_fallback allow）；仅有 Read 记录不能跳过 Verdict。阅卷 strict：设 `"sameTurnAllow": false`。
+Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS + **本轮可检测的 Confirm 文本**）；**v0.3.18**：preToolUse 无 payload 文本时从 **`transcript_path`** 回读 assistant Confirm 并 eager record；**v0.3.17**：JSON 解析失败 **fail-closed deny**（不再 parse_fallback allow）；仅有 Read 记录不能跳过 Verdict。分轮严格：设 `"sameTurnAllow": false` 或分两轮 assistant 回复。
 
 **配置（`.utils-bookrc.json`）**：
 
@@ -186,6 +186,7 @@ flowchart TD
 |------|------|
 | **D1** | **首选** `agent-utils-reuse search "<任务关键词>" --limit 8`；**备选** `Grep` [`utils-index.json`](utils-index.json)（按符号名/摘要关键词）。列出候选 `name @ path` |
 | **D2** | `Grep` / `SemanticSearch` **`utilsDir`**（关键词来自计划 helper 语义，如 `base64`、`dataUrl`、`validateFile`） |
+| **D1.5** | **业务反查**（`allowBusinessDiscovery`，默认开启）：`Grep` / `SemanticSearch` **feature 路径**（`remindWritePaths`）→ 从调用点定位 util；Confirm 须写 `D1.5: Grep <feature> → sym @ path` |
 
 **Agent 禁止（Shortlist）**：Read `utils-book/index.md`、Read `utils-book/{章}.md`、Grep 整个 `utils-book/` — Markdown 仅供人类浏览（v0.3.0）。
 
@@ -261,7 +262,7 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 |------|------|
 | **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write（Rules；`hookMode: off` 不拦 Write） |
 | **正确（confirm + transcript，v0.3.18）** | 同轮六步；Hook 从 `transcript_path` 读 Confirm（Cursor preToolUse 常无 assistant text） |
-| **正确（strict 阅卷）** | 分两轮：第 1 轮 Confirm → `afterAgentResponse` record → 第 2 轮 Write；或 `sameTurnAllow: false` |
+| **正确（分轮严格）** | 分两轮：第 1 轮 Confirm → `afterAgentResponse` record → 第 2 轮 Write；或 `sameTurnAllow: false` |
 | **正确（同轮 strict）** | `sameTurnAllow: false` 且同轮 Write → 须 payload 文本或 transcript 可读 |
 | **错误** | 表 → Write → `verdict_not_recorded` → 重读 AGENTS（未读 denyReason） |
 | **多批** | 第一批 session audit 已 record → 第二批只 Delta + 新 symbol Write |

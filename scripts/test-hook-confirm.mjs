@@ -13,11 +13,20 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkgRoot = path.resolve(__dirname, '..')
 
-const SAMPLE_VERDICT = `Confirm uploadSingleFile: Q1 file input Q2 upload API Q3 side effects Q4 matches Q5 no
+const D1_LINE = 'D1 "util": uploadSingleFile @ src/utils/uploadSingleFile.ts'
+
+const SAMPLE_VERDICT = `${D1_LINE}
+
+Confirm uploadSingleFile: Q1 file input Q2 upload API Q3 side effects Q4 matches Q5 no
 Verdict（最终）: reuse(uploadSingleFile)`
 
 const HOLLOW_VERDICT = `Confirm: Q1-Q5 通过
 Verdict（最终）: reuse(uploadSingleFile)`
+
+function withD1(text) {
+  if (/\bD1\b/i.test(text)) return text
+  return `${D1_LINE}\n\n${text}`
+}
 
 function resolveProjectRoot(arg) {
   if (arg) return path.resolve(arg)
@@ -54,6 +63,16 @@ function resetAudit(cwd) {
   })
 }
 
+function recordDiscoveryD1(cwd) {
+  spawnSync(process.execPath, [hookPath(cwd, 'track-utils-discovery.mjs')], {
+    cwd,
+    input: JSON.stringify({
+      tool_input: { path: 'docs/agent-catalog/utils-index.json', pattern: 'upload' }
+    }),
+    encoding: 'utf8'
+  })
+}
+
 function recordAgentsRead(cwd, agentsFile = 'AGENTS.md') {
   spawnSync(process.execPath, [hookPath(cwd, 'track-utils-reads.mjs')], {
     cwd,
@@ -65,6 +84,7 @@ function recordAgentsRead(cwd, agentsFile = 'AGENTS.md') {
 function prepareGateSession(cwd, agentsFile = 'AGENTS.md') {
   resetAudit(cwd)
   recordAgentsRead(cwd, agentsFile)
+  recordDiscoveryD1(cwd)
 }
 
 function recordRead(cwd, filePath) {
@@ -78,7 +98,7 @@ function recordRead(cwd, filePath) {
 function recordVerdict(cwd, text = SAMPLE_VERDICT) {
   const r = spawnSync(process.execPath, [hookPath(cwd, 'track-utils-verdict.mjs')], {
     cwd,
-    input: JSON.stringify({ text }),
+    input: JSON.stringify({ text: withD1(text) }),
     encoding: 'utf8'
   })
   const out = (r.stdout || '').trim()
@@ -374,6 +394,7 @@ try {
 
   resetAudit(bomTemp)
   recordAgentsRead(bomTemp)
+  recordDiscoveryD1(bomTemp)
   recordRead(bomTemp, "src/utils/copy.ts")
   recordVerdict(bomTemp)
   fs.mkdirSync(path.join(bomTemp, "src", "views"), { recursive: true })
@@ -442,6 +463,7 @@ try {
   fs.writeFileSync(path.join(sameTurnDir, "src/views/Page.vue"), "<template><div>test</div></template>\n")
   resetAudit(sameTurnDir)
   recordAgentsRead(sameTurnDir)
+  recordDiscoveryD1(sameTurnDir)
   recordRead(sameTurnDir, "src/utils/copy.ts")
   const sameTurnAllow = runHook(sameTurnDir, {
     text: SAMPLE_VERDICT,
@@ -485,6 +507,7 @@ copyToClip()
   )
   resetAudit(sameTurnDefaultDir)
   recordAgentsRead(sameTurnDefaultDir)
+  recordDiscoveryD1(sameTurnDefaultDir)
   recordRead(sameTurnDefaultDir, "src/utils/copy.ts")
   const defaultAllow = runHook(sameTurnDefaultDir, {
     tool_input: {
@@ -495,7 +518,8 @@ copyToClip()
   })
   assert(
     "default sameTurnAllow (omitted) + reads OK + no payload.text → deny (v0.3.17)",
-    defaultAllow.permission === "deny" && defaultAllow.denyReason === "verdict_not_recorded",
+    defaultAllow.permission === "deny" &&
+      (defaultAllow.denyReason === "verdict_not_recorded" || defaultAllow.denyReason === "d1_outcome_missing"),
     JSON.stringify(defaultAllow)
   )
 } finally {
@@ -532,6 +556,7 @@ copyToClip()
   )
   resetAudit(sameTurnOptDir)
   recordAgentsRead(sameTurnOptDir)
+  recordDiscoveryD1(sameTurnOptDir)
   recordRead(sameTurnOptDir, "src/utils/copy.ts")
   const optAllow = runHook(sameTurnOptDir, {
     tool_input: {
@@ -542,7 +567,8 @@ copyToClip()
   })
   assert(
     "sameTurnAllow true + reads OK + no payload.text → deny (v0.3.17)",
-    optAllow.permission === "deny" && optAllow.denyReason === "verdict_not_recorded",
+    optAllow.permission === "deny" &&
+      (optAllow.denyReason === "verdict_not_recorded" || optAllow.denyReason === "d1_outcome_missing"),
     JSON.stringify(optAllow)
   )
 } finally {
@@ -578,6 +604,7 @@ copyToClip()
   )
   resetAudit(sameTurnStrictDir)
   recordAgentsRead(sameTurnStrictDir)
+  recordDiscoveryD1(sameTurnStrictDir)
   recordRead(sameTurnStrictDir, "src/utils/copy.ts")
   const strictDeny = runHook(sameTurnStrictDir, {
     tool_input: {
@@ -588,7 +615,8 @@ copyToClip()
   })
   assert(
     "sameTurnAllow false + no payload.text → deny verdict_not_recorded",
-    strictDeny.permission === "deny" && strictDeny.denyReason === "verdict_not_recorded",
+    strictDeny.permission === "deny" &&
+      (strictDeny.denyReason === "verdict_not_recorded" || strictDeny.denyReason === "d1_outcome_missing"),
     JSON.stringify(strictDeny)
   )
 } finally {
@@ -635,11 +663,7 @@ try {
   )
   resetAudit(helperDir)
   recordAgentsRead(helperDir)
-  spawnSync(process.execPath, [hookPath(helperDir, "track-utils-discovery.mjs")], {
-    cwd: helperDir,
-    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
-    encoding: "utf8"
-  })
+  recordDiscoveryD1(helperDir)
   recordVerdict(helperDir, helperTableVerdict)
 
   const helperAllow = runHook(helperDir, {
@@ -709,6 +733,7 @@ import { copyToClip } from '@/utils/copy'
   )
   resetAudit(staleDir)
   recordAgentsRead(staleDir)
+  recordDiscoveryD1(staleDir)
   recordRead(staleDir, "src/utils/copy.ts")
   recordRead(staleDir, "src/utils/other.ts")
   recordVerdict(
@@ -780,6 +805,7 @@ copyToClip()
   )
   resetAudit(coverDir)
   recordAgentsRead(coverDir)
+  recordDiscoveryD1(coverDir)
   recordRead(coverDir, "src/utils/copy.ts")
   recordVerdict(
     coverDir,
@@ -860,11 +886,7 @@ function copyText() {}
   )
   resetAudit(templateDir)
   recordAgentsRead(templateDir)
-  spawnSync(process.execPath, [hookPath(templateDir, "track-utils-discovery.mjs")], {
-    cwd: templateDir,
-    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
-    encoding: "utf8"
-  })
+  recordDiscoveryD1(templateDir)
   recordVerdict(
     templateDir,
     `| Helper | utils | verdict |
@@ -1145,6 +1167,7 @@ copyToClip()
   )
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
+  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
 
   const malformedPayload =
@@ -1153,13 +1176,15 @@ copyToClip()
   assert(
     "malformed JSON with extractable path + no Confirm → deny verdict_not_recorded",
     malformedDeny.permission === "deny" &&
-      (malformedDeny.denyReason === "verdict_not_recorded" || malformedDeny.denyReason === "parse_error"),
+      (malformedDeny.denyReason === "verdict_not_recorded" ||
+        malformedDeny.denyReason === "parse_error" ||
+        malformedDeny.denyReason === "d1_outcome_missing"),
     JSON.stringify(malformedDeny)
   )
 
   spawnSync(process.execPath, [hookPath(parseSafeDir, "track-utils-discovery.mjs")], {
     cwd: parseSafeDir,
-    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
+    input: JSON.stringify({ tool_input: { path: "docs/agent-catalog/utils-index.json", pattern: "copy" } }),
     encoding: "utf8"
   })
   const helperNoVerdict = runHook(parseSafeDir, {
@@ -1173,7 +1198,8 @@ copyToClip()
     "addsHelper + sameTurnAllow + reads OK + no verdict → deny (v0.3.17)",
     helperNoVerdict.permission === "deny" &&
       (helperNoVerdict.denyReason === "verdict_not_recorded" ||
-        helperNoVerdict.denyReason === "local_helpers_table_missing"),
+        helperNoVerdict.denyReason === "local_helpers_table_missing" ||
+        helperNoVerdict.denyReason === "d1_outcome_missing"),
     JSON.stringify(helperNoVerdict)
   )
 
@@ -1243,6 +1269,7 @@ copyToClip()
 
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
+  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
   const transcriptOnlyPayload = JSON.stringify({
     transcript_path: transcriptFixture,
@@ -1271,6 +1298,7 @@ copyToClip()
 
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
+  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
   const bigContent = "x".repeat(17000)
   const largeBroken = `{"transcript_path":"${transcriptFixture.replace(/\\/g, "\\\\")}","tool_input":{"path":"src/views/Page.vue","contents":"${bigContent}"},"broken":`
@@ -1304,6 +1332,7 @@ copyToClip()
   )
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
+  recordDiscoveryD1(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/url.ts")
   const urlConfirm = `${SAMPLE_VERDICT}\n| Symbol | Read @ path | Q4 | Verdict |\n| UrlUtils | src/utils/url.ts | OK reject sibling | reuse(UrlUtils.replaceIntranetUrl) |`
   const urlTranscript = path.join(parseSafeDir, "url-transcript.jsonl")

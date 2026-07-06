@@ -20,8 +20,10 @@
 | 场景 | 配置 |
 |------|------|
 | 日常开发 | `hookMode: off` |
-| 验收 / CI | `hookMode: confirm`, `sameTurnAllow: true` |
-| 严格分轮阅卷 | `sameTurnAllow: false` |
+| 验收 / 硬门禁 | `hookMode: confirm`, `sameTurnAllow: true` |
+| 仅分轮 | `sameTurnAllow: false` |
+
+任务前：`pnpm gen:utils-book` → `agent-utils-reuse status` → `agent-utils-reuse verify-index`。
 
 v0.3.18：`confirm` 下可从 `transcript_path` 读同轮 Confirm。
 

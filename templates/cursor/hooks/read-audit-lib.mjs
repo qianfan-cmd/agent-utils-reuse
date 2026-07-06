@@ -20,6 +20,22 @@ const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src
 const DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN = 5
 const PARSE_HOOK_LARGE_STDIN_BYTES = 16384
 
+/** Mirrors lib/load-config.mjs resolveConfirmGateFlags for hook runtime. */
+function resolveConfirmGateFlags(raw, hookMode) {
+  const isConfirm = hookMode === 'confirm'
+  const tri = (key, confirmDefault) => {
+    if (raw[key] === true) return true
+    if (raw[key] === false) return false
+    return confirmDefault
+  }
+  return {
+    requireDiscoveryForUtilGate: tri('requireDiscoveryForUtilGate', isConfirm),
+    preferCliSearch: tri('preferCliSearch', isConfirm),
+    strictBatchLimit: tri('strictBatchLimit', isConfirm),
+    allowBusinessDiscovery: tri('allowBusinessDiscovery', true)
+  }
+}
+
 function resolveTranscriptAbsolutePath(transcriptPath, input, cwd) {
   const p = String(transcriptPath ?? '').trim()
   if (!p) return null
@@ -209,7 +225,11 @@ export function loadHookConfig(cwd = process.cwd()) {
     agentsReadMode: 'tool',
     hookMode: 'off',
     sameTurnAllow: true,
-    maxImportSymbolsPerTurn: DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN
+    maxImportSymbolsPerTurn: DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN,
+    requireDiscoveryForUtilGate: false,
+    preferCliSearch: false,
+    strictBatchLimit: false,
+    allowBusinessDiscovery: true
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)
@@ -245,6 +265,11 @@ export function loadHookConfig(cwd = process.cwd()) {
     if (Number.isFinite(maxSym) && maxSym > 0) {
       base.maxImportSymbolsPerTurn = maxSym
     }
+    const gateFlags = resolveConfirmGateFlags(raw, base.hookMode)
+    base.requireDiscoveryForUtilGate = gateFlags.requireDiscoveryForUtilGate
+    base.preferCliSearch = gateFlags.preferCliSearch
+    base.strictBatchLimit = gateFlags.strictBatchLimit
+    base.allowBusinessDiscovery = gateFlags.allowBusinessDiscovery
   } catch {
     /* defaults */
   }
@@ -538,13 +563,23 @@ export function matchesLightGatePath(filePath, lightGatePaths) {
 export function getDiscoveryPathLabel(cwd = process.cwd()) {
   const audit = loadDiscoveryAudit(cwd)
   if (!audit.recorded) return 'none'
+  if (audit.via.includes('business-lookup')) return 'business-lookup'
   if (audit.d1 && audit.d2) return 'D1+D2'
   if (audit.d1) {
     if (audit.via.includes('cli')) return 'cli'
     return 'grep-index'
   }
   if (audit.d2) return 'D2_only'
-  return 'none'
+  return audit.via[0] ?? 'none'
+}
+
+/** Whether session Discovery satisfies preferCliSearch when enabled. */
+export function discoverySatisfiesPreferCli(config, audit) {
+  if (!config?.preferCliSearch) return true
+  const via = audit?.via ?? []
+  if (via.includes('cli') || via.includes('grep-index')) return true
+  if (config.allowBusinessDiscovery && via.includes('business-lookup')) return true
+  return false
 }
 
 export function logHookGateDebug(cwd, context, meta = {}) {
@@ -563,6 +598,7 @@ export function logHookGateDebug(cwd, context, meta = {}) {
  * @returns {{ ok: boolean, source: 'session'|'payload'|'transcript'|'turn_text'|'none', text: string }}
  */
 export function turnHasConfirmEvidence(input, raw, cwd = process.cwd()) {
+  const config = loadHookConfig(cwd)
   if (hasVerdict(cwd)) {
     const audit = loadVerdictAudit(cwd)
     return {
@@ -570,6 +606,9 @@ export function turnHasConfirmEvidence(input, raw, cwd = process.cwd()) {
       source: audit.verdictSource ?? 'session',
       text: audit.confirmText ?? audit.snippet ?? ''
     }
+  }
+  if (config.sameTurnAllow === false) {
+    return { ok: false, source: 'none', text: '' }
   }
   const { text, source } = extractConfirmTextForGate(input, raw, cwd)
   if (textHasSubstantiveConfirm(text)) {
@@ -1200,6 +1239,8 @@ export function markSameTurnBypass(cwd = process.cwd()) {
 }
 
 export function tryEagerRecordVerdict(input, cwd = process.cwd(), context = 'preToolUse', raw = '') {
+  const config = loadHookConfig(cwd)
+  if (config.sameTurnAllow === false) return false
   if (hasVerdict(cwd)) return true
   const { text, source } = extractConfirmTextForGate(input, raw, cwd)
   if (!text.trim()) {
@@ -1784,6 +1825,29 @@ export function toolInputTargetsUtilsIndex(toolInput, config, cwd = process.cwd(
   }
 
   return candidates.some((p) => isUtilsIndexPath(p, indexFile, cwd))
+}
+
+/**
+ * D1.5: Grep/SemanticSearch on feature paths (remindWritePaths), not utilsDir/index.
+ */
+export function toolInputTargetsFeatureBusinessLookup(toolInput, config, cwd = process.cwd()) {
+  if (!toolInput || typeof toolInput !== 'object') return false
+  const utilsDir = config.utilsDir.replace(/\\/g, '/')
+  const indexFile = config.utilsIndexFile.replace(/\\/g, '/')
+  const candidates = []
+  for (const key of ['path', 'glob', 'target_directory', 'targetDirectory', 'pattern']) {
+    if (toolInput[key]) candidates.push(String(toolInput[key]))
+  }
+  if (Array.isArray(toolInput.paths)) {
+    candidates.push(...toolInput.paths.map(String))
+  }
+  return candidates.some((p) => {
+    if (!p || typeof p !== 'string') return false
+    if (pathMatchesConfiguredDir(p, utilsDir, cwd)) return false
+    if (isUtilsIndexPath(p, indexFile, cwd)) return false
+    if (String(p).includes('utils-index.json')) return false
+    return matchesRemindPath(p, config.remindWritePaths)
+  })
 }
 
 const UTILS_SEARCH_CMD_RES = [

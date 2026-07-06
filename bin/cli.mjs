@@ -7,16 +7,8 @@ import { generateUtilsBook } from '../lib/generate-utils-book.mjs'
 import { loadConfig } from '../lib/load-config.mjs'
 import { runSearch } from '../lib/search-utils-index.mjs'
 import { printInitSummary, runInit } from '../lib/init.mjs'
-import {
-  printStatusSummary,
-  printUpdateSummary,
-  printUpgradeSummary,
-  printVerifySummary,
-  runStatus,
-  runUpdate,
-  runUpgrade,
-  runVerify
-} from '../lib/update.mjs'
+import { printStatusSummary, printUpdateSummary, printUpgradeSummary, printVerifySummary, runStatus, runUpdate, runUpgrade, runVerify } from '../lib/update.mjs'
+import { formatIndexHealthSummary, verifyIndexHealth } from '../lib/index-health.mjs'
 import { printUninstallSummary, runUninstall } from '../lib/uninstall-gate.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -97,8 +89,10 @@ Usage:
   agent-utils-reuse update [--yes] [--dry-run] [--bump] [--tag <ref>] [--accept-upstream]
   agent-utils-reuse status
   agent-utils-reuse verify
+  agent-utils-reuse verify-index
   agent-utils-reuse gen [--check]
   agent-utils-reuse search "<query>" [--limit N] [--json]
+  agent-utils-reuse verify-index
   agent-utils-reuse check
   agent-utils-reuse uninstall [--yes] [--dry-run]
 
@@ -108,6 +102,7 @@ Commands:
   update   Reinstall gate files only (no lockfile churn; use for file: local dev)
   status  Version drift, gate verify, deprecated files, merge conflicts
   verify  Check overwrite-tier gate files match templates
+  verify-index  Check utils-index.json exists and has symbols
   gen     Scan utilsDir and generate utils-book + utils-index.json
   search  Keyword search utils-index.json (Agent Discovery D1)
   check   Regenerate utils-book/index and git diff (CI gate)
@@ -207,6 +202,18 @@ async function main() {
     const result = runVerify(cwd)
     printVerifySummary(result)
     if (!result.verifyResult?.ok) {
+      process.exit(1)
+    }
+    return
+  }
+
+  if (command === 'verify-index') {
+    const config = loadConfig(cwd)
+    const { health, ok } = verifyIndexHealth(config.projectRoot, config)
+    for (const line of formatIndexHealthSummary(health)) {
+      console.log(line)
+    }
+    if (!ok) {
       process.exit(1)
     }
     return

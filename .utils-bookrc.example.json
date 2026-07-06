@@ -12,8 +12,19 @@
   "maxImportSymbolsPerTurn": 5,
   "agentsReadMode": "tool",
   "lightGatePaths": [],
-  "searchSynonyms": {},
-  "crossFileSiblingGroups": [],
+  "searchSynonyms": {
+    "mention": ["mention", "prompt", "纯文本"],
+    "timeout": ["timeout", "Promise", "slow"]
+  },
+  "crossFileSiblingGroups": [
+    ["blobToBase64", "fileToBase64"],
+    ["uploadFiles", "uploadMultipleFiles", "uploadSingleFile"],
+    ["downloadAndUploadImage", "handleImageParam"]
+  ],
+  "requireDiscoveryForUtilGate": false,
+  "preferCliSearch": false,
+  "strictBatchLimit": false,
+  "allowBusinessDiscovery": true,
   "utilsImportAliases": ["@/utils"],
   "remindWritePaths": ["src/feature", "src/components", "src/hooks", "src/views"],
   "sourceGlobs": ["src/**/*.{vue,ts,tsx}"],

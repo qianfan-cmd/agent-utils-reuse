@@ -9,6 +9,18 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.22
+
+**Remove `examMode`** — workflow checks are standard **`hookMode: confirm`** behavior (Discovery for util patch, prefer D1, strict batch). Opt out per flag with explicit `false`. D1.5 business lookup default on via `allowBusinessDiscovery: true`.
+
+## v0.3.21
+
+**Gate flow hardening**
+
+- Index health in `status`; `verify-index` command
+- `hookMode: confirm` enables Discovery/batch/prefer-cli checks by default
+- D1.5 `business-lookup`; denies `missing_discovery_for_util`, `prefer_cli_search`
+
 ## v0.3.20
 
 **`uninstall` command** — one-shot removal of gate files, `docs/agent-catalog`, generated index/book, merged `AGENTS.md` blocks, and `package.json` dependency/scripts. Does not strip `src/utils` JSDoc. Use `--dry-run` to preview.

@@ -2,6 +2,7 @@
 import {
   buildSymbolConfirmChecklist,
   countReuseSymbols,
+  discoverySatisfiesPreferCli,
   extractPathFromHookRaw,
   extractPartialHookMetadataFromRaw,
   extractAssistantTextFromHookInput,
@@ -17,6 +18,7 @@ import {
   hookErrorDenyMessage,
   isPatchUiOnly,
   isUnderUtils,
+  loadDiscoveryAudit,
   loadHookConfig,
   logHookError,
   logHookGateDebug,
@@ -94,6 +96,18 @@ function remindSameTurnAllowMessage() {
 function denyDiscoveryMessage(config) {
   const indexFile = config.utilsIndexFile || 'docs/agent-catalog/utils-index.json'
   return `Denied: Run \`agent-utils-reuse search "<keywords>"\` (D1: via cli) OR Grep \`${indexFile}\` (D1: grep-index) before adding local function helpers. Forbidden for Shortlist: Read/Grep utils-book/*.md. D2: Grep/SemanticSearch under utilsDir (via d2-utils-dir). Then output Discovery + Local helpers table + per-symbol Q1-Q4 in Confirm phase (same turn before Write). See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
+}
+
+function denyDiscoveryForUtilMessage(config) {
+  const indexFile = config.utilsIndexFile || 'docs/agent-catalog/utils-index.json'
+  return `Denied: @/utils Write requires Discovery this session — run \`agent-utils-reuse search "<keywords>"\` (D1 cli) OR Grep \`${indexFile}\` (D1 grep-index). D1.5: Grep feature paths under remindWritePaths counts when allowBusinessDiscovery. Document D1 outcome in Confirm chat before Write. See utils-reuse-gate.mdc.`
+}
+
+function denyPreferCliSearchMessage(config) {
+  const d15 = config.allowBusinessDiscovery
+    ? ', or D1.5 business-lookup on feature paths'
+    : ''
+  return `Denied: preferCliSearch — session Discovery must include agent-utils-reuse search (cli) or Grep utils-index.json (grep-index)${d15}. D2-only Grep utilsDir is not sufficient. See utils-reuse-gate.mdc.`
 }
 
 function denyD1OutcomeMessage() {
@@ -286,7 +300,13 @@ async function main() {
 
     const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
 
-    if (!gateApplies({ isUtils, requiredSymbols, requiredReads })) {
+    const addsHelper =
+      !isLightGate &&
+      isRemind &&
+      patchAddsLocalHelper(payload, normalized) &&
+      !isUtils
+
+    if (!gateApplies({ isUtils, requiredSymbols, requiredReads }) && !addsHelper) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
@@ -303,17 +323,60 @@ async function main() {
     }
 
     const missing = [...requiredReads].filter((p) => !hasRead(p, cwd))
+    const maxPerTurn = config.maxImportSymbolsPerTurn ?? 5
+
+    if (config.strictBatchLimit && requiredSymbols.length > maxPerTurn) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          denyReason: 'batch_limit_exceeded',
+          requiredSymbols,
+          agent_message: denyBatchLimitMessage(requiredSymbols, config)
+        })
+      )
+      return
+    }
+
+    if (config.requireDiscoveryForUtilGate && requiredSymbols.length > 0) {
+      const discoveryAudit = loadDiscoveryAudit(cwd)
+      if (!discoveryAudit.recorded) {
+        process.stdout.write(
+          JSON.stringify({
+            permission: 'deny',
+            denyReason: 'missing_discovery_for_util',
+            agent_message: denyDiscoveryForUtilMessage(config)
+          })
+        )
+        return
+      }
+      if (!discoverySatisfiesPreferCli(config, discoveryAudit)) {
+        process.stdout.write(
+          JSON.stringify({
+            permission: 'deny',
+            denyReason: 'prefer_cli_search',
+            discoveryVia: discoveryAudit.via,
+            agent_message: denyPreferCliSearchMessage(config)
+          })
+        )
+        return
+      }
+      const utilGateConfirm = getConfirmText(cwd, extractAssistantTextFromHookInput(input))
+      if (!textHasD1OutcomeDocumented(utilGateConfirm)) {
+        process.stdout.write(
+          JSON.stringify({
+            permission: 'deny',
+            denyReason: 'd1_outcome_missing',
+            agent_message: denyD1OutcomeMessage()
+          })
+        )
+        return
+      }
+    }
 
     if (isRemind && uiOnly && missing.length === 0) {
       process.stdout.write(JSON.stringify({ permission: 'allow', uiOnly: true }))
       return
     }
-
-    const addsHelper =
-      !isLightGate &&
-      isRemind &&
-      patchAddsLocalHelper(payload, normalized) &&
-      !isUtils
 
     if (addsHelper) {
       if (!hasDiscovery(cwd)) {
@@ -382,7 +445,6 @@ async function main() {
 
     const coverage = getVerdictCoverage(requiredSymbols, cwd)
     const confirmEvidence = turnHasConfirmEvidence(input, raw, cwd)
-    const maxPerTurn = config.maxImportSymbolsPerTurn ?? 5
 
     if (
       requiredSymbols.length > maxPerTurn &&
