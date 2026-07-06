@@ -18,6 +18,184 @@ const DEFAULT_ALIASES = ['@/utils']
 const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src/views']
 
 const DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN = 5
+const PARSE_HOOK_LARGE_STDIN_BYTES = 16384
+
+function resolveTranscriptAbsolutePath(transcriptPath, input, cwd) {
+  const p = String(transcriptPath ?? '').trim()
+  if (!p) return null
+  const normalized = p.replace(/\\/g, '/')
+  if (path.isAbsolute(normalized)) return normalized
+  const roots = input?.workspace_roots ?? input?.workspaceRoots
+  const base =
+    Array.isArray(roots) && roots[0] ? path.resolve(String(roots[0])) : path.resolve(cwd)
+  return path.resolve(base, normalized)
+}
+
+function messageMatchesGeneration(msg, generationId) {
+  if (!generationId) return true
+  const gid = String(generationId)
+  const candidates = [
+    msg?.generation_id,
+    msg?.generationId,
+    msg?.generation,
+    msg?.id
+  ].filter(Boolean)
+  return candidates.some((c) => String(c) === gid)
+}
+
+function extractAssistantFromTranscriptContent(content, generationId = null) {
+  if (!content || typeof content !== 'string') return ''
+  const trimmed = content.trim()
+  if (!trimmed) return ''
+
+  const assistantMessages = []
+
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      const lists = []
+      if (Array.isArray(parsed)) lists.push(...parsed)
+      else if (Array.isArray(parsed.messages)) lists.push(...parsed.messages)
+      else if (Array.isArray(parsed.conversation)) lists.push(...parsed.conversation)
+      else if (Array.isArray(parsed.transcript)) lists.push(...parsed.transcript)
+      for (const msg of lists) {
+        if (!msg || typeof msg !== 'object') continue
+        const role = String(msg.role ?? msg.type ?? '').toLowerCase()
+        if (role !== 'assistant' && role !== 'agent') continue
+        if (!messageMatchesGeneration(msg, generationId)) continue
+        const s = messageContentToString(msg.content ?? msg.text ?? msg.message)
+        if (s.trim()) assistantMessages.push(s)
+      }
+    } catch {
+      /* fall through to JSONL */
+    }
+  }
+
+  if (assistantMessages.length === 0) {
+    for (const line of trimmed.split('\n')) {
+      const row = line.trim()
+      if (!row) continue
+      try {
+        const msg = JSON.parse(row)
+        if (!msg || typeof msg !== 'object') continue
+        const role = String(msg.role ?? msg.type ?? '').toLowerCase()
+        if (role !== 'assistant' && role !== 'agent') continue
+        if (!messageMatchesGeneration(msg, generationId)) continue
+        const s = messageContentToString(msg.content ?? msg.text ?? msg.message)
+        if (s.trim()) assistantMessages.push(s)
+      } catch {
+        /* skip bad line */
+      }
+    }
+  }
+
+  if (assistantMessages.length === 0) return ''
+  return assistantMessages[assistantMessages.length - 1]
+}
+
+/** Read assistant Confirm text from Cursor transcript_path (v0.3.18). */
+export function readAssistantTextFromTranscript(input, cwd = process.cwd()) {
+  if (!input || typeof input !== 'object') return ''
+  const transcriptPath = input.transcript_path ?? input.transcriptPath
+  if (!transcriptPath) return ''
+
+  const abs = resolveTranscriptAbsolutePath(transcriptPath, input, cwd)
+  if (!abs || !fs.existsSync(abs)) {
+    logHookGateDebug(cwd, 'transcript_read_failed', {
+      reason: 'missing_file',
+      transcript_path: String(transcriptPath)
+    })
+    return ''
+  }
+
+  try {
+    const content = fs.readFileSync(abs, 'utf8')
+    const generationId = input.generation_id ?? input.generationId ?? null
+    const text = extractAssistantFromTranscriptContent(content, generationId)
+    if (!text.trim()) {
+      logHookGateDebug(cwd, 'transcript_read_failed', {
+        reason: 'no_assistant_message',
+        transcript_path: String(transcriptPath)
+      })
+    }
+    return text
+  } catch (err) {
+    logHookGateDebug(cwd, 'transcript_read_failed', {
+      reason: err instanceof Error ? err.message : String(err),
+      transcript_path: String(transcriptPath)
+    })
+    return ''
+  }
+}
+
+/** Metadata from broken hook stdin (transcript_path, generation_id). */
+export function extractPartialHookMetadataFromRaw(raw) {
+  return extractPartialHookMetadata(stripUtf8Bom(String(raw ?? '').trim()))
+}
+
+function extractPartialHookMetadata(trimmed) {
+  const meta = {}
+  const transcriptMatch = trimmed.match(/"transcript_path"\s*:\s*"((?:\\.|[^"\\])*)"/)
+  if (transcriptMatch) {
+    try {
+      meta.transcript_path = JSON.parse(`"${transcriptMatch[1]}"`)
+    } catch {
+      meta.transcript_path = transcriptMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+    }
+  }
+  const genMatch = trimmed.match(/"generation_id"\s*:\s*"((?:\\.|[^"\\])*)"/)
+  if (genMatch) {
+    try {
+      meta.generation_id = JSON.parse(`"${genMatch[1]}"`)
+    } catch {
+      meta.generation_id = genMatch[1]
+    }
+  }
+  const toolNameMatch = trimmed.match(/"tool_name"\s*:\s*"((?:\\.|[^"\\])*)"/)
+  if (toolNameMatch) {
+    try {
+      meta.tool_name = JSON.parse(`"${toolNameMatch[1]}"`)
+    } catch {
+      meta.tool_name = toolNameMatch[1]
+    }
+  }
+  return meta
+}
+
+/** Extract file path from broken hook stdin when full JSON parse fails. */
+export function extractPathFromHookRaw(raw) {
+  const trimmed = stripUtf8Bom(String(raw ?? '').trim())
+  if (!trimmed) return null
+  const pathMatch = trimmed.match(
+    /"(?:path|file_path|target_notebook)"\s*:\s*"((?:\\.|[^"\\])*)"/
+  )
+  if (!pathMatch) return null
+  try {
+    return JSON.parse(`"${pathMatch[1]}"`)
+  } catch {
+    return pathMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+  }
+}
+
+/**
+ * Unified Confirm text for preToolUse gate (v0.3.18).
+ * @returns {{ text: string, source: 'payload'|'transcript'|'none' }}
+ */
+export function extractConfirmTextForGate(input, raw, cwd = process.cwd()) {
+  const fromPayload = extractAssistantTextFromHookInput(input)?.trim()
+  if (fromPayload && textHasSubstantiveConfirm(fromPayload)) {
+    return { text: fromPayload, source: 'payload' }
+  }
+  const fromRaw = extractTextFromRawHookStdin(raw)?.trim()
+  if (fromRaw && textHasSubstantiveConfirm(fromRaw)) {
+    return { text: fromRaw, source: 'payload' }
+  }
+  const fromTranscript = readAssistantTextFromTranscript(input, cwd)?.trim()
+  if (fromTranscript && textHasSubstantiveConfirm(fromTranscript)) {
+    return { text: fromTranscript, source: 'transcript' }
+  }
+  return { text: fromPayload || fromRaw || fromTranscript || '', source: 'none' }
+}
 
 export function loadHookConfig(cwd = process.cwd()) {
   const base = {
@@ -308,10 +486,14 @@ export function parseHookJsonSafe(raw) {
         }
       }
     }
-    const toolInput = extractJsonObjectAtKey(trimmed, 'tool_input')
-    if (toolInput && typeof toolInput === 'object') {
-      input.tool_input = { ...(input.tool_input ?? {}), ...toolInput }
+    const skipHeavyToolInput = trimmed.length > PARSE_HOOK_LARGE_STDIN_BYTES
+    if (!skipHeavyToolInput) {
+      const toolInput = extractJsonObjectAtKey(trimmed, 'tool_input')
+      if (toolInput && typeof toolInput === 'object') {
+        input.tool_input = { ...(input.tool_input ?? {}), ...toolInput }
+      }
     }
+    Object.assign(input, extractPartialHookMetadata(trimmed))
     const text = extractJsonStringField(trimmed, 'text')
     if (text != null) input.text = text
     if (!input.text?.trim()) {
@@ -377,21 +559,25 @@ export function logHookGateDebug(cwd, context, meta = {}) {
 }
 
 /**
- * Same-turn Confirm evidence: session verdict record or substantive text in this turn (v0.3.17).
- * @returns {{ ok: boolean, source: 'session'|'turn_text'|'none', text: string }}
+ * Same-turn Confirm evidence: session verdict record or substantive text in this turn (v0.3.18).
+ * @returns {{ ok: boolean, source: 'session'|'payload'|'transcript'|'turn_text'|'none', text: string }}
  */
 export function turnHasConfirmEvidence(input, raw, cwd = process.cwd()) {
   if (hasVerdict(cwd)) {
     const audit = loadVerdictAudit(cwd)
-    return { ok: true, source: 'session', text: audit.confirmText ?? audit.snippet ?? '' }
+    return {
+      ok: true,
+      source: audit.verdictSource ?? 'session',
+      text: audit.confirmText ?? audit.snippet ?? ''
+    }
   }
-  const text = (
-    extractAssistantTextFromHookInput(input) ||
-    extractTextFromRawHookStdin(raw) ||
-    ''
-  ).trim()
+  const { text, source } = extractConfirmTextForGate(input, raw, cwd)
   if (textHasSubstantiveConfirm(text)) {
-    return { ok: true, source: 'turn_text', text }
+    return {
+      ok: true,
+      source: source === 'none' ? 'turn_text' : source,
+      text
+    }
   }
   return { ok: false, source: 'none', text }
 }
@@ -532,7 +718,8 @@ export function loadVerdictAudit(cwd = process.cwd()) {
       snippet: raw.snippet ?? null,
       confirmText,
       hasLocalHelpersTable: Boolean(raw.hasLocalHelpersTable),
-      symbols
+      symbols,
+      verdictSource: raw.verdictSource ?? null
     }
   } catch {
     return { recorded: false, hasLocalHelpersTable: false, symbols: [], confirmText: null, snippet: null }
@@ -553,12 +740,34 @@ const CONFIRM_TEXT_MAX = 8192
 const BULK_Q4_MIN_LEN = 8
 
 const VERDICT_SYMBOL_OUTCOME_RES = [
-  /\breuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-  /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-  /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-  /\bfeatureLocal\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-  /\bnoUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi
+  /\breuse\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi,
+  /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi,
+  /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi,
+  /\bfeatureLocal\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi,
+  /\bnoUtil\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi
 ]
+
+function addVerdictSymbolToSet(symbols, name) {
+  if (!name) return
+  symbols.add(name)
+  if (String(name).includes('.')) {
+    symbols.add(String(name).split('.')[0])
+  }
+}
+
+/** Map verdict symbol to import binding name when Class.method vs import Class. */
+export function normalizeVerdictSymbolForImport(verdictSym, importSymbols = []) {
+  const sym = String(verdictSym ?? '')
+  const imports = [...new Set((importSymbols ?? []).map(String))]
+  const exact = imports.find((i) => i.toLowerCase() === sym.toLowerCase())
+  if (exact) return exact
+  if (sym.includes('.')) {
+    const root = sym.split('.')[0]
+    const rootMatch = imports.find((i) => i.toLowerCase() === root.toLowerCase())
+    if (rootMatch) return rootMatch
+  }
+  return sym
+}
 
 /**
  * Heuristic: symbols named in Verdict outcomes + Local helpers table first column.
@@ -570,7 +779,7 @@ export function extractVerdictSymbols(text) {
     re.lastIndex = 0
     let m
     while ((m = re.exec(text)) !== null) {
-      if (m[1]) symbols.add(m[1])
+      addVerdictSymbolToSet(symbols, m[1])
     }
   }
   const lines = text.split('\n').filter((line) => line.includes('|'))
@@ -594,14 +803,14 @@ export function extractReuseSymbols(text) {
   if (!text || typeof text !== 'string') return []
   const symbols = new Set()
   for (const re of [
-    /\breuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-    /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi,
-    /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/gi
+    /\breuse\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi,
+    /\bpartialReuse\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi,
+    /\bnewUtil\s*\(\s*([a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)?)\s*\)/gi
   ]) {
     re.lastIndex = 0
     let m
     while ((m = re.exec(text)) !== null) {
-      if (m[1]) symbols.add(m[1])
+      addVerdictSymbolToSet(symbols, m[1])
     }
   }
   return [...symbols]
@@ -624,13 +833,21 @@ export function getStaleVerdictSymbols(requiredSymbols, cwd = process.cwd()) {
 /** Split required patch symbols into already Confirm'd vs needing delta Confirm. */
 export function getVerdictCoverage(requiredSymbols, cwd = process.cwd()) {
   const audit = loadVerdictAudit(cwd)
-  const covered = new Set((audit.symbols ?? []).map((s) => s.toLowerCase()))
   const unique = [...new Set(requiredSymbols ?? [])]
+  const covered = new Set()
+  for (const s of audit.symbols ?? []) {
+    covered.add(String(s).toLowerCase())
+    const norm = normalizeVerdictSymbolForImport(s, unique)
+    covered.add(String(norm).toLowerCase())
+  }
   if (!audit.recorded || covered.size === 0) {
     return { needsConfirm: unique, alreadyCovered: [], recorded: audit.recorded === true }
   }
-  const needsConfirm = unique.filter((s) => !covered.has(String(s).toLowerCase()))
-  const alreadyCovered = unique.filter((s) => covered.has(String(s).toLowerCase()))
+  const needsConfirm = unique.filter(
+    (s) => !covered.has(String(s).toLowerCase()) &&
+      !covered.has(String(normalizeVerdictSymbolForImport(s, unique)).toLowerCase())
+  )
+  const alreadyCovered = unique.filter((s) => !needsConfirm.includes(s))
   return { needsConfirm, alreadyCovered, recorded: true }
 }
 
@@ -715,8 +932,16 @@ export function requiredSymbolsFromPatch(normalized, payload, config, cwd = proc
   if (isPatchUiOnly(payload, normalized, config)) {
     return requiredSymbolsFromPatchDelta(normalized, payload, config, cwd)
   }
+  const patchText = patchTextForGate(payload)
   const merged = mergeWritePayload(normalized, payload, cwd)
-  return extractImportedUtilsSymbols(merged, config)
+  let symbols = extractImportedUtilsSymbols(merged, config)
+  if (symbols.length === 0 && !patchText.trim() && hasVerdict(cwd)) {
+    const audit = loadVerdictAudit(cwd)
+    if (Array.isArray(audit.symbols) && audit.symbols.length > 0) {
+      symbols = [...audit.symbols]
+    }
+  }
+  return symbols
 }
 
 const VERDICT_MARKER_RES = [
@@ -924,7 +1149,7 @@ export function textHasVerdict(text) {
   return textHasSubstantiveConfirm(text)
 }
 
-export function recordVerdict(text, cwd = process.cwd()) {
+export function recordVerdict(text, cwd = process.cwd(), source = undefined) {
   if (!textHasSubstantiveConfirm(text)) return false
   const prior = loadVerdictAudit(cwd)
   const incoming = String(text).slice(0, CONFIRM_TEXT_MAX)
@@ -944,7 +1169,8 @@ export function recordVerdict(text, cwd = process.cwd()) {
         prior.hasLocalHelpersTable === true ||
         textHasLocalHelpersTable(text) ||
         textHasBulkConfirmTable(text),
-      symbols
+      symbols,
+      verdictSource: source ?? prior.verdictSource
     },
     cwd
   )
@@ -973,14 +1199,18 @@ export function markSameTurnBypass(cwd = process.cwd()) {
   )
 }
 
-export function tryEagerRecordVerdict(input, cwd = process.cwd(), context = 'preToolUse') {
+export function tryEagerRecordVerdict(input, cwd = process.cwd(), context = 'preToolUse', raw = '') {
   if (hasVerdict(cwd)) return true
-  const text = extractAssistantTextFromHookInput(input)
-  if (!text) {
+  const { text, source } = extractConfirmTextForGate(input, raw, cwd)
+  if (!text.trim()) {
     logHookPayloadKeys(input, cwd, context)
     return false
   }
-  return recordVerdict(text, cwd)
+  const ok = recordVerdict(text, cwd, source === 'none' ? undefined : source)
+  if (ok) {
+    logHookGateDebug(cwd, context, { verdict_source: source, eagerRecord: true })
+  }
+  return ok
 }
 
 export function hasLocalHelpersTableInVerdict(cwd = process.cwd()) {
@@ -1541,8 +1771,12 @@ export function toolInputTargetsUtilsIndex(toolInput, config, cwd = process.cwd(
     return true
   }
 
+  if (toolInput.pattern && String(toolInput.pattern).includes('utils-index.json')) {
+    return true
+  }
+
   const candidates = []
-  for (const key of ['path', 'glob', 'target_directory', 'targetDirectory']) {
+  for (const key of ['path', 'glob', 'target_directory', 'targetDirectory', 'pattern']) {
     if (toolInput[key]) candidates.push(String(toolInput[key]))
   }
   if (Array.isArray(toolInput.paths)) {

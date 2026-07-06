@@ -63,7 +63,8 @@ async function main() {
 
     logHookGateDebug(cwd, 'track-utils-discovery', {
       discovery_path: getDiscoveryPathLabel(cwd),
-      parse_partial: partial || Boolean(parseError)
+      parse_partial: partial || Boolean(parseError),
+      grep_payload_path: toolInput.path ?? toolInput.pattern ?? toolInput.glob ?? null
     })
 
     process.stdout.write(

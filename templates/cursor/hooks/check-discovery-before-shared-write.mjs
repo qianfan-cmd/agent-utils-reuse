@@ -2,6 +2,8 @@
 import {
   buildSymbolConfirmChecklist,
   countReuseSymbols,
+  extractPathFromHookRaw,
+  extractPartialHookMetadataFromRaw,
   extractAssistantTextFromHookInput,
   getBulkRowViolations,
   getConfirmText,
@@ -176,17 +178,26 @@ function gateApplies({ isUtils, requiredSymbols, requiredReads }) {
   return isUtils || requiredSymbols.length > 0 || requiredReads.size > 0
 }
 
-function failClosedWrite(config, cwd, err, context) {
+function failClosedWrite(config, cwd, err, context, raw = '') {
   logHookError(cwd, context, err)
   if (config.hookMode === 'off' || config.hookMode === 'remind') {
     process.stdout.write(JSON.stringify({ permission: 'allow' }))
     return
+  }
+  const pathFromRaw = extractPathFromHookRaw(raw)
+  if (pathFromRaw) {
+    logHookGateDebug(cwd, context, {
+      parse_error_partial: true,
+      path_from_raw: pathFromRaw,
+      denyReason: 'parse_error_no_confirm_path_only'
+    })
   }
   process.stdout.write(
     JSON.stringify({
       permission: 'deny',
       denyReason: 'parse_error',
       parseError: true,
+      pathExtracted: Boolean(pathFromRaw),
       agent_message: hookErrorDenyMessage(err?.message || String(err))
     })
   )
@@ -203,16 +214,45 @@ async function main() {
       return
     }
 
-    const { input, parseError, partial } = parseHookJsonSafe(raw)
+    const { input: parsedInput, parseError, partial } = parseHookJsonSafe(raw)
     config = loadHookConfig(cwd)
 
+    let input = parsedInput
     if (!input) {
-      failClosedWrite(config, cwd, parseError ?? new Error('Hook JSON parse failed'), 'check-discovery-before-shared-write')
-      return
+      const pathFromRaw = extractPathFromHookRaw(raw)
+      if (pathFromRaw) {
+        input = {
+          tool_input: { path: pathFromRaw },
+          ...extractPartialHookMetadataFromRaw(raw)
+        }
+      } else {
+        failClosedWrite(
+          config,
+          cwd,
+          parseError ?? new Error('Hook JSON parse failed'),
+          'check-discovery-before-shared-write',
+          raw
+        )
+        return
+      }
     }
+
+    const hadVerdictBefore = hasVerdict(cwd)
+    // Eager Confirm from payload / stdin / transcript before gate checks (v0.3.18)
+    tryEagerRecordVerdict(input, cwd, 'preToolUse', raw)
 
     const filePath = extractPath(input)
     if (!filePath) {
+      if (config.hookMode === 'confirm' && parseError) {
+        failClosedWrite(
+          config,
+          cwd,
+          parseError,
+          'check-discovery-before-shared-write',
+          raw
+        )
+        return
+      }
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
@@ -243,9 +283,6 @@ async function main() {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }
-
-    const hadVerdictBefore = hasVerdict(cwd)
-    tryEagerRecordVerdict(input, cwd)
 
     const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
 
@@ -367,6 +404,7 @@ async function main() {
       discovery_path: getDiscoveryPathLabel(cwd),
       parse_partial: partial || Boolean(parseError),
       confirm_source: confirmEvidence.source,
+      verdict_source: confirmEvidence.source,
       required_symbols: requiredSymbols,
       needs_confirm: coverage.needsConfirm
     })
@@ -437,7 +475,10 @@ async function main() {
       config.sameTurnAllow === true &&
       !hadVerdictBefore &&
       confirmEvidence.ok &&
-      (confirmEvidence.source === 'turn_text' || hasVerdict(cwd))
+      (confirmEvidence.source === 'turn_text' ||
+        confirmEvidence.source === 'transcript' ||
+        confirmEvidence.source === 'payload' ||
+        hasVerdict(cwd))
     if (sameTurnOk) markSameTurnBypass(cwd)
 
     const agentMessage = [
@@ -455,9 +496,14 @@ async function main() {
               permission: 'allow',
               sameTurnBypass: sameTurnOk || undefined,
               confirmSource: confirmEvidence.source,
+              verdict_source: confirmEvidence.source,
               agent_message: agentMessage || remindSameTurnAllowMessage()
             }
-          : { permission: 'allow', confirmSource: confirmEvidence.source }
+          : {
+              permission: 'allow',
+              confirmSource: confirmEvidence.source,
+              verdict_source: confirmEvidence.source
+            }
       )
     )
   } catch (err) {

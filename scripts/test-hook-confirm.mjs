@@ -1237,6 +1237,104 @@ copyToClip()
         batchDeny.denyReason === "verdict_not_recorded"),
     JSON.stringify(batchDeny)
   )
+
+  // --- v0.3.18: transcript_path + large stdin partial parse + symbol normalize ---
+  const transcriptFixture = path.join(pkgRoot, "scripts/fixtures/transcript-assistant-confirm.jsonl")
+
+  resetAudit(parseSafeDir)
+  recordAgentsRead(parseSafeDir)
+  recordRead(parseSafeDir, "src/utils/copy.ts")
+  const transcriptOnlyPayload = JSON.stringify({
+    transcript_path: transcriptFixture,
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "copyToClip()",
+      new_string: "copyToClip('x')"
+    }
+  })
+  const transcriptOnlyAllow = runHookRaw(
+    parseSafeDir,
+    "check-discovery-before-shared-write.mjs",
+    transcriptOnlyPayload
+  )
+  assert(
+    "preToolUse transcript_path only + jsonl Confirm → allow",
+    transcriptOnlyAllow.permission === "allow",
+    JSON.stringify(transcriptOnlyAllow)
+  )
+  assert(
+    "transcript_path allow includes verdict_source transcript",
+    transcriptOnlyAllow.confirmSource === "transcript" ||
+      transcriptOnlyAllow.verdict_source === "transcript",
+    JSON.stringify(transcriptOnlyAllow)
+  )
+
+  resetAudit(parseSafeDir)
+  recordAgentsRead(parseSafeDir)
+  recordRead(parseSafeDir, "src/utils/copy.ts")
+  const bigContent = "x".repeat(17000)
+  const largeBroken = `{"transcript_path":"${transcriptFixture.replace(/\\/g, "\\\\")}","tool_input":{"path":"src/views/Page.vue","contents":"${bigContent}"},"broken":`
+  const largeAllow = runHookRaw(
+    parseSafeDir,
+    "check-discovery-before-shared-write.mjs",
+    largeBroken
+  )
+  assert(
+    "large stdin (>16KB) broken JSON + path + transcript Confirm → allow (not parse_error)",
+    largeAllow.permission === "allow" && largeAllow.denyReason !== "parse_error",
+    JSON.stringify(largeAllow)
+  )
+
+  resetAudit(parseSafeDir)
+  const noPathBroken = '{"tool_input":{"contents":"hello"},"broken":'
+  const noPathDeny = runHookRaw(
+    parseSafeDir,
+    "check-discovery-before-shared-write.mjs",
+    noPathBroken
+  )
+  assert(
+    "broken JSON + no extractable path → deny parse_error",
+    noPathDeny.permission === "deny" && noPathDeny.denyReason === "parse_error",
+    JSON.stringify(noPathDeny)
+  )
+
+  fs.writeFileSync(
+    path.join(parseSafeDir, "src/utils/url.ts"),
+    "export class UrlUtils { static replaceIntranetUrl() {} }\n"
+  )
+  resetAudit(parseSafeDir)
+  recordAgentsRead(parseSafeDir)
+  recordRead(parseSafeDir, "src/utils/url.ts")
+  const urlConfirm = `${SAMPLE_VERDICT}\n| Symbol | Read @ path | Q4 | Verdict |\n| UrlUtils | src/utils/url.ts | OK reject sibling | reuse(UrlUtils.replaceIntranetUrl) |`
+  const urlTranscript = path.join(parseSafeDir, "url-transcript.jsonl")
+  fs.writeFileSync(urlTranscript, JSON.stringify({ role: "assistant", content: urlConfirm }) + "\n")
+  const urlPayload = JSON.stringify({
+    transcript_path: urlTranscript,
+    tool_input: {
+      path: "src/views/UrlPage.vue",
+      content: `<script setup>\nimport { UrlUtils } from '@/utils/url'\nUrlUtils.replaceIntranetUrl()\n</script>\n`
+    }
+  })
+  const urlAllow = runHookRaw(parseSafeDir, "check-discovery-before-shared-write.mjs", urlPayload)
+  assert(
+    "reuse(UrlUtils.method) + import UrlUtils → allow (symbol normalize)",
+    urlAllow.permission === "allow",
+    JSON.stringify(urlAllow)
+  )
+
+  resetAudit(parseSafeDir)
+  const vTranscriptOut = runHookRaw(
+    parseSafeDir,
+    "track-utils-verdict.mjs",
+    JSON.stringify({ transcript_path: transcriptFixture })
+  )
+  assert(
+    "track-utils-verdict transcript_path → recorded + verdict_source transcript",
+    vTranscriptOut.ok === true &&
+      vTranscriptOut.recorded === true &&
+      vTranscriptOut.verdict_source === "transcript",
+    JSON.stringify(vTranscriptOut)
+  )
 } finally {
   fs.rmSync(parseSafeDir, { recursive: true, force: true })
 }

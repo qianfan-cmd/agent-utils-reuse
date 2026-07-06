@@ -21,7 +21,7 @@
 | **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
 | **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
 
-Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS + **本轮可检测的 Confirm 文本**）；**v0.3.17**：JSON 解析失败 **fail-closed deny**（不再 parse_fallback allow）；仅有 Read 记录不能跳过 Verdict。阅卷 strict：设 `"sameTurnAllow": false`。
+Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS + **本轮可检测的 Confirm 文本**）；**v0.3.18**：preToolUse 无 payload 文本时从 **`transcript_path`** 回读 assistant Confirm 并 eager record；**v0.3.17**：JSON 解析失败 **fail-closed deny**（不再 parse_fallback allow）；仅有 Read 记录不能跳过 Verdict。阅卷 strict：设 `"sameTurnAllow": false`。
 
 **配置（`.utils-bookrc.json`）**：
 
@@ -222,6 +222,7 @@ flowchart TD
 **Verdict（最终）**：reuse(uploadFiles)；noUtil(debounce)；reuse(filterEmptyParams)；featureLocal(mockModel)
 
 - **Bulk compact 不是豁免五问** — 每行 Q4 压缩 Q1–Q3；Hook 校验 Read 列 + Q4 长度 + sibling 提及。
+- **Symbol 列写 import 绑定名**（v0.3.18）：静态方法差异放 Q4；Verdict 列可写 `reuse(UrlUtils.replaceX)`，但 **Symbol 列须写 `UrlUtils`**（与 `import { UrlUtils }` 对齐），Hook 会将 `Class.method` 归一化为 import 根名。
 - **Legacy 7 列**（1–2 symbol 或 maintainer 选用）：`| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |` 仍接受。
 
 **D1 零候选 → D2（chat 必写）**：`D1 "debounce": 0 candidates → D2: Grep path:src/utils "debounce"`；**#28 须独立 `noUtil(debounce)` 行**，不得与 D2 reuse 捆在一格。
@@ -259,8 +260,9 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 | 模式 | 说明 |
 |------|------|
 | **正确（默认 — 单轮六步）** | 分析 → D1/D2 → Read util → Bulk Confirm + `Verdict（最终）` → **同轮** Write（Rules；`hookMode: off` 不拦 Write） |
+| **正确（confirm + transcript，v0.3.18）** | 同轮六步；Hook 从 `transcript_path` 读 Confirm（Cursor preToolUse 常无 assistant text） |
 | **正确（strict 阅卷）** | 分两轮：第 1 轮 Confirm → `afterAgentResponse` record → 第 2 轮 Write；或 `sameTurnAllow: false` |
-| **正确（同轮 strict）** | `sameTurnAllow: false` 且同轮 Write → 须 `preToolUse` payload 含 assistant text |
+| **正确（同轮 strict）** | `sameTurnAllow: false` 且同轮 Write → 须 payload 文本或 transcript 可读 |
 | **错误** | 表 → Write → `verdict_not_recorded` → 重读 AGENTS（未读 denyReason） |
 | **多批** | 第一批 session audit 已 record → 第二批只 Delta + 新 symbol Write |
 | **deny 后** | 读 `denyReason`（`verdict_not_recorded` / `missing_reads` / `sibling_q4_missing` 等），**禁止**一律当成没 Confirm |

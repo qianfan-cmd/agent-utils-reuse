@@ -35,6 +35,23 @@
 | 禁止读 feature | 题面「禁止 Read 某 feature 组件源码」 | 否（Rules/人工阅卷） |
 | 分轮增量 | 第一轮列 **新增 symbol**；后续 **Delta Confirm** | 是（`needsConfirm` / `alreadyCovered`，v0.3.12） |
 | 同轮 Confirm+Write | **默认**单轮六步（`sameTurnAllow` 默认 true）；strict 设 `false` 或分两轮 | 是（默认 allow+remind；strict → `verdict_not_recorded`） |
+| transcript 同轮（v0.3.18） | Confirm 在 assistant 回复、Write 在同轮；压测无需分两轮 | 是（`transcript_path` 回读 + eager record；debug `verdict_source`） |
+
+## 8 symbol 分批压测模板（v0.3.18）
+
+单轮超过 5 个 reuse symbol 时，题面或 Agent 应拆成两批：
+
+**表 1（≤5 symbol）+ Write batch 1** — 先写前 5 个 import 对应区块。
+
+```markdown
+| Symbol | Read @ path | Q4 | Verdict |
+| sym1 | … | … | reuse(sym1) |
+…（≤5 行）
+```
+
+**表 2（剩余 symbol）+ Write batch 2** — Delta Confirm 补剩余 symbol 后再 Write。
+
+测试专用可在 `.utils-bookrc.json` 设 `"maxImportSymbolsPerTurn": 8`（仅压测，生产保持默认 5）。
 
 ## 分轮增量卷
 

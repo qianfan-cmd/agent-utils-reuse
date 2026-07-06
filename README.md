@@ -101,6 +101,23 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.17 → v0.3.18
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**同轮 Confirm 证据通道修复（P0）**：
+
+- **`transcript_path` 回读** — preToolUse payload 无 assistant 文本时，从 Cursor `transcript_path` JSONL/JSON 提取当轮 Confirm；`extractConfirmTextForGate` 优先级：payload → stdin 部分解析 → **transcript 文件**
+- **eager `recordVerdict`** — check 入口 `tryEagerRecordVerdict` 在门禁前落盘；audit 保留 `verdictSource: transcript|payload`
+- **大 Write 解析降级** — stdin >16KB 时跳过巨型 `tool_input` 解析；有 `path` 即继续门禁（非全盘 `parse_error`）；无 `path` 仍 `deny parse_error`
+- **Symbol 归一化** — `reuse(UrlUtils.method)` + `import UrlUtils` 覆盖；Bulk 表 **Symbol 列写 import 名**
+- **Discovery debug** — `grep_payload_path` 便于复盘 `discovery_path: none`
+
+压测项目若 transcript 不可用：设 `"sameTurnAllow": false` 或分两轮（Confirm 轮 → 用户「继续」→ Write 轮）。
+
 ### Upgrade v0.3.16 → v0.3.17
 
 ```bash

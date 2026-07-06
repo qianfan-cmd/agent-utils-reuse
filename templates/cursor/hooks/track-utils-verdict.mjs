@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import {
-  extractAssistantTextFromHookInput,
-  extractTextFromRawHookStdin,
+  extractConfirmTextForGate,
   loadHookConfig,
   logHookError,
+  logHookGateDebug,
   parseHookJsonSafe,
   readHookStdin,
   recordVerdict,
@@ -28,19 +28,18 @@ async function main() {
     }
 
     const { input, parseError, partial } = parseHookJsonSafe(raw)
-    let text = ''
-    if (input) {
-      text = extractAssistantTextFromHookInput(input)
+    const { text, source } = extractConfirmTextForGate(input, raw, cwd)
+    const recorded = text.trim() ? recordVerdict(text, cwd, source === 'none' ? undefined : source) : false
+
+    if (recorded) {
+      logHookGateDebug(cwd, 'track-utils-verdict', { verdict_source: source, recorded: true })
     }
-    if (!text.trim()) {
-      text = extractTextFromRawHookStdin(raw)
-    }
-    const recorded = text.trim() ? recordVerdict(text, cwd) : false
 
     process.stdout.write(
       JSON.stringify({
         ok: true,
         recorded,
+        verdict_source: source,
         partial: partial || Boolean(parseError),
         parseError: parseError ? String(parseError.message) : undefined
       })
