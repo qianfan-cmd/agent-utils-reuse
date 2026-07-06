@@ -1,6 +1,6 @@
 {
   "name": "agent-utils-reuse",
-  "version": "0.3.19",
+  "version": "0.1.9",
   "description": "Agent utils reuse gate: utils-index KV search, five-question Confirm flow, Cursor templates",
   "type": "module",
   "license": "MIT",
@@ -43,6 +43,7 @@
     "test:hook-discovery": "node scripts/test-hook-discovery.mjs",
     "test:verdict-substance": "node scripts/test-verdict-substance.mjs",
     "test:update": "node scripts/test-update.mjs",
+    "test:uninstall": "node scripts/test-uninstall.mjs",
     "test:resolve-upgrade-spec": "node scripts/test-resolve-upgrade-spec.mjs",
     "gen:utils-book": "agent-utils-reuse gen",
     "check:utils-book": "agent-utils-reuse gen && git diff --exit-code docs/agent-catalog/utils-book/ docs/agent-catalog/utils-index.json",

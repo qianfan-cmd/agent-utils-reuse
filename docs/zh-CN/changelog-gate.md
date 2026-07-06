@@ -9,6 +9,15 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.20
+
+**`uninstall` 子命令** — 一键移除门禁文件、`docs/agent-catalog`、生成的 index/book、合并的 `AGENTS.md` 块，以及 `package.json` 中的依赖与脚本。不删除 `src/utils` JSDoc。可用 `--dry-run` 预览。
+
+```bash
+agent-utils-reuse uninstall --yes
+pnpm install
+```
+
 ## v0.3.17 → v0.3.18
 
 **同轮 Confirm 证据通道（P0）**

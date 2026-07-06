@@ -1,4 +1,4 @@
-# 🤖 AI 写代码总在重复造轮子？我们把 Utils 复用门禁做进了 Agent 运行时
+# 🤖 AI 写代码总在重复造轮子？我们把 Utils 复用门禁做进了 Agent 运行时（已开源）
 
 ---
 
@@ -10,7 +10,7 @@
 
 说实话，作为一个长期用 AI 辅助写业务的前端，我关心的不是 Agent「会不会写代码」，而是：**它能不能像资深同事一样，先证明「现有 util 能接」，再动手**。模型再强，重复实现带来的分叉维护成本都是真实的。
 
-这篇文章把我最近在团队前端项目里落地的一套 **Utils 按需复用设计** 拆开讲清楚——不绑定某个业务场景，重点是 **Agent 该怎么决策、文档和工程上怎么约束**。文中代码与文档均为**示意**，不涉及真实业务实现。
+这篇文章把我们落地并开源的 **Utils 按需复用设计**（[agent-utils-reuse](https://github.com/qianfan-cmd/agent-utils-reuse)）拆开讲清楚——不绑定某个业务场景，重点是 **Agent 该怎么决策、文档和工程上怎么约束**。文中代码与路径均为**示意**。
 
 ---
 
@@ -21,495 +21,346 @@
 | 阶段 | 常见失败 | 后果 |
 | --- | --- | --- |
 | 发现 | 全库 Grep / 凭记忆猜路径 | 漏候选或误选同名符号 |
-| 判断 | 只看工具书一行摘要就 reject/reuse | 幻觉判决，和源码行为不一致 |
+| 判断 | 只看索引一行摘要就 reject/reuse | 幻觉判决，和源码行为不一致 |
 | 执行 | 展示层用词不同就复制实现 | 两套逻辑漂移，修 bug 修两遍 |
 | 扩展 | 改已有 export 的默认语义去「凑合用」 | 隐性破坏旧调用方 |
+| **时序** | Read 了 util 就认为「门禁过了」 | 无 Confirm 直接 Write，Hook/Rules 形同虚设 |
 
-我们和「多写点注释」「提醒 Agent 要复用」的区别在于：**把复用证明写进流程，并用脚本 + 规范 + Hook 固化**。
+我们和「多写点注释」「提醒 Agent 要复用」的区别在于：**把复用证明写进流程，并用 Rules + 可选 Hook + 生成索引固化**。
 
-| 维度 | 口头约定 | 本次设计 |
+| 维度 | 口头约定 | agent-utils-reuse |
 | --- | --- | --- |
-| 候选发现 | 自由搜索 | **工具书** index → 只读 1 章 Shortlist |
-| 是否 reuse | 摘要 / 直觉 | **五问 Confirm**（必须 Read 源码） |
+| 候选发现 | 自由 Grep 全库 | **D1**：`search` / Grep `utils-index.json`；零候选 → **D2** Grep `utilsDir` |
+| 是否 reuse | 摘要 / 直觉 | **五问 Confirm**（必须 Read **util 源码 export**） |
 | 细小差异 | Agent 自行脑补 | **问用户**（展示层未写明时） |
-| 结论 | 模糊 | **Verdict 三选一**：reuse / newUtil / featureLocal |
-| 索引维护 | 手改文档 | **`pnpm gen:utils-book` 脚本生成 + `check` 与 Git 比对** |
+| 结论 | 模糊 | **`Verdict（最终）`**：reuse / partialReuse / newUtil / featureLocal / noUtil |
+| 索引维护 | 手改文档 | **`pnpm gen:utils-book`** 生成 KV 索引 + 人类可读 book |
+| Write 前证明 | 可有可无 | **聊天输出 Confirm + Verdict**；opt-in Hook 可硬拦 |
 
 ---
 
-## 二、整体架构：Shortlist → Confirm → Verdict
+## 二、整体架构：Discovery → Confirm → Verdict → Write
 
-先看全局视图。这套设计的核心不是「再多一份 README」，而是给 Agent 一条**可审计的决策管道**：
+核心不是「再多一份 README」，而是给 Agent 一条**可审计的决策管道**。v0.3.14 起默认支持**单轮六步**——同一条 assistant 回复里先 Confirm，再 Write：
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                     任务入口（feature / bugfix / 新 util）           │
+│  任务入口（feature / bugfix / 新 util）                              │
 └───────────────────────────────┬────────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼────────────────────────────────────┐
-│  Shortlist（粗筛，不构成证明）                                       │
-│  Read 工具书 index → 按选章提示 Read 1 章 → 列候选 symbol@path        │
+│  1 Analyze — Read AGENTS.md、业务代码与现有 import                   │
 └───────────────────────────────┬────────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼────────────────────────────────────┐
-│  Confirm（可复用证明 — 架构师标准）                                  │
-│  Read 公共 utils 源码 → 书面回答 Q1–Q5                               │
+│  2 Discovery（粗筛，不构成证明）                                     │
+│  D1: agent-utils-reuse search "关键词" 或 Grep utils-index.json     │
+│  D1 零候选 → D2: Grep/SemanticSearch utilsDir                       │
+│  ※ 禁止用 Read utils-book/*.md 做 Shortlist（v0.3.0+）              │
 └───────────────────────────────┬────────────────────────────────────┘
                                 │
-              ┌─────────────────┴─────────────────┐
-              │ Q1–Q4 通过、Q5=否、展示层差异未写明？ │
-              └─────────────────┬─────────────────┘
-                    是 │                    │ 否
-        ┌─────────────▼────────────┐        │
-        │  AskQuestion             │        │
-        │  A=reuse（写明现状行为）  │        │
-        │  B=定制（featureLocal/   │        │
-        │     newUtil，No extend）  │        │
-        └─────────────┬────────────┘        │
-                      └──────────┬──────────┘
-                                 │
-┌────────────────────────────────▼───────────────────────────────────┐
-│  Verdict（Write 前必须输出）                                         │
-│  reuse | newUtil | featureLocal                                    │
+┌───────────────────────────────▼────────────────────────────────────┐
+│  3 Identify — 列出 symbol @ path + 拟写/保留的 feature helper        │
 └───────────────────────────────┬────────────────────────────────────┘
                                 │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-   import 已有 export      新符号/新文件            逻辑留 feature
-   不改已有签名           + 重新 gen 工具书          不写公共 utils
+┌───────────────────────────────▼────────────────────────────────────┐
+│  4 Read — Read 将调用的 util export 源码；同文件 sibling 须 Grep      │
+│  ※ Read util ≠ 门禁完成                                              │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼────────────────────────────────────┐
+│  5 Confirm — 分项 Q1–Q4（≥3 symbol 可用 Bulk 表）+ Verdict（最终）    │
+│  展示层差异未写明 → AskQuestion                                       │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+┌───────────────────────────────▼────────────────────────────────────┐
+│  6 Implement — Write / StrReplace（默认同轮，sameTurnAllow: true）    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 **关键点：**
 
-- **Shortlist 永远不等于 reuse** — 工具书只做「像书本目录一样的导航」。
-- **Confirm 才是证明** — 必须 Read 实现，用五问写清楚。
+- **Discovery 永远不等于 reuse** — 索引和 search 只做「找候选」。
+- **Read util 源码也不等于 reuse** — 必须在**用户可见聊天**里输出 Confirm + `Verdict（最终）`。
 - **展示层差异 alone 不能否决 reuse** — 要么 reuse，要么问用户，禁止静默 fork。
-- **No extend** — 要改已有 export 的签名/默认语义才能用时，走 **newUtil** 新符号，而不是污染旧 API。
+- **No extend** — 必须改已有 export 才能用时，走 **newUtil**，不污染旧 API。
 
 ---
 
-## 三、Utils 工具书：像读书，不要像刷 Wikipedia
+## 三、双轨索引：KV 给 Agent，Markdown 给人
 
-我们维护了一套 **自动生成** 的工具书（下文统称 `utils-book`），由脚本扫描公共工具目录（例如 `src/utils/`）产出，Agent **只读、不改**。
+v0.3.0 我们把 Agent 的 Discovery 从「读工具书 Markdown」改成了 **KV 检索**——这是和老版本博客最大的变化。
 
-### 3.1 为什么不让 Agent 全文 Read 所有章？
+### 3.1 Agent 用什么？`utils-index.json` + search
 
-公共 utils 往往有几十个文件、上百个 export。让 Agent 每次任务都把全书 md 塞进上下文，既浪费 token，也容易「摘要幻觉」——**一行简介写得像，实现细节却不对**。
+公共 utils 往往有几十个文件、上百个 export。让 Agent 每次 Read 整本 `utils-book`，既浪费 token，也容易「摘要幻觉」。
 
-所以我们规定：
+现在的规定：
 
-1. **只 Read 目录页 `index.md`**（章链接 + 选章提示 + 同名符号附录）
-2. 按任务 **只 Read 1 个相关章**（例如富文本相关 → `rich-text.md`）
-3. 列出候选 `symbol @ 路径`，进入 Confirm
+1. **D1（首选）**：`agent-utils-reuse search "数组 排序" --limit 8`，或 Grep `docs/agent-catalog/utils-index.json`
+2. **D1 零候选**：必须 D2 — Grep / SemanticSearch `src/utils`（或你配置的 `utilsDir`）
+3. 列出候选 `symbol @ path`，进入 Read + Confirm
 
-这就像查专业书：**先目录，再翻一章**，而不是把整本书 photocopy 给 Agent。
+这就像查词典的**倒排索引**：用业务关键词命中符号，而不是翻整本书。
 
-### 3.2 工具书长什么样（骨架示意）
+### 3.2 人用什么？`utils-book/` 仍然保留
 
-**目录页 `index.md`（节选）**
+`pnpm gen:utils-book` 会同时生成：
 
-```markdown
-# Utils 工具书 — 目录
+| 产物 | 谁读 | 作用 |
+| --- | --- | --- |
+| `utils-index.json` | **Agent D1** | 符号、路径、摘要、searchText、sibling 提示 |
+| `utils-book/*.md` | **人类** | 目录、分章表格、覆盖率统计 |
+| `placement-decision.md` | **Agent** | 五问细则、范式、反模式（init 同步到业务项目） |
 
-> DO NOT EDIT — 由 gen 脚本生成
+**Agent 禁止** Read `utils-book` 做 Shortlist——那是给人浏览和 Code Review 用的。
 
-## 怎么用
-1. 只 Read 本文件
-2. 按选章提示只 Read 1 章
-3. 列出候选，进入五问 Confirm
+### 3.3 `@utils-book` 与 BACKFILL
 
-## 章节目录
-| 章 | 说明 | 链接 |
-| prompt | 提示词 / 占位符 | [prompt.md](prompt.md) |
-| format | 时间 / 数字格式化 | [format.md](format.md) |
+KV search 的质量取决于 export 上的 **`@utils-book` 一行摘要**。历史项目里大量 util 没写注释时，中文 search 会 0 结果——这是**索引信息不足**，不是门禁 bug。
 
-## 附录：同名符号
-| 符号 | 出现位置 |
-| formatDate | format/date.ts, legacy/helpers.ts |
+推荐流程：
+
+1. 用 README 里的 **BACKFILL Agent 提示词**（或 `docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md`）批量补 JSDoc
+2. `pnpm gen:utils-book` 重新生成索引
+3. `search` 用业务词自测
+
+合法示例：
+
+```ts
+/** @utils-book 将 ISO 日期格式化为 YYYY-MM-DD（本地时区） */
+export function formatDateLocal(iso: string): string { ... }
 ```
 
-**某一章 `format.md`（节选）**
+- 块注释 `/** */` 紧贴 `export`；单行 `//` **不会**进索引
+- 只写**功能**，不写 reuse 判决或「机台专用」等业务绑死文案
 
-```markdown
-# 第 format 章
-
-### `format/date.ts`
-**用途**: 日期时间格式化
-
-| 符号 | 行号 | 摘要 |
-| formatDate | 12 | ISO 字符串 → 展示用本地时间 |
-| parseDate | 45 | 宽松解析用户输入 |
-```
-
-摘要列只写「做什么」，**不写**「能不能 reuse」——判决留给五问。
-
-### 3.3 命令与生成物
-
-本地/CI 典型命令（开源包 [agent-utils-reuse](https://github.com/qianfan-cmd/agent-utils-reuse) 安装后同名）：
+### 3.4 生成与 CI
 
 ```bash
-pnpm gen:utils-book      # 生成/更新工具书
-pnpm check:utils-book    # 重新生成后与 Git 比对，防止手改或漏 regen
+pnpm gen:utils-book          # 扫描 utilsDir，重写 index + book
+pnpm check:utils-book        # regen + git diff，防「改了源码忘了 gen」
 ```
 
-生成结果是 `utils-book/index.md` + 按子目录分的章（如 `array.md`），外加目录页的**同名符号附录**和 **JSDoc 覆盖率**统计。工具书是 **DO NOT EDIT** 生成物；维护入口是 utils 源码里的注释，不是手改 md。输出**不含时间戳**，保证 `check` 只在实质内容变化时才失败。
-
-### 3.4 生成脚本怎么工作（从源码到表格）
-
-脚本不做重型 TypeScript AST 解析，而是用 **正则扫描 `.ts` 文件** + **块注释配对**，把「有哪些 export、各在哪一行、摘要是什么」写成 Markdown 表格。流程可以概括成四步：
-
-```
-扫描 utils 目录下的 .ts
-    → 找出每个 export 符号（function / const / class / re-export）
-    → 为每个符号匹配「紧贴在它前面的」/** */ 块注释
-    → 从注释里抽出摘要行，写入工具书
-```
-
-**会扫描哪些文件**
-
-| 包含 | 排除 |
-|------|------|
-| `**/*.ts`（递归子目录） | `*.test.ts`、`*.spec.ts`、`*.d.ts`、`__tests__/`、`__mocks__/` |
-
-**会索引哪些符号**
-
-| 能识别 | 工具书里的摘要 |
-|--------|----------------|
-| `export function foo` | 注释抽取 或 占位文案 |
-| `export const bar` | 同上 |
-| `export class Baz` + `static` 方法 | 类与静态方法分别一行 |
-| `export { x } from './other'` | 固定为 `re-export from '...'`（不依赖注释） |
-| `export * from './other'` | `re-export all from '...'` |
-
-章的划分规则：**utils 下一级文件夹名 = 章名**（根目录直放的文件归入 `_root` 章）。
-
-### 3.5 什么样的注释算「合法」、脚本怎么读
-
-脚本**只认块注释** `/** ... */`，**不认**单行 `//` 注释。并且注释必须和 export **紧挨着**——中间只能有空格/换行，不能夹其它代码，否则该符号视为「无简介」。
-
-**合法示例（符号级，推荐）**
-
-```ts
-/**
- * @utils-book 数字数组升序排序，返回新数组
- */
-export function sortAsc(nums: number[]): number[] {
-  return [...nums].sort((a, b) => a - b)
-}
-```
-
-**也合法（无 @utils-book，用首行描述）**
-
-```ts
-/** 按字段对对象数组去重，保留首次出现 */
-export function uniqueByKey<T>(items: T[], key: keyof T): T[] {
-  // ...
-}
-```
-
-**不算合法配对（有注释也抽不到）**
-
-```ts
-/** 这段注释离 export 太远 */
-const helper = (x: number) => x
-export function sortAsc(nums: number[]) { /* ... */ }
-
-// 单行注释不会被当作摘要来源
-export function foo() {}
-```
-
-同一文件里多个 export 时，脚本按 export 出现顺序划 **片段**：每个 export 只会在「上一个 export 之后、自己之前」这段范围里找最近的块注释，避免把文件头的文件级注释误配给后面的函数。
-
-**文件级「用途」行**（章内每个文件标题下的 `**用途**:`）单独规则：取**第一个 `import` 之前**（或文件前 800 字符内）的块注释；优先 `@utils-book`，否则取首行非 `@` 描述；都没有则用 `目录名 — 文件名` 兜底。
-
-### 3.6 `@utils-book` 契约：写什么、加了会怎样
-
-`@utils-book` 是自定义 JSDoc 标签，默认名可在 `.utils-bookrc.json` 里改。它的角色很单一：**给工具书提供一行功能描述，供 Agent Shortlist**，不写 reuse 判决、不写业务场景判例。
-
-**摘要抽取优先级**（对某一个 export）：
-
-1. 紧贴 export 前的 `/** */` 里，若有 `@utils-book 描述文字` → 用这行
-2. 否则用同一块注释里**第一条不以 `@` 开头的行**
-3. 都没有 → 工具书写 `(无简介 — Confirm 前须 Read 实现)`
-
-| 情况 | 工具书里长什么样 | 对 Agent 的影响 |
-|------|------------------|-----------------|
-| 有 `@utils-book`，配对正确 | 摘要列是你写的那句话 | Shortlist 准确；仍须五问 Read 源码 |
-| 只有普通 JSDoc 首行 | 摘要列是首行描述 | 同上，可用 |
-| 注释不配 export / 只有 `//` | `(无简介 — Confirm 前须 Read 实现)` | **仍能 Shortlist 符号名和行号**，但 Agent 不能凭摘要判断语义，必须 Read 实现 |
-| 完全没 export | 文件不出现在书中 | — |
-
-**建议写什么**
-
-```ts
-/** @utils-book 将 ISO 日期字符串格式化为 YYYY-MM-DD（本地时区） */
-export function formatDate(input: string): string { ... }
-```
-
-**不要写什么**
-
-```ts
-/** @utils-book 直接 reuse，不要 fork */   // ❌ 判决语，不是功能描述
-/** @utils-book 机台专用 */                 // ❌ 场景绑死，泛化差
-```
-
-`pnpm gen:utils-book` 结束后终端会打印 **JSDoc 覆盖率**（有有效摘要的符号占比）。覆盖率太低时，工具书仍然生成，但 Shortlist 阶段会更依赖「读源码」；可在 CI 里对 `--check` 设阈值（开源包默认 30% 以下报错，可按团队调整）。
-
-**关键点：**
-
-- `@utils-book` **不替代五问** — 它只是让人和 Agent 在 index → 1 章阶段少猜一点。
-- 不加标签 ≠ 进不了工具书 — export 仍会被索引，只是摘要列是占位文案。
-- `check` 用 `git diff --exit-code`，保证「改了 utils 忘了 regen」会被抓住。
+终端会打印 **JSDoc 覆盖率**（`withSummary / symbols`）。覆盖率偏低时符号仍会被索引，但摘要列可能是 `(无简介 — Confirm 前须 Read 实现)`——此时 Agent 更不能凭摘要判决，必须 Read 源码。
 
 ---
 
 ## 四、五问 Confirm：什么叫「可复用证明」
 
-工具书摘要只能帮你 **Shortlist**。真正的判决标准写在我们称为 **架构师五问** 的检查表里（单独一篇《复用决策细则》，给人和 Agent 共用）：
+索引摘要只能帮你 **Discovery**。真正的判决是 **架构师五问**（详见业务项目内的 `placement-decision.md`）：
 
 | # | 问题 | 通过标准 |
 | --- | --- | --- |
-| **Q1 输入契约** | 类型、必填/可选、空值/非法值语义是否一致？ | 硬失败 → newUtil / featureLocal |
-| **Q2 输出与存储/API** | 返回值、持久化串、后端字段含义是否一致？ | **不含** UI 芯片文案、i18n、按钮标签等展示层 |
-| **Q3 副作用** | DOM / storage / API / 全局状态是否可接受？ | 无或调用方可接受 |
-| **Q4 替换实验** | 典型 + 边界输入上，`util(x)` ≡ 拟写的 `f(x)`？ | 展示层差异须单列，**alone 不判 newUtil** |
-| **Q5 须改 util 内部？** | 是否必须改已有 export 才能满足？ | **是** → **newUtil**；**否** → 倾向 **reuse** |
+| **Q1 输入契约** | 类型、必填/可选、空值语义是否一致？ | 硬失败 → newUtil / featureLocal |
+| **Q2 输出与存储/API** | 返回值、持久化、API 字段是否一致？ | **不含** UI 文案、i18n、按钮标签 |
+| **Q3 副作用** | DOM / storage / API / 全局状态？ | 无或调用方可接受 |
+| **Q4 替换实验** | `util(x)` ≡ 拟写的 `f(x)`？ | 展示层差异须单列，alone 不判 newUtil |
+| **Q5 须改 util 内部？** | 是否必须改已有 export？ | **是** → **newUtil**；**否** → 倾向 **reuse** |
 
-**充分结论**：Q1–Q4 通过且 Q5=否 → **Verdict: reuse**。
+**充分结论**：Q1–Q4 通过且 Q5=否 → **Verdict: reuse(sym)**。
 
-### 4.1 无效 reject 理由（我们明确禁止的）
+### 4.1 Bulk Confirm（≥3 个 symbol）
 
-这些理由在规范里被标成 **反模式** —— 单独出现不能否决 reuse：
+业务页一次 import 多个 util 时，可用压缩表（chat 在首个 Write 之前）：
+
+```markdown
+| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
+| uploadFiles | imageUploadUtils.ts | 批处理 OK；reject uploadMultipleFiles | reuse(uploadFiles) |
+| UrlUtils | url.ts | 静态方法差异见 Q4；reject sibling | reuse(UrlUtils.replaceX) |
+```
+
+- **Symbol 列写 import 绑定名**（如 `UrlUtils`，不是 `UrlUtils.method`）
+- 单轮建议 ≤5 个 reuse symbol；更多则分批 Confirm + Write
+- 禁止空泛「Q1–Q5 通过」——Hook 会拦
+
+### 4.2 无效 reject 理由（反模式）
 
 | 误判 | 正确做法 |
 | --- | --- |
-| 「展示文案不一样」（如「图片」vs「参考图」） | Q2 不看展示层 → **reuse** 或 **问用户** |
-| 「这个类里还有很多别的 export」 | 只 `import` 需要的一个 → **reuse** |
+| 「展示文案不一样」 | Q2 不看展示层 → **reuse** 或 **问用户** |
+| 「这个类里还有很多别的 export」 | 只 import 需要的一个 → **reuse** |
 | 「需求只是它的子集」 | **reuse** 子集 API |
-| 「util 更大，有未走到的分支」 | 不算污染 |
-| 「组件要瘦」 | UI 编排留 featureLocal；**纯函数转换仍走五问** |
+| 「组件要瘦」 | UI 编排留 featureLocal；纯函数仍走五问 |
 
-### 4.2 Write 前固定输出模板
-
-Agent 在改公共 utils 或写业务里的大块逻辑之前，必须先吐出结构化结论。下面是一个**虚构任务**的完整示例（函数名、路径均为示意）：
+### 4.3 Write 前输出示例（虚构）
 
 ```markdown
-**Discovery**：index + 章 format；候选 `formatDate` @ `lib/utils/format/date.ts`（示意路径）
+D1 "debounce": 0 candidates → D2: Grep path:src/utils "debounce"
 
-**Confirm（五问）**
-- Q1 输入：接受 `Date | number | string`，非法值抛错 — 与调用方一致
-- Q2 输出/存储/API：返回 `YYYY-MM-DD` 字符串，不含 UI 文案
-- Q3 副作用：无 DOM / 无 storage
-- Q4 替换实验：`formatDate(ts)` 与拟写函数在 0、闰年、时区边界等价；展示层差异：无
-- Q5 须改 util 内部？否
+Confirm uploadFiles:
+- Q1 入参 File[]；Q2 返回 Promise<url[]>；Q3 调上传 API；Q4 与拟写 batch 一致；Q5 否
 
-**Verdict（最终）**：reuse(`formatDate`)
+Verdict（最终）: reuse(uploadFiles)
 ```
 
-若存在展示层差异，在同一块里追加 **用户确认** 小节（见第五节），再写最终 Verdict。
-
-**关键点：**
-
-- **不得从规范文档抄 Verdict** — 每个任务都要 Read 源码自主 Confirm。
-- Q4「替换实验」是灵魂：逼 Agent 用具体输入想一遍，而不是停留在「看起来差不多」。
+**不得从文档抄 Verdict** — 每个任务都要 Read 源码自主 Confirm。
 
 ---
 
 ## 五、展示层细小差异：问用户，别替产品做决定
 
-五问里最容易被误用、也最容易导致 fork 的，是 **Q2 的边界**：
+五问里最容易导致 fork 的，是 **Q2 的边界**：
 
-- **算硬失败**：输出协议变了、持久化格式变了、发给后端的字段语义变了。
-- **不算硬失败**：标签上写「图片」还是「参考图」、placeholder 展示用词不同。
+- **算硬失败**：输出协议变了、持久化格式变了、API 字段语义变了
+- **不算硬失败**：「图片」vs「参考图」、placeholder 用词不同
 
-当 Q1–Q4 已过、Q5=否，但用户可见文案和拟写不一致，且**需求/规范没写明**要用哪种——规范要求 **Write 前 AskQuestion**：
-
-| 要素 | 说明 |
-| --- | --- |
-| 差异点 | 一句话说明展示层哪里不同 |
-| **选项 A（reuse）** | 符号名 + **Read 源码后的实际行为**（事实陈述） |
-| **选项 B（定制）** | featureLocal 包装或 **newUtil**；**不得** extend 旧 export |
-| 推荐 | 逻辑已对齐时推荐 A，并说明 B 的维护成本 |
+当 Q1–Q4 已过、Q5=否，但 UI 文案与需求不一致且**需求没写明**——Write 前 **AskQuestion**（见文末附录）。
 
 用户选 A → **reuse**；选 B → **featureLocal** 或 **newUtil**。
 
-**关键点：**
+---
 
-- 这是 **产品决策**，不是 Agent 的「我觉得」。
-- 禁止「需求没写清楚，我悄悄复制一份 regex」——那是技术债的复利。
+## 六、Verdict 不止三选一
+
+| Verdict | 含义 |
+| --- | --- |
+| **reuse(sym)** | 五问通过，Q5 否 |
+| **partialReuse(sym)+featureLocal(wrapper)** | util 覆盖核心；页面做类型/文案包装 |
+| **newUtil(name)** | 硬失败且应共享；或 Q5 是 |
+| **noUtil(kw)** | D1/D2 无共享 export（如历史 debounce 只在组件里） |
+| **featureLocal(reason)** | 强 UI/状态耦合，仅本页 |
+| **featureLocal+placement debt** | 从别的 feature 抄来的纯函数，注明日后可抽 util |
+
+**No extend** 再次强调：有一点差异 **不等于** 禁止 import；只有**必须改已有 export 的默认语义**时才 newUtil。
 
 ---
 
-## 六、Verdict 三选一与 No extend
+## 七、工程化落地：Rules 默认约束，Hook 可选硬拦
 
-| Verdict | 条件 | 动作 |
-| --- | --- | --- |
-| **reuse** | 五问通过 + Q5=否（含用户选 A） | `import` 已有 export；**不改**已有签名/默认语义 |
-| **newUtil** | Q1–Q4 硬失败且要跨处共享；或 Q5=是；或无 export 可复用 | 新符号/新文件 + 重新 gen 工具书 |
-| **featureLocal** | Q1–Q4 硬失败且逻辑仅本页；或用户选 B 且仅本页 | 写在 component/hooks/业务目录，不动公共 utils |
-
-**No extend** 必须单独强调：
-
-> 有一点差异 **不等于** 禁止 import。  
-> 只有 **必须改已有 export 的内部或默认语义** 时，才 newUtil 新符号——而不是把旧函数改成「兼容所有人的怪物」。
-
-扩展用新能力，而不是篡改旧契约——这和成熟 Agent 系统里「工具自描述、默认 fail-closed」是同一类工程直觉。
-
----
-
-## 七、工程化落地：规范、Skill、Hook 怎么配合
-
-光写一篇《决策细则》不够，Agent 会话一长还是会忘。我们把同一套流程写进了多层「运行时配置」——读者不需要知道我们仓库里具体文件名，可按**角色**理解：
+光写细则不够，Agent 会话一长还是会忘。我们把流程写进了 Cursor 运行时（`init` 一键安装）：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  仓库级 Agent 指南（一节）  — 硬约束：Shortlist/五问/Verdict   │
+│  AGENTS.md（合并 utils 复用节）— 单源真相摘要                  │
 ├─────────────────────────────────────────────────────────────┤
-│  复用决策细则（手写 md）   — 五问表、问用户协议、范式示例       │
+│  Cursor Rules（alwaysApply）— workspace / utils-reuse gate    │
 ├─────────────────────────────────────────────────────────────┤
-│  Cursor Skill              — 步骤清单 + AskQuestion 模板      │
+│  placement-decision.md — 五问表、问用户、Bulk 范式             │
 ├─────────────────────────────────────────────────────────────┤
-│  Cursor Rules              — 改业务代码前必须先读指南+工具书   │
+│  Skill（reuse-before-create）— 步骤清单                       │
 ├─────────────────────────────────────────────────────────────┤
-│  preToolUse Hook           — 写公共 utils 前提醒 Discovery+五问 │
+│  Hook（hookMode，默认 off）                                   │
+│    off     — Rules 约束 Confirm；不拦 Write（日常推荐）        │
+│    confirm — 缺 Read/Verdict 时 deny Write（验收/压测）        │
+│    remind  — allow + 提醒                                     │
 ├─────────────────────────────────────────────────────────────┤
-│  gen 脚本                  — 扫描 utils，生成 index + 分章     │
+│  gen + search CLI — 索引与 utils-book 同步                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 7.1 决策细则文档骨架（举例）
+### 7.1 同轮 Confirm 与 transcript（v0.3.18）
 
-下面是我们《复用决策细则》的**结构示意**，不是全文。重点是：**范式可学，判例不抄**。
+产品默认 **`sameTurnAllow: true`**：一条回复里先输出 Bulk 表 + `Verdict（最终）`，再调 Write。
 
-```markdown
-# Utils 按需复用 — Shortlist → Confirm → Verdict
+压测中我们遇到一个真实问题：Cursor 的 preToolUse payload **常常没有 assistant 文本**，只有 `transcript_path`。v0.3.18 起 Hook 会从会话 transcript **回读 Confirm** 并 eager 落盘，合规 Agent 不再被误拦 `verdict_not_recorded`。
 
-## 0. 原则（默认倾向 reuse；No extend）
-
-## 1. 五问表 + 无效 reject 理由 + 问用户协议
-
-## 2. Shortlist 步骤（index → 1 章）
-
-## 3. Write 前固定输出模板（Discovery / Confirm / Verdict）
-
-## 4. Verdict 三选一
-
-## 5. 范式示例表（非穷尽）
-| 模式 | 典型结论 |
-| 时间格式化 IO 一致 | reuse |
-| validate 入参模型不符 | featureLocal |
-| 须改已有 export 才能用 | newUtil |
-
-## 6. 反模式表
-
-## 7. 验收 prompt 清单
-```
-
-Agent 指南里则只保留**更短的摘要 + 指向细则**，避免两处维护长文。
+若 transcript 不可用，可设 `"sameTurnAllow": false` 分两轮，或让用户说「继续」后第二轮 Write。
 
 ### 7.2 刻意不做的事
 
-早期实验里我们试过「写死某个业务场景」的判例文档（例如专门讲「某个富文本编辑器该怎么 reuse」）。实践下来 **泛化差、维护贵、Agent 还会照抄判例跳过五问**。
-
-现在的原则是：
-
-- **规范去场景化** — 只保留范式表格，不维护「某某页面专用 reuse 手册」。
-- **实验案例进博客/复盘** — 给人看故事；给 Agent 看的仍是通用五问。
-
-**关键点：**
-
-- Skill 负责「步骤不会漏」；Hook 负责「写 utils 前被拍一下」；脚本负责「索引跟源码同步」。
-- 三层一起，才能把「复用」从建议变成 **可验收的流程**。
+- **不把业务场景判例写进规范** — Agent 会照抄跳过五问；场景放博客/复盘，规范保持范式级
+- **不让 Agent Read utils-book 做 Discovery** — 避免 token 爆炸和摘要幻觉
+- **不把 Read util 当成门禁完成** — Confirm 必须在聊天里可见
 
 ---
 
 ## 八、一次冒烟实验教会了我们什么
 
-我们在「富文本 / 占位符编辑器」类需求上做过冒烟，结果很有代表性（以下为抽象后的现象，非真实代码）：
+在「富文本 / 占位符 / 上传」类混合需求上压测，现象很有代表性（抽象后）：
 
-| 现象 | 根因 | 规范上的修补 |
+| 现象 | 根因 | 修补 |
 | --- | --- | --- |
-| Agent 读了工具书仍复制标签解析逻辑 | 没走完 Confirm，摘要≠证明 | 强制 Write 前输出五问 |
-| 以「参考图」vs「图片」文案为由 reject | 把展示层塞进 Q2 | Q2 明确排除 UI 文案；增加问用户协议 |
-| 「组件要瘦所以不能 import util」 | 混淆编排层与纯函数层 | 反模式表 + 瘦组件只影响 featureLocal 边界 |
-| 需要 `htmlToText` 但公共库无 export | 无 reuse 对象 | newUtil 或暂 featureLocal，不拖累已通过五问的 symbol |
-
-这次实验最重要的结论不是某个函数该不该 reuse，而是：
+| 读了 util 仍复制解析逻辑 | Read ≠ Confirm | 强制 Verdict；Hook deny `verdict_not_recorded` |
+| 合规 Bulk Confirm 仍被拦 Write | payload 无文本、verdict 落盘太晚 | transcript 回读 + eager record（v0.3.18） |
+| 「参考图」vs「图片」reject | 展示层塞进 Q2 | Q2 排除 UI；问用户协议 |
+| 9 symbol 零 Confirm 仍 Write | fail-open 漏洞 | v0.3.17 关闭；`maxImportSymbolsPerTurn` 默认 5 |
+| 中文 search 0 结果 | 无 `@utils-book` | BACKFILL + regen index |
 
 **Agent 缺的不是「更多文档」，而是「证明链」和「对细小差异的交互协议」。**
 
 ---
 
-## 九、验收清单：怎么判断这套设计真的在跑
+## 九、验收清单
 
-给人和 Agent 冒烟时，我们用一组固定 prompt 验收（写在决策细则最后一节）：
+**给人 / Agent 冒烟：**
 
-1. 明显的时间/字符串格式化 util → 书面五问 → **reuse**
+1. 明显可复用 util → 书面五问 → **reuse**
 2. validate 入参模型不符 → **featureLocal**
 3. 无 export、需跨处共享 → **newUtil** + regen
 4. 摘要像、实现 IO 不同 → 禁止误 **reuse**
-5. 改公共 utils 前无 Discovery+五问 → Hook 应提醒
-6. 展示层未写明 → 须 **问用户** 或 reuse，禁止静默 fork
+5. 展示层未写明 → **问用户**，禁止静默 fork
+6. opt-in `hookMode: confirm`：跳过 Confirm 直接 Write → **deny**
 
-再加上工程检查：
+**工程检查：**
 
 ```bash
-pnpm check:utils-book   # 工具书与源码同步（示意命令名）
-pnpm typecheck          # 复用/新增 util 后类型检查（按项目选用 tsc/vue-tsc）
+pnpm check:utils-book
+pnpm test:hooks .          # 在 agent-utils-reuse 仓库里跑，传入项目根
+node node_modules/agent-utils-reuse/bin/cli.mjs verify
 ```
 
 ---
 
 ## 十、如果我要在自己的项目里做一套
 
-不必照搬我们的文件布局，可以按 **实现路径** 分期做——先最小闭环，再逐层加能力：
+不必照搬文件布局，可按阶段推进：
 
-| 阶段 | 做什么 | 原因 |
-| --- | --- | --- |
-| **1. 最小闭环** | 仓库 Agent 指南写清 Shortlist → 五问 → Verdict | 先解决「无证明就 Write」 |
-| **2. 工具书脚本** | 扫描 `utils`/`lib`，生成 index + 分章 + 行号 | 解决「找不到」和「读太多」 |
-| **3. 反模式表** | 展示层/子集/类体积 alone 无效 | 解决「借口式 reject」 |
-| **4. 问用户协议** | 展示层未写明 → AskQuestion 模板 | 把产品决策还给人类 |
-| **5. 门禁** | `gen` + `check` 脚本、Hook、Skill | 把流程变成习惯 |
-| **6. CI** | PR 跑 `check:utils-book` | 防止索引腐烂 |
+| 阶段 | 做什么 |
+| --- | --- |
+| **1. 最小闭环** | AGENTS + 五问 + Write 前 Verdict |
+| **2. 索引** | `gen:utils-book` + `@utils-book` 注释规范 |
+| **3. BACKFILL** | 历史 util 补摘要，提升中文 search |
+| **4. 反模式 + 问用户** | 展示层/子集/类体积 alone 无效 |
+| **5. 门禁** | `init` 装 Rules；验收开 `hookMode: confirm` |
+| **6. CI** | `check:utils-book` 防索引腐烂 |
 
-### 技术选型建议（前端 monorepo）
-
-| 组件 | 推荐做法 | 说明 |
-| --- | --- | --- |
-| 索引生成 | Node 脚本 + 轻量解析 | 不依赖重型 AST 工具链也能起步 |
-| 摘要来源 | 自定义 JSDoc 标签 | 人可维护，生成物只读 |
-| Agent 约束 | 指南 + Rules + Skill 分层 | 硬约束 / 细则 / 操作清单各一份 |
-| 同步检查 | `git diff --exit-code` | 简单有效；生成物须确定性（无时间戳） |
-| 类型安全 | 项目既有 typecheck | reuse 也要过编译 |
-
-### 实现路径建议
-
-1. **先五问，后工具书** — 没有证明链，目录越全 Agent 越会「看了等于会了」。
-2. **工具书章节粒度按目录** — 一章对应 `utils` 下一级文件夹，强制「只读一章」。
-3. **禁止 extend 写进 Verdict** — 比「尽量复用」更可执行。
-4. **展示层单独一条** — 这是 AI 时代的新问题：模型爱替产品做文案决定。
-5. **判例不进规范** — 场景写进博客/复盘；规范保持范式级。
+**经验顺序**：先五问证明链，再索引；没有证明链，目录越全 Agent 越会「看了等于会了」。
 
 ---
 
 ## 十一、结语
 
-读完我们自己这套设计，我最大的感受是：**竞争力不只在模型，更在 Agent 工程化的深度**。
+读完这套设计，我最大的感受是：**竞争力不只在模型，更在 Agent 工程化的深度**。
 
-工具书解决的是「找得到、读得少」；五问解决的是「证明得了」；问用户解决的是「别替产品静默分叉」；`gen` + `check` 解决的是「索引别腐烂」。
+KV 索引解决「找得到」；五问解决「证明得了」；问用户解决「别替产品静默分叉」；`gen` + `check` 解决「索引别腐烂」；Rules + 可选 Hook 解决「长会话别忘」。
 
-同样的基座模型，配上 **Shortlist → Confirm（五问）→（必要时问用户）→ Verdict** 这条管道，复用行为可以天差地别。
+同样的基座模型，配上 **Discovery → Read 源码 → Confirm → Verdict → Write** 这条管道，复用行为可以天差地别。
 
-如果你也在用 Cursor / Claude Code 一类 Agent 写业务代码，不妨从 **一个文件夹的 utils 工具书 + 一张五问表** 开始——不必等「完美知识库」才上门禁。
+如果你也在用 Cursor 写业务代码，不妨从 **一张五问表 + `pnpm gen:utils-book`** 开始——不必等「完美知识库」才上门禁。
 
-**规范面前，复用有据。但证明链，需要一点工程直觉。** 希望这篇文章能帮你建立这种直觉。
+**规范面前，复用有据。证明链，需要一点工程直觉。** 希望这篇文章能帮你建立这种直觉。
+
+---
+
+## 十二、开源仓库与快速上手
+
+同一套设计已开源：**[agent-utils-reuse](https://github.com/qianfan-cmd/agent-utils-reuse)**（Agent 工具函数复用编码约束）。
+
+在**业务项目根目录**（含 `package.json`）：
+
+```bash
+pnpm add -D github:qianfan-cmd/agent-utils-reuse#main
+
+node node_modules/agent-utils-reuse/bin/cli.mjs init --force
+
+pnpm gen:utils-book
+```
+
+- **人类文档**：[README](https://github.com/qianfan-cmd/agent-utils-reuse#readme) · [README.zh-CN](https://github.com/qianfan-cmd/agent-utils-reuse/blob/main/README.zh-CN.md)
+- **BACKFILL 提示词**：README 步骤 4 可直接复制给 Agent
+- **示例输出**：[examples/minimal/utils-book](https://github.com/qianfan-cmd/agent-utils-reuse/tree/main/examples/minimal/docs/agent-catalog/utils-book)
+- **升级门禁**：`pnpm upgrade:utils-reuse`（在**声明了依赖的子包目录**执行，如 monorepo 里的前端 app）
+
+维护者建议给 release 打 semver tag（如 `v0.3.19`），消费者可写 `github:qianfan-cmd/agent-utils-reuse#v0.3.19`，避免一直跟 floating `#main`。
+
+如果这篇文章对你有帮助，欢迎到 GitHub **Star / Issue / PR**——我们在真实 Cursor 压测里迭代 Hook，也欢迎你用业务项目反馈踩坑。
 
 ---
 
 ## 附录：AskQuestion 示意（展示层差异）
 
-当五问已通过、仅芯片文案未在需求里写明时，Agent 在 Write 前应 structured 地问用户（示意文案）：
+当五问已通过、仅芯片文案未在需求里写明时，Agent 在 Write 前应 structured 地问用户：
 
 ```markdown
 逻辑可复用 `tagsToPlainText`，但展示层有一处未在需求写明：
@@ -525,19 +376,3 @@ B) 定制 — 在组件内做展示层包装，或 newUtil 新符号；不修改
 ```
 
 用户选 A → **reuse**；选 B → **featureLocal** 或 **newUtil**。选项 A 必须写清**现有行为的事实**，不能写 Agent 的猜测。
-
----
-
-## 十二、开源安装：一键落到你的仓库
-
-同一套设计已开源为 **[agent-utils-reuse](https://github.com/qianfan-cmd/agent-utils-reuse)**，可安装到任意前端/Node 项目，自动根据**你自己的** `src/utils` 生成工具书。
-
-```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse
-pnpm agent-utils-reuse init   # 自动创建或合并 AGENTS.md
-pnpm gen:utils-book
-```
-
-快速体验：`pnpm agent-utils-reuse init --with-examples` 会拷贝 `sortAsc` / `uniqueByKey` 示例，再执行 `pnpm gen:utils-book` 即可。
-
-预生成样例见仓库 [`examples/minimal/docs/agent-catalog/utils-book/`](https://github.com/qianfan-cmd/agent-utils-reuse/tree/main/examples/minimal/docs/agent-catalog/utils-book)。安装与配置详见 [README](https://github.com/qianfan-cmd/agent-utils-reuse#readme)。

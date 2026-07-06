@@ -158,13 +158,26 @@ pnpm upgrade:utils-reuse
 | `pnpm update:utils-reuse` | 仅同步门禁（不 `pnpm add`） |
 | `pnpm gen:utils-book` | 重新生成索引与 utils-book |
 | `agent-utils-reuse search "<关键词>"` | KV 检索（Agent D1） |
+| `agent-utils-reuse uninstall --yes` | 一键卸载门禁（见下） |
 | `pnpm test:hooks [projectRoot]` | Hook 冒烟测试 |
+
+## 卸载门禁
+
+彻底移除 Rules/Hooks、`docs/agent-catalog`、生成的 index/book、`AGENTS.md` 标记块及 `package.json` 依赖：
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs uninstall --yes
+pnpm install
+```
+
+不会删除 `src/utils` 上的 `@utils-book` 注释。可先 `--dry-run` 预览。
 
 ## 开发本仓库
 
 ```bash
 pnpm test:hooks
 pnpm test:update
+pnpm test:uninstall
 ```
 
 示例输出：[examples/minimal/docs/agent-catalog/utils-book/](examples/minimal/docs/agent-catalog/utils-book/)

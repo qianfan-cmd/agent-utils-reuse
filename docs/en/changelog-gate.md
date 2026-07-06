@@ -9,6 +9,15 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.20
+
+**`uninstall` command** — one-shot removal of gate files, `docs/agent-catalog`, generated index/book, merged `AGENTS.md` blocks, and `package.json` dependency/scripts. Does not strip `src/utils` JSDoc. Use `--dry-run` to preview.
+
+```bash
+agent-utils-reuse uninstall --yes
+pnpm install
+```
+
 ## v0.3.17 → v0.3.18
 
 **Same-turn Confirm evidence channel (P0)**

@@ -158,7 +158,19 @@ More: [docs/en/best-practices.md](docs/en/best-practices.md)
 | `pnpm update:utils-reuse` | Gate-only sync (no `pnpm add`) |
 | `pnpm gen:utils-book` | Regenerate index + utils-book |
 | `agent-utils-reuse search "<query>"` | KV search (Agent D1) |
+| `agent-utils-reuse uninstall --yes` | Remove gate, catalog, dependency (see below) |
 | `pnpm test:hooks [projectRoot]` | Hook smoke tests |
+
+## Uninstall
+
+To remove the gate entirely (Rules, Hooks, `docs/agent-catalog`, generated index/book, `AGENTS.md` marker block, and `package.json` dependency):
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs uninstall --yes
+pnpm install
+```
+
+`src/utils` JSDoc comments are not removed. Preview with `--dry-run` first.
 
 ## Development
 
@@ -167,6 +179,7 @@ From this repo:
 ```bash
 pnpm test:hooks
 pnpm test:update
+pnpm test:uninstall
 ```
 
 Preview generated book: [examples/minimal/docs/agent-catalog/utils-book/](examples/minimal/docs/agent-catalog/utils-book/)

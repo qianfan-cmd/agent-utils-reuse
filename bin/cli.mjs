@@ -17,6 +17,7 @@ import {
   runUpgrade,
   runVerify
 } from '../lib/update.mjs'
+import { printUninstallSummary, runUninstall } from '../lib/uninstall-gate.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_VERSION = JSON.parse(
@@ -99,6 +100,7 @@ Usage:
   agent-utils-reuse gen [--check]
   agent-utils-reuse search "<query>" [--limit N] [--json]
   agent-utils-reuse check
+  agent-utils-reuse uninstall [--yes] [--dry-run]
 
 Commands:
   init     First-time install — templates, AGENTS.md merge, .utils-bookrc.json, hooks
@@ -109,6 +111,7 @@ Commands:
   gen     Scan utilsDir and generate utils-book + utils-index.json
   search  Keyword search utils-index.json (Agent Discovery D1)
   check   Regenerate utils-book/index and git diff (CI gate)
+  uninstall  Remove gate files, catalog, dependency, and merged AGENTS blocks
 
 Options:
   --yes              Non-interactive defaults
@@ -217,6 +220,12 @@ async function main() {
 
   if (command === 'check') {
     runCheck(cwd)
+    return
+  }
+
+  if (command === 'uninstall') {
+    const result = await runUninstall(cwd, { yes, dryRun })
+    printUninstallSummary(result)
     return
   }
 
