@@ -88,8 +88,19 @@ try {
     runGit: () => ({ status: 0, stdout: '', stderr: '' })
   })
   assert.equal(noTags.source, 'github-main-fallback')
-  assert.match(noTags.spec, /#main$/)
+  assert.match(noTags.spec, /#v0\.3\.0$/)
   assert.ok(noTags.warning)
+
+  const networkFail = resolveUpgradeSpec(tmp, {
+    runGit: () => ({
+      status: 128,
+      stdout: '',
+      stderr: 'error: RPC failed; curl 56 Recv failure: Connection was reset'
+    })
+  })
+  assert.equal(networkFail.source, 'github-network-fallback')
+  assert.equal(networkFail.spec, 'github:qianfan-cmd/agent-utils-reuse#v0.3.0')
+  assert.match(networkFail.warning, /git ls-remote failed/)
 
   console.log('test-resolve-upgrade-spec: all assertions passed')
 } finally {
