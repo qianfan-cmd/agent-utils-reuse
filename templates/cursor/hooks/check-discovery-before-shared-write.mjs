@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import {
+  buildSymbolConfirmChecklist,
   countReuseSymbols,
   extractAssistantTextFromHookInput,
   getBulkRowViolations,
   getConfirmText,
+  getDiscoveryPathLabel,
   getMissingSiblingMentions,
   getVerdictCoverage,
-  hasAgentsFileRead,
   hasDiscovery,
   hasLocalHelpersTableInVerdict,
   hasRead,
@@ -16,14 +17,16 @@ import {
   isUnderUtils,
   loadHookConfig,
   logHookError,
+  logHookGateDebug,
   markSameTurnBypass,
+  matchesLightGatePath,
   matchesRemindPath,
   needsDiscoveryOutcomeInChat,
   normalizeAuditPath,
   parseHookJsonSafe,
   parseNestedJson,
   readHookStdin,
-  sessionReadyForSameTurnBypass,
+  satisfiesAgentsReadRequirement,
   shouldRequireSelfUtilRead,
   patchAddsLocalHelper,
   requiredSymbolsFromPatch,
@@ -31,7 +34,8 @@ import {
   resolvePatchUtilPaths,
   resolveTargetUtilPaths,
   textHasD1OutcomeDocumented,
-  tryEagerRecordVerdict
+  tryEagerRecordVerdict,
+  turnHasConfirmEvidence
 } from './read-audit-lib.mjs'
 
 const PLACEMENT_SECTION = 'docs/agent-catalog/placement-decision.md §1.6 and §3'
@@ -66,16 +70,23 @@ function denyReadMessage(missingPaths) {
   return `Denied: Read util source (${list}) this session, output Confirm (Q1-Q5) + Verdict（最终） in chat, then Write again. WIP/existing import does NOT exempt. Do not write .utils-discovery-cache.json. See ${PLACEMENT_SECTION} and utils-reuse-gate.mdc.`
 }
 
-function denyVerdictMessage(config) {
+function denyVerdictMessage(config, symbols = []) {
+  const checklist = buildSymbolConfirmChecklist(symbols, config)
   const strict =
     config?.sameTurnAllow === false
-      ? ' Strict mode (`sameTurnAllow: false`): split turns (Confirm first, Write next) or ensure preToolUse payload includes assistant text.'
-      : ' Default sameTurnAllow allows same-turn Write when Reads + AGENTS are satisfied — Confirm must still be in chat before Write.'
-  return `Denied: Read util / search / gen index do NOT complete the gate. Output substantive Confirm in chat **before** the first Write in this response: **individual Q1, Q2, Q3, Q4** (and Q5) per util and per Local helpers row — forbidden: "Q1-Q5 通过". Include Verdict（最终） with reuse/newUtil/featureLocal/partialReuse.${strict} Check .cursor/.utils-gate-verdict.json and .cursor/.utils-gate-hook-debug.log. See ${PLACEMENT_SECTION}.`
+      ? ' Strict mode (`sameTurnAllow: false`): split turns (Confirm first, Write next).'
+      : ' sameTurnAllow: Confirm text must appear in this turn chat before Write — reads alone do not satisfy the gate.'
+  return `${checklist}${strict} See ${PLACEMENT_SECTION}.`
+}
+
+function denyBatchLimitMessage(symbols, config) {
+  const max = config.maxImportSymbolsPerTurn ?? 5
+  const list = symbols.map((s) => `\`${s}\``).join(', ')
+  return `Denied: Write adds ${symbols.length} @/utils symbols (limit ${max}/turn): ${list}. Split into batches — output Bulk Confirm table (≤${max} symbols) per batch, then Write. See utils-reuse-gate.mdc.`
 }
 
 function remindSameTurnAllowMessage() {
-  return `Reminder: same-turn Implement allowed (default sameTurnAllow). Confirm + Verdict must already be in chat before Write; Hook enforces Read util + AGENTS.md this session. See ${PLACEMENT_SECTION}.`
+  return `Reminder: same-turn Implement allowed — Confirm + Verdict detected in this turn. See ${PLACEMENT_SECTION}.`
 }
 
 function denyDiscoveryMessage(config) {
@@ -88,7 +99,7 @@ function denyD1OutcomeMessage() {
 }
 
 function denyAgentsReadMessage(agentsFile) {
-  return `Denied: Read \`${agentsFile}\` in full (no limit/offset) this session before Write. See workspace-agent-gate.mdc and AGENTS.md.`
+  return `Denied: Read \`${agentsFile}\` in full (no limit/offset) this session before Write. Or set \`agentsReadMode: "session"\` in .utils-bookrc.json. See workspace-agent-gate.mdc and AGENTS.md.`
 }
 
 function denyStaleVerdictMessage(staleSymbols, alreadyCovered = []) {
@@ -161,40 +172,14 @@ function collectRequiredReads(normalized, payload, config, cwd) {
   return { requiredReads, isRemind, isUtils, uiOnly }
 }
 
-function writeSameTurnBypassResponse(extra = {}) {
-  markSameTurnBypass(process.cwd())
-  process.stdout.write(
-    JSON.stringify({
-      permission: 'allow',
-      sameTurnBypass: true,
-      sessionVerdictRecorded: false,
-      agent_message: remindSameTurnAllowMessage(),
-      ...extra
-    })
-  )
-}
-
-function shouldEarlySameTurnBypass(config, cwd, { missing, isRemind, isUtils }) {
-  if (config.sameTurnAllow !== true) return false
-  if (!sessionReadyForSameTurnBypass(cwd)) return false
-  if (hasVerdict(cwd)) return false
-  if (missing.length > 0) return false
-  if (!isRemind && !isUtils) return false
-  return true
+function gateApplies({ isUtils, requiredSymbols, requiredReads }) {
+  return isUtils || requiredSymbols.length > 0 || requiredReads.size > 0
 }
 
 function failClosedWrite(config, cwd, err, context) {
   logHookError(cwd, context, err)
   if (config.hookMode === 'off' || config.hookMode === 'remind') {
     process.stdout.write(JSON.stringify({ permission: 'allow' }))
-    return
-  }
-  if (config.sameTurnAllow === true && sessionReadyForSameTurnBypass(cwd)) {
-    writeSameTurnBypassResponse({
-      denyReason: 'parse_fallback',
-      parseError: true,
-      parsePartial: true
-    })
     return
   }
   process.stdout.write(
@@ -234,6 +219,7 @@ async function main() {
 
     const normalized = normalizeAuditPath(filePath)
     const payload = extractWriteContent(input)
+    const isLightGate = matchesLightGatePath(normalized, config.lightGatePaths)
     const { requiredReads, isRemind, isUtils, uiOnly } = collectRequiredReads(
       normalized,
       payload,
@@ -258,9 +244,17 @@ async function main() {
       return
     }
 
+    const hadVerdictBefore = hasVerdict(cwd)
     tryEagerRecordVerdict(input, cwd)
 
-    if ((isRemind || isUtils) && !hasAgentsFileRead(cwd)) {
+    const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
+
+    if (!gateApplies({ isUtils, requiredSymbols, requiredReads })) {
+      process.stdout.write(JSON.stringify({ permission: 'allow' }))
+      return
+    }
+
+    if ((isRemind || isUtils) && !satisfiesAgentsReadRequirement(cwd, config)) {
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
@@ -278,17 +272,8 @@ async function main() {
       return
     }
 
-    if (shouldEarlySameTurnBypass(config, cwd, { missing, isRemind, isUtils })) {
-      writeSameTurnBypassResponse(
-        partial || parseError
-          ? { parsePartial: true, denyReason: partial ? 'parse_partial' : undefined }
-          : {}
-      )
-      return
-    }
-
     const addsHelper =
-      config.sameTurnAllow !== true &&
+      !isLightGate &&
       isRemind &&
       patchAddsLocalHelper(payload, normalized) &&
       !isUtils
@@ -319,34 +304,31 @@ async function main() {
         }
       }
 
-      if (!hasVerdict(cwd)) {
+      const helperConfirm = turnHasConfirmEvidence(input, raw, cwd)
+      if (!helperConfirm.ok) {
         process.stdout.write(
           JSON.stringify({
             permission: 'deny',
             denyReason: 'verdict_not_recorded',
-            agent_message: denyVerdictMessage(config)
+            agent_message: denyVerdictMessage(config, requiredSymbols)
           })
         )
         return
       }
 
       if (!hasLocalHelpersTableInVerdict(cwd)) {
-        process.stdout.write(
-          JSON.stringify({
-            permission: 'deny',
-            denyReason: 'local_helpers_table_missing',
-            agent_message: denyLocalHelpersTableMessage()
-          })
-        )
-        return
+        const confirmText = getConfirmText(cwd, helperConfirm.text)
+        if (!confirmText.includes('Local helpers') && !/\|\s*本地函数\s*\|/.test(confirmText) && !/\|\s*Helper\s*\|/i.test(confirmText)) {
+          process.stdout.write(
+            JSON.stringify({
+              permission: 'deny',
+              denyReason: 'local_helpers_table_missing',
+              agent_message: denyLocalHelpersTableMessage()
+            })
+          )
+          return
+        }
       }
-    }
-
-    const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
-
-    if (requiredReads.size === 0 && !isUtils && requiredSymbols.length === 0) {
-      process.stdout.write(JSON.stringify({ permission: 'allow' }))
-      return
     }
 
     if (missing.length > 0) {
@@ -362,39 +344,44 @@ async function main() {
     }
 
     const coverage = getVerdictCoverage(requiredSymbols, cwd)
-    const sessionCoversPatch =
-      coverage.recorded === true &&
-      coverage.needsConfirm.length === 0 &&
-      requiredSymbols.length > 0
+    const confirmEvidence = turnHasConfirmEvidence(input, raw, cwd)
+    const maxPerTurn = config.maxImportSymbolsPerTurn ?? 5
 
-    const eagerText = extractAssistantTextFromHookInput(input) || ''
-    const payloadHadAssistantText = Boolean(eagerText.trim())
-
-    const sameTurnBypass =
-      config.sameTurnAllow === true &&
-      !hasVerdict(cwd) &&
-      !sessionCoversPatch &&
-      sessionReadyForSameTurnBypass(cwd) &&
-      missing.length === 0 &&
-      (isRemind || isUtils)
-
-    if (sameTurnBypass) {
-      writeSameTurnBypassResponse({
-        payloadHadAssistantText,
-        parsePartial: partial || Boolean(parseError)
-      })
+    if (
+      requiredSymbols.length > maxPerTurn &&
+      (coverage.needsConfirm.length > 0 || !confirmEvidence.ok)
+    ) {
+      process.stdout.write(
+        JSON.stringify({
+          permission: 'deny',
+          denyReason: 'batch_limit_exceeded',
+          requiredSymbols,
+          needsConfirm: coverage.needsConfirm.length > 0 ? coverage.needsConfirm : requiredSymbols,
+          agent_message: denyBatchLimitMessage(requiredSymbols, config)
+        })
+      )
       return
     }
 
-    if (!sessionCoversPatch && !hasVerdict(cwd)) {
+    logHookGateDebug(cwd, 'preToolUse', {
+      discovery_path: getDiscoveryPathLabel(cwd),
+      parse_partial: partial || Boolean(parseError),
+      confirm_source: confirmEvidence.source,
+      required_symbols: requiredSymbols,
+      needs_confirm: coverage.needsConfirm
+    })
+
+    if (!confirmEvidence.ok) {
+      const eagerText = extractAssistantTextFromHookInput(input) || ''
       process.stdout.write(
         JSON.stringify({
           permission: 'deny',
           denyReason: 'verdict_not_recorded',
           sessionVerdictRecorded: false,
-          payloadHadAssistantText,
+          payloadHadAssistantText: Boolean(eagerText.trim()),
           parseError: Boolean(parseError),
-          agent_message: denyVerdictMessage(config)
+          needsConfirm: requiredSymbols.length > 0 ? requiredSymbols : coverage.needsConfirm,
+          agent_message: denyVerdictMessage(config, requiredSymbols.length > 0 ? requiredSymbols : coverage.needsConfirm)
         })
       )
       return
@@ -414,6 +401,7 @@ async function main() {
       return
     }
 
+    const eagerText = extractAssistantTextFromHookInput(input) || confirmEvidence.text || ''
     const confirmText = getConfirmText(cwd, eagerText)
 
     const bulkViolations = getBulkRowViolations(confirmText, cwd, config)
@@ -445,13 +433,31 @@ async function main() {
     const reuseCount = countReuseSymbols(confirmText)
     const batchRemind = reuseCount > 5 ? remindBatchConfirmMessage(reuseCount) : null
     const baseRemind = isUtils || isRemind ? remindAppMessage() : null
-    const agentMessage = [baseRemind, batchRemind].filter(Boolean).join(' ')
+    const sameTurnOk =
+      config.sameTurnAllow === true &&
+      !hadVerdictBefore &&
+      confirmEvidence.ok &&
+      (confirmEvidence.source === 'turn_text' || hasVerdict(cwd))
+    if (sameTurnOk) markSameTurnBypass(cwd)
+
+    const agentMessage = [
+      sameTurnOk ? remindSameTurnAllowMessage() : null,
+      baseRemind,
+      batchRemind
+    ]
+      .filter(Boolean)
+      .join(' ')
 
     process.stdout.write(
       JSON.stringify(
-        agentMessage
-          ? { permission: 'allow', agent_message: agentMessage }
-          : { permission: 'allow' }
+        agentMessage || sameTurnOk
+          ? {
+              permission: 'allow',
+              sameTurnBypass: sameTurnOk || undefined,
+              confirmSource: confirmEvidence.source,
+              agent_message: agentMessage || remindSameTurnAllowMessage()
+            }
+          : { permission: 'allow', confirmSource: confirmEvidence.source }
       )
     )
   } catch (err) {

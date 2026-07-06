@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import {
   extractShellCommand,
+  getDiscoveryPathLabel,
   loadHookConfig,
   logHookError,
-  parseHookJson,
+  logHookGateDebug,
+  parseHookJsonSafe,
   parseNestedJson,
   readHookStdin,
   recordDiscovery,
@@ -35,7 +37,19 @@ async function main() {
       return
     }
 
-    const input = parseHookJson(raw)
+    const { input, parseError, partial } = parseHookJsonSafe(raw)
+    if (!input) {
+      logHookError(cwd, 'track-utils-discovery', parseError ?? new Error('Hook JSON parse failed'))
+      process.stdout.write(
+        JSON.stringify({
+          ok: false,
+          parseError: parseError ? String(parseError.message) : 'no input',
+          partial
+        })
+      )
+      return
+    }
+
     const toolInput = extractToolInput(input)
 
     const shellCmd = extractShellCommand(toolInput)
@@ -47,7 +61,18 @@ async function main() {
       recordDiscovery('d2-utils-dir', cwd)
     }
 
-    process.stdout.write(JSON.stringify({ ok: true }))
+    logHookGateDebug(cwd, 'track-utils-discovery', {
+      discovery_path: getDiscoveryPathLabel(cwd),
+      parse_partial: partial || Boolean(parseError)
+    })
+
+    process.stdout.write(
+      JSON.stringify({
+        ok: true,
+        discovery_path: getDiscoveryPathLabel(cwd),
+        partial: partial || Boolean(parseError)
+      })
+    )
   } catch (err) {
     logHookError(cwd, 'track-utils-discovery', err)
     if (config.hookMode === 'confirm') {

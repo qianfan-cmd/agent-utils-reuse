@@ -17,6 +17,8 @@ const DEFAULT_UTILS_INDEX_FILE = 'docs/agent-catalog/utils-index.json'
 const DEFAULT_ALIASES = ['@/utils']
 const DEFAULT_REMIND_PATHS = ['src/feature', 'src/components', 'src/hooks', 'src/views']
 
+const DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN = 5
+
 export function loadHookConfig(cwd = process.cwd()) {
   const base = {
     utilsDir: DEFAULT_UTILS_DIR,
@@ -24,9 +26,12 @@ export function loadHookConfig(cwd = process.cwd()) {
     utilsIndexFile: DEFAULT_UTILS_INDEX_FILE,
     utilsImportAliases: [...DEFAULT_ALIASES],
     remindWritePaths: [...DEFAULT_REMIND_PATHS],
+    lightGatePaths: [],
     agentsFile: DEFAULT_AGENTS_FILE,
+    agentsReadMode: 'tool',
     hookMode: 'off',
-    sameTurnAllow: true
+    sameTurnAllow: true,
+    maxImportSymbolsPerTurn: DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN
   }
   try {
     const configPath = path.join(cwd, CONFIG_FILENAME)
@@ -51,6 +56,17 @@ export function loadHookConfig(cwd = process.cwd()) {
       else base.hookMode = 'off'
     }
     if (raw.sameTurnAllow === false) base.sameTurnAllow = false
+    if (Array.isArray(raw.lightGatePaths)) {
+      base.lightGatePaths = raw.lightGatePaths.map((p) =>
+        String(p).replace(/\\/g, '/').replace(/\/+$/, '')
+      )
+    }
+    const agentsMode = String(raw.agentsReadMode ?? 'tool').toLowerCase()
+    if (agentsMode === 'session') base.agentsReadMode = 'session'
+    const maxSym = parseInt(raw.maxImportSymbolsPerTurn, 10)
+    if (Number.isFinite(maxSym) && maxSym > 0) {
+      base.maxImportSymbolsPerTurn = maxSym
+    }
   } catch {
     /* defaults */
   }
@@ -226,8 +242,50 @@ function extractJsonStringField(raw, key) {
   return out.length > 0 ? out : null
 }
 
+/** Extract a JSON array value for `key` using bracket counting (tolerates broken outer JSON). */
+function extractJsonArrayAtKey(raw, key) {
+  const re = new RegExp(`"${key}"\\s*:\\s*`, 'i')
+  const match = re.exec(raw)
+  if (!match) return null
+  let i = match.index + match[0].length
+  while (i < raw.length && /\s/.test(raw[i])) i += 1
+  if (raw[i] !== '[') return null
+  let depth = 0
+  let inString = false
+  let escape = false
+  const start = i
+  for (; i < raw.length; i += 1) {
+    const c = raw[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (inString && c === '\\') {
+      escape = true
+      continue
+    }
+    if (c === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (c === '[') depth += 1
+    else if (c === ']') {
+      depth -= 1
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, i + 1))
+        } catch {
+          return null
+        }
+      }
+    }
+  }
+  return null
+}
+
 /**
- * Parse hook stdin; on failure extract path / tool_input / text for graceful gate (v0.3.16).
+ * Parse hook stdin; on failure extract path / tool_input / text for graceful gate (v0.3.16+).
  * @returns {{ input: object|null, parseError: Error|null, partial: boolean }}
  */
 export function parseHookJsonSafe(raw) {
@@ -256,6 +314,10 @@ export function parseHookJsonSafe(raw) {
     }
     const text = extractJsonStringField(trimmed, 'text')
     if (text != null) input.text = text
+    if (!input.text?.trim()) {
+      const assistant = extractLastAssistantFromRawJson(trimmed)
+      if (assistant.trim()) input.text = assistant
+    }
     if (Object.keys(input).length === 0) {
       return { input: null, parseError: err, partial: true }
     }
@@ -263,7 +325,7 @@ export function parseHookJsonSafe(raw) {
   }
 }
 
-/** Extract assistant Confirm text from raw hook stdin when outer JSON is broken (v0.3.16). */
+/** Extract assistant Confirm text from raw hook stdin when outer JSON is broken (v0.3.16+). */
 export function extractTextFromRawHookStdin(raw) {
   const trimmed = stripUtf8Bom(String(raw ?? '').trim())
   if (!trimmed) return ''
@@ -271,12 +333,83 @@ export function extractTextFromRawHookStdin(raw) {
     const s = extractJsonStringField(trimmed, key)
     if (s?.trim()) return s
   }
-  return ''
+  return extractLastAssistantFromRawJson(trimmed)
 }
 
-/** AGENTS read + at least one util Read recorded this session (sameTurnAllow bypass). */
+/** Whether AGENTS.md read requirement is satisfied for this session. */
+export function satisfiesAgentsReadRequirement(cwd = process.cwd(), config = loadHookConfig(cwd)) {
+  if (config.agentsReadMode === 'session') return hasAgentsFileRead(cwd)
+  return hasAgentsFileRead(cwd)
+}
+
+/** Light gate: only audit @/utils imports, skip Local helpers chain. */
+export function matchesLightGatePath(filePath, lightGatePaths) {
+  if (!Array.isArray(lightGatePaths) || lightGatePaths.length === 0) return false
+  const normalized = normalizeAuditPath(filePath)
+  return lightGatePaths.some((prefix) => {
+    const p = String(prefix).replace(/\\/g, '/').replace(/\/+$/, '')
+    return normalized === p || normalized.startsWith(`${p}/`)
+  })
+}
+
+/** Discovery path label for debug logs (v0.3.17). */
+export function getDiscoveryPathLabel(cwd = process.cwd()) {
+  const audit = loadDiscoveryAudit(cwd)
+  if (!audit.recorded) return 'none'
+  if (audit.d1 && audit.d2) return 'D1+D2'
+  if (audit.d1) {
+    if (audit.via.includes('cli')) return 'cli'
+    return 'grep-index'
+  }
+  if (audit.d2) return 'D2_only'
+  return 'none'
+}
+
+export function logHookGateDebug(cwd, context, meta = {}) {
+  try {
+    const filePath = path.join(cwd, '.cursor', HOOK_DEBUG_LOG)
+    const line = `[${new Date().toISOString()}] ${context} ${JSON.stringify(meta)}\n`
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.appendFileSync(filePath, line)
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Same-turn Confirm evidence: session verdict record or substantive text in this turn (v0.3.17).
+ * @returns {{ ok: boolean, source: 'session'|'turn_text'|'none', text: string }}
+ */
+export function turnHasConfirmEvidence(input, raw, cwd = process.cwd()) {
+  if (hasVerdict(cwd)) {
+    const audit = loadVerdictAudit(cwd)
+    return { ok: true, source: 'session', text: audit.confirmText ?? audit.snippet ?? '' }
+  }
+  const text = (
+    extractAssistantTextFromHookInput(input) ||
+    extractTextFromRawHookStdin(raw) ||
+    ''
+  ).trim()
+  if (textHasSubstantiveConfirm(text)) {
+    return { ok: true, source: 'turn_text', text }
+  }
+  return { ok: false, source: 'none', text }
+}
+
+/** Import-driven deny checklist for missing Confirm (v0.3.17). */
+export function buildSymbolConfirmChecklist(symbols, config = loadHookConfig()) {
+  const list = (symbols ?? []).map((s) => `\`${s}\``).join(', ')
+  const max = config.maxImportSymbolsPerTurn ?? DEFAULT_MAX_IMPORT_SYMBOLS_PER_TURN
+  if (!list) {
+    return `Denied: Output substantive Confirm in chat before Write: Bulk table or per-symbol Q1–Q4 + Verdict（最终） (≤${max} symbol/批).`
+  }
+  return `Denied: 本次 Write 涉及 @/utils import: ${list}.\n请先在同轮 chat 输出 Bulk Confirm 表（≤${max} symbol/批）：\n| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |\n然后重试 Write。`
+}
+
+/** AGENTS read + at least one util Read recorded this session. */
 export function sessionReadyForSameTurnBypass(cwd = process.cwd()) {
-  if (!hasAgentsFileRead(cwd)) return false
+  const config = loadHookConfig(cwd)
+  if (!satisfiesAgentsReadRequirement(cwd, config)) return false
   return loadAudit(cwd).reads.length > 0
 }
 
@@ -307,6 +440,30 @@ function messageContentToString(content) {
   }
   if (typeof content === "object") return content.text ?? content.content ?? ""
   return String(content)
+}
+
+function lastAssistantTextFromMessageList(list) {
+  if (!Array.isArray(list)) return ''
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const msg = list[i]
+    if (!msg || typeof msg !== 'object') continue
+    const role = String(msg.role ?? msg.type ?? '').toLowerCase()
+    if (role !== 'assistant' && role !== 'agent') continue
+    const s = messageContentToString(msg.content ?? msg.text ?? msg.message)
+    if (s.trim()) return s
+  }
+  return ''
+}
+
+export function extractLastAssistantFromRawJson(raw) {
+  const trimmed = stripUtf8Bom(String(raw ?? '').trim())
+  if (!trimmed) return ''
+  for (const key of ['conversation', 'messages', 'transcript', 'turn_content']) {
+    const arr = extractJsonArrayAtKey(trimmed, key)
+    const s = lastAssistantTextFromMessageList(arr)
+    if (s.trim()) return s
+  }
+  return ''
 }
 
 export function extractAssistantTextFromHookInput(input) {
@@ -1341,8 +1498,12 @@ export function getMissingSiblingMentions(requiredSymbols, verdictText, cwd = pr
     const symPath = symbolPathFromIndex(index, sym)
     if (!symPath) continue
     const siblings = siblingsByPath[symPath]
-    if (!Array.isArray(siblings) || siblings.length < 2) continue
-    const others = siblings.filter((s) => s !== sym)
+    const crossSiblings = index.crossFileSiblings?.[sym] ?? []
+    const allOthers = [
+      ...(Array.isArray(siblings) ? siblings.filter((s) => s !== sym) : []),
+      ...crossSiblings.filter((s) => s !== sym)
+    ]
+    const others = [...new Set(allOthers)]
     if (others.length === 0) continue
     const q4 = q4TextForSymbol(text, sym)
     if (others.some((s) => mentionsSiblingInQ4(q4, s))) continue

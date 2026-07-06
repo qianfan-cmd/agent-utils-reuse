@@ -101,6 +101,24 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.16 → v0.3.17
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**Hook fail-closed fix (P0)**:
+
+- **Removed `parse_fallback allow`** — JSON parse failure in confirm mode → `denyReason: parse_error`
+- **`sameTurnBypass` requires Confirm evidence** — reads + AGENTS alone no longer allow Write; `turnHasConfirmEvidence()` must pass
+- **Import-driven deny** — `verdict_not_recorded` includes symbol checklist from patch imports
+- **`maxImportSymbolsPerTurn`** (default 5) — hard deny `batch_limit_exceeded` in confirm mode
+- **`addsHelper` decoupled from `sameTurnAllow`** — Local helpers + Discovery enforced even when same-turn enabled
+- **`agentsReadMode: session`** — optional; sessionStart records AGENTS read for alwaysApply Rules projects
+- **`lightGatePaths`** — optional test-page light gate (imports only)
+- **KV**: `searchSynonyms`, `crossFileSiblingGroups`, method name in `searchText`
+
 ### Upgrade v0.3.15 → v0.3.16
 
 ```bash
@@ -527,6 +545,11 @@ Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc
 | `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
 | `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
 | `hookMode` | `off` | `off` = Rules only (default v0.3.15); `confirm` = Write deny; `remind` = allow + reminder |
+| `maxImportSymbolsPerTurn` | `5` | confirm: hard deny when patch adds more import symbols without full Verdict |
+| `agentsReadMode` | `tool` | `session` = treat alwaysApply Rules as AGENTS read at sessionStart |
+| `lightGatePaths` | `[]` | Paths with import-only gate (skip Local helpers audit) |
+| `searchSynonyms` | `{}` | KV index: merge synonym tokens into `searchText` |
+| `crossFileSiblingGroups` | `[]` | KV index: e.g. `[["uploadFiles","uploadMultipleFiles"]]` for Q4 sibling hints |
 | `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
 | `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |

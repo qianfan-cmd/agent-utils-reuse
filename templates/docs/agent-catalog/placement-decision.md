@@ -21,7 +21,15 @@
 | **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
 | **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
 
-Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS）；**不依赖** `.utils-gate-verdict.json` 落盘；JSON 解析失败时 reads 满足则 **parse_fallback allow**（v0.3.16）。阅卷 strict：设 `"sameTurnAllow": false`。
+Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS + **本轮可检测的 Confirm 文本**）；**v0.3.17**：JSON 解析失败 **fail-closed deny**（不再 parse_fallback allow）；仅有 Read 记录不能跳过 Verdict。阅卷 strict：设 `"sameTurnAllow": false`。
+
+**配置（`.utils-bookrc.json`）**：
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `maxImportSymbolsPerTurn` | `5` | confirm 模式：单轮 Write 新增 import 超过此数且无完整 Verdict → deny |
+| `agentsReadMode` | `tool` | `session`：sessionStart 视为已读 AGENTS（alwaysApply Rules 注入） |
+| `lightGatePaths` | `[]` | 如 `src/views/test`：仅审计 `@/utils` import，不强制 Local helpers |
 
 ---
 

@@ -46,7 +46,11 @@ async function main() {
   try {
     if (process.argv.includes('--reset')) {
       resetSessionAudits(cwd)
-      process.stdout.write(JSON.stringify({ ok: true }))
+      const cfg = loadHookConfig(cwd)
+      if (cfg.agentsReadMode === 'session') {
+        recordAgentsRead(cwd)
+      }
+      process.stdout.write(JSON.stringify({ ok: true, agentsReadMode: cfg.agentsReadMode }))
       return
     }
 

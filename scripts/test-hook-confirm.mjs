@@ -167,8 +167,8 @@ if (hasFeature) {
     }
   })
   assert(
-    'After Read util files but no Verdict → allow (default sameTurnAllow v0.3.14)',
-    denyVerdict.permission === 'allow' && denyVerdict.sameTurnBypass === true,
+    'After Read util files but no Verdict → deny verdict_not_recorded (v0.3.17)',
+    denyVerdict.permission === 'deny' && denyVerdict.denyReason === 'verdict_not_recorded',
     JSON.stringify(denyVerdict)
   )
 
@@ -291,9 +291,8 @@ try {
     badParsed = null
   }
   assert(
-    'Invalid hook stdin JSON + sameTurnAllow (default) + reads → allow parse_fallback (v0.3.16)',
-    badParsed?.permission === 'allow' &&
-      (badParsed?.denyReason === 'parse_fallback' || badParsed?.sameTurnBypass === true),
+    'Invalid hook stdin JSON + sameTurnAllow (default) + reads → deny parse_error (v0.3.17)',
+    badParsed?.permission === 'deny' && badParsed?.denyReason === 'parse_error',
     badOut
   )
 
@@ -495,8 +494,8 @@ copyToClip()
     }
   })
   assert(
-    "default sameTurnAllow (omitted) + reads OK + no payload.text → allow (v0.3.14)",
-    defaultAllow.permission === "allow" && defaultAllow.sameTurnBypass === true,
+    "default sameTurnAllow (omitted) + reads OK + no payload.text → deny (v0.3.17)",
+    defaultAllow.permission === "deny" && defaultAllow.denyReason === "verdict_not_recorded",
     JSON.stringify(defaultAllow)
   )
 } finally {
@@ -542,8 +541,8 @@ copyToClip()
     }
   })
   assert(
-    "sameTurnAllow true + reads OK + no payload.text → allow",
-    optAllow.permission === "allow" && optAllow.sameTurnBypass === true,
+    "sameTurnAllow true + reads OK + no payload.text → deny (v0.3.17)",
+    optAllow.permission === "deny" && optAllow.denyReason === "verdict_not_recorded",
     JSON.stringify(optAllow)
   )
 } finally {
@@ -1115,7 +1114,7 @@ import { copyToClip } from '@/utils/copy'
   fs.rmSync(mixedUiDir, { recursive: true, force: true })
 }
 
-// --- v0.3.16: malformed JSON + sameTurnAllow + addsHelper bypass ---
+// --- v0.3.17: malformed JSON + confirm required + addsHelper enforced ---
 const parseSafeDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-parse-safe-"))
 try {
   fs.mkdirSync(path.join(parseSafeDir, "src", "views"), { recursive: true })
@@ -1137,20 +1136,25 @@ try {
   fs.writeFileSync(path.join(parseSafeDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
   fs.writeFileSync(
     path.join(parseSafeDir, "src/views/Page.vue"),
-    "<template><div>test</div></template>\n"
+    `<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+copyToClip()
+</script>
+<template><div>test</div></template>
+`
   )
   resetAudit(parseSafeDir)
   recordAgentsRead(parseSafeDir)
   recordRead(parseSafeDir, "src/utils/copy.ts")
 
   const malformedPayload =
-    '{"tool_input":{"path":"src/views/Page.vue","old_string":"test","new_string":"test-updated"},"broken":'
-  const malformedAllow = runHookRaw(parseSafeDir, "check-discovery-before-shared-write.mjs", malformedPayload)
+    '{"tool_input":{"path":"src/views/Page.vue","old_string":"copyToClip()","new_string":"copyToClip(\'x\')"},"broken":'
+  const malformedDeny = runHookRaw(parseSafeDir, "check-discovery-before-shared-write.mjs", malformedPayload)
   assert(
-    "malformed JSON with extractable path + sameTurnAllow → allow",
-    malformedAllow.permission === "allow" &&
-      (malformedAllow.sameTurnBypass === true || malformedAllow.parsePartial === true),
-    JSON.stringify(malformedAllow)
+    "malformed JSON with extractable path + no Confirm → deny verdict_not_recorded",
+    malformedDeny.permission === "deny" &&
+      (malformedDeny.denyReason === "verdict_not_recorded" || malformedDeny.denyReason === "parse_error"),
+    JSON.stringify(malformedDeny)
   )
 
   spawnSync(process.execPath, [hookPath(parseSafeDir, "track-utils-discovery.mjs")], {
@@ -1161,14 +1165,26 @@ try {
   const helperNoVerdict = runHook(parseSafeDir, {
     tool_input: {
       path: "src/views/Page.vue",
-      old_string: "test",
-      new_string: "function localHelper() {}\ntest"
+      old_string: "copyToClip()",
+      new_string: "function localHelper() {}\ncopyToClip()"
     }
   })
   assert(
-    "addsHelper + sameTurnAllow + reads OK + no verdict file → allow (v0.3.16)",
-    helperNoVerdict.permission === "allow" && helperNoVerdict.sameTurnBypass === true,
+    "addsHelper + sameTurnAllow + reads OK + no verdict → deny (v0.3.17)",
+    helperNoVerdict.permission === "deny" &&
+      (helperNoVerdict.denyReason === "verdict_not_recorded" ||
+        helperNoVerdict.denyReason === "local_helpers_table_missing"),
     JSON.stringify(helperNoVerdict)
+  )
+
+  const bulkConfirm = `${SAMPLE_VERDICT}\n| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |\n| copyToClip | src/utils/copy.ts | 与 util 行为一致，不选 sibling | reuse(copyToClip) |`
+  const malformedWithConfirm =
+    `{"text":"${bulkConfirm.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}","tool_input":{"path":"src/views/Page.vue","old_string":"copyToClip()","new_string":"copyToClip('x')"},"broken":`
+  const malformedAllow = runHookRaw(parseSafeDir, "check-discovery-before-shared-write.mjs", malformedWithConfirm)
+  assert(
+    "malformed JSON + bulk Confirm in payload + reads → allow sameTurnBypass",
+    malformedAllow.permission === "allow" && malformedAllow.sameTurnBypass === true,
+    JSON.stringify(malformedAllow)
   )
 
   const uiOnlyMalformed =
@@ -1179,7 +1195,7 @@ try {
     uiOnlyMalformed
   )
   assert(
-    "uiOnly template patch + malformed JSON + sameTurnAllow → allow",
+    "uiOnly template patch + malformed JSON → allow (no utils import in delta)",
     uiMalformedAllow.permission === "allow",
     JSON.stringify(uiMalformedAllow)
   )
@@ -1191,6 +1207,35 @@ try {
     "track-utils-verdict partial JSON + Chinese bulk table → recorded",
     vOut.ok === true && vOut.recorded === true,
     JSON.stringify(vOut)
+  )
+
+  // transcript extraction from broken JSON (v0.3.17)
+  const transcriptConfirm = `${SAMPLE_VERDICT}\n| Symbol | Read @ path | Q4 | Verdict |\n| copyToClip | src/utils/copy.ts | OK reject sibling | reuse(copyToClip) |`
+  const brokenTranscript =
+    `{"conversation":[{"role":"user","content":"task"},{"role":"assistant","content":"${transcriptConfirm.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"}],"tool_input":{"path":"src/views/Page.vue","old_string":"copyToClip()","new_string":"copyToClip('y')"},"broken":`
+  const transcriptAllow = runHookRaw(parseSafeDir, "check-discovery-before-shared-write.mjs", brokenTranscript)
+  assert(
+    "broken JSON + conversation assistant Confirm → allow",
+    transcriptAllow.permission === "allow",
+    JSON.stringify(transcriptAllow)
+  )
+
+  // batch limit: 6 symbols without Confirm
+  const batchDir = parseSafeDir
+  const sixImports =
+    'import { a, b, c, d, e, f } from "@/utils/batch"\n'
+  const batchDeny = runHook(batchDir, {
+    tool_input: {
+      path: "src/views/Batch.vue",
+      content: `<script setup>\n${sixImports}</script>\n`
+    }
+  })
+  assert(
+    "6 import symbols without Confirm → deny batch_limit or verdict_not_recorded",
+    batchDeny.permission === "deny" &&
+      (batchDeny.denyReason === "batch_limit_exceeded" ||
+        batchDeny.denyReason === "verdict_not_recorded"),
+    JSON.stringify(batchDeny)
   )
 } finally {
   fs.rmSync(parseSafeDir, { recursive: true, force: true })
