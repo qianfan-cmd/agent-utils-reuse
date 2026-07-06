@@ -1,659 +1,175 @@
 # agent-utils-reuse
 
-**Agent utils reuse gate** — Confirm (five questions) + Verdict in chat before Write.
+English | [简体中文](README.zh-CN.md)
 
-Stop AI coding agents from silently forking your shared utilities. **v0.3.0**: **KV utils retrieval** — Agent Discovery D1 uses `utils-index.json` + `agent-utils-reuse search` (not Markdown utils-book). **v0.2.1**: post-selection proof with individual Q1–Q4 per symbol.
+**Stop AI agents from silently forking your shared utilities.** This package adds a **Confirm gate** (five questions + `Verdict（最终）` in chat before Write), **KV utils search** (`utils-index.json`), and **Cursor Rules/Hooks** to any frontend project.
 
-- **utils-index + search CLI** — keyword search over generated KV index (Agent Discovery D1)
-- **utils-book generator** — human-readable Markdown + `utils-index.json` from same scan
-- **Confirm gate** — substantive Q1–Q5 **per util and per Local helpers row** + **`Verdict（最终）`** before Write
-- **Discovery gate** — search / Grep index or Grep `utilsDir` before adding util-semantics local helpers
-- **Cursor templates** — full Rules stack; **Write Hook opt-in** (`hookMode: confirm`)
+## Why
 
-> 设计说明：[docs/utils-reuse-blog.md](./docs/utils-reuse-blog.md)
+| Problem | What we do |
+|---------|------------|
+| Agent reads `src/utils` then re-implements the same logic in a feature file | Mandatory **Confirm** + **Verdict** before Write |
+| Agent skips proof after picking a util | **Read util source** ≠ gate complete — chat Confirm is required |
+| `search` returns nothing for task keywords | **`@utils-book` JSDoc** feeds the index — backfill existing exports (see Step 4 below) |
 
-## How constraints work (v0.2.1)
+## What you get
 
-| Layer | Role |
+| Piece | Role |
 |-------|------|
-| **Rules (auto-installed)** | `workspace-agent-gate` + `project-agent-gate` + `utils-reuse-gate` + `code-before-edit` — refreshed every **`upgrade:utils-reuse`** or **`update:utils-reuse`** |
-| **Hook (default off)** | Rules-only Confirm + Verdict; no Write deny; opt-in `confirm` for acceptance |
-| **AGENTS.md** | Merged snippet on init; `--force` refreshes marker block |
+| **utils-index.json** + `search` CLI | Agent Discovery D1 (keyword retrieval) |
+| **utils-book/** | Human-readable catalog (Agents must **not** use for Shortlist) |
+| **Cursor Rules** | `utils-reuse-gate`, `pre-write-utils-checklist`, etc. — installed on `init` |
+| **Hooks** (opt-in) | `hookMode: confirm` hard-denies Write without Confirm evidence |
+| **AGENTS.md** | Merged utils reuse section |
 
-**Two-phase workflow**: Message A = Identify + Discovery (when triggered) + Local helpers table + **per-symbol Confirm (Q1–Q4 separately)** + Verdict (no Write tools); Message B = Write (later message). **Read** must target **util source exports** you will call — feature import/call sites alone do not count.
-
-**Any project** gets the same stack after init — no hand-edited rules per repo.
-
-**Optional**: `projectAgentCoreRule` in `.utils-bookrc.json` to inject the same utils bullets into **your** existing alwaysApply rule (`init --force`).
-
-Open Cursor at the **project root**. Test hooks: `pnpm test:hooks [projectRoot]`, `pnpm test:hook-discovery [projectRoot]`, `pnpm test:search-utils-index [projectRoot]`, and `pnpm test:verdict-substance`.
-
-## Install
-
-```bash
-pnpm add -D github:qianfan-cmd/agent-utils-reuse
-```
-
-npm (if published):
-
-```bash
-pnpm add -D agent-utils-reuse
-```
+Design deep-dive: [docs/design/utils-reuse-blog.md](docs/design/utils-reuse-blog.md) (Chinese).
 
 ## Quick start
 
-Run at your **project root** (where `package.json` lives):
+Run at your **project root** (directory with `package.json`).
+
+### 1. Install
 
 ```bash
-# 1. Copy config, docs, Cursor templates, package scripts; merge AGENTS.md
-node node_modules/agent-utils-reuse/bin/cli.mjs init --force
+pnpm add -D github:qianfan-cmd/agent-utils-reuse
+# or: pnpm add -D agent-utils-reuse
+```
 
-# 2. Ensure src/utils exists, then generate index + book
+Windows / local path: `pnpm add -D file:../agent-utils-reuse`
+
+### 2. Init gate + docs
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs init --force
+```
+
+This copies Rules, hooks, `.utils-bookrc.json`, and merges `AGENTS.md`. Open **Cursor at the project root**.
+
+### 3. Generate utils index
+
+```bash
 pnpm gen:utils-book
-# Agent Discovery D1 (from project root):
-node node_modules/agent-utils-reuse/bin/cli.mjs search "数组 排序" --limit 8
-
-# 3. Existing utils missing @utils-book? Backfill JSDoc (Agent prompt in catalog docs):
-#    docs/agent-catalog/BACKFILL-UTILS-BOOK.en.md  (English)
-#    docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md  (中文)
-#    Then run pnpm gen:utils-book again.
-
-# 4. Later — upgrade to latest package + gate (one command):
-pnpm upgrade:utils-reuse
 ```
 
-If `pnpm agent-utils-reuse` is not on PATH (Windows `.bin` issues), always use:
-
-```bash
-node node_modules/agent-utils-reuse/bin/cli.mjs init --force
-```
-
-### Try with sample utils
+Requires `.ts` files under `utilsDir` (default `src/utils`). Try samples:
 
 ```bash
 node node_modules/agent-utils-reuse/bin/cli.mjs init --with-examples
 pnpm gen:utils-book
 ```
 
-### Windows note
+### 4. Backfill `@utils-book` on existing exports (recommended)
 
-If installing from a local path, use a relative path:
+**When:** After `gen`, many symbols show `(无简介 — Confirm 前须 Read 实现)`; or `search` misses keywords your team uses.
 
-```bash
-pnpm add -D file:../agent-utils-reuse
+**Do not hand-edit `utils-index.json`.** Add JSDoc on exports, then re-run `gen`.
+
+Paste into a **new Cursor Agent session** (replace `src/utils` with your `utilsDir`):
+
+```markdown
+Task: Add @utils-book JSDoc to every export under `src/utils/` that lacks a valid one-line summary.
+
+Rules:
+1. Place a `/** ... */` block comment immediately above each export (only blank lines between comment and export). Do not use single-line `//`.
+2. Use `@utils-book one-line behavior description` — what the symbol does (inputs/outputs/side effects in one sentence). Do not write reuse/Verdict/ticket-specific scenario text.
+3. Do not change any export signature, implementation, or default behavior (No extend).
+4. If `/** */` exists but lacks @utils-book, add the tag or replace the first line with behavior text.
+5. Skip re-export lines (`export { x } from`) unless a separate note is required.
+6. When done, list changed files and symbols.
+
+**Note**: BACKFILL only updates `utilsDir` comments. It does **not** replace Message A (five questions + `Verdict（最终）`) for later **feature** implementation tasks.
+
+First Grep `src/utils` for exports missing block comments or entries whose utils-index summary is the no-summary placeholder. Backfill file by file. Do not Write feature code.
 ```
 
-## What you get after `init`
-
-| Path | Purpose |
-|------|---------|
-| `AGENTS.md` | **Auto-created or merged** with utils reuse section |
-| `.utils-bookrc.json` | Scan paths, hook mode, globs |
-| `docs/agent-catalog/placement-decision.md` | Reuse rules (five questions) |
-| `docs/agent-catalog/AGENTS.utils-reuse.snippet.md` | Manual-merge reference (usually not needed) |
-| `docs/agent-catalog/utils-index.json` | **Generated** KV index — **Agent Discovery D1** |
-| `docs/agent-catalog/utils-book/` | **Generated** human-readable book (Agent **must not** Read for Shortlist) |
-| `.cursor/rules/workspace-agent-gate.mdc` | **Read AGENTS.md first** (alwaysApply) |
-| `.cursor/rules/code-before-edit.mdc` | Source globs — Confirm before Write |
-| `.cursor/rules/project-agent-gate.mdc` | **alwaysApply checklist** — any project |
-| `.cursor/rules/utils-reuse-gate.mdc` | Mandatory Confirm gate (alwaysApply) |
-| `.cursor/rules/pre-write-utils-checklist.mdc` | Message A/B HARD STOP before Write (alwaysApply) |
-| `.cursor/rules/reuse-first.mdc` | Summary Rule |
-| `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
-
-### Upgrade v0.3.17 → v0.3.18
+Then:
 
 ```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
+pnpm gen:utils-book
+node node_modules/agent-utils-reuse/bin/cli.mjs search "clipboard copy" --limit 8
 ```
 
-**同轮 Confirm 证据通道修复（P0）**：
+Full guide: [docs/en/backfill-jsdoc.md](docs/en/backfill-jsdoc.md) · [docs/zh-CN/backfill-jsdoc.md](docs/zh-CN/backfill-jsdoc.md)
 
-- **`transcript_path` 回读** — preToolUse payload 无 assistant 文本时，从 Cursor `transcript_path` JSONL/JSON 提取当轮 Confirm；`extractConfirmTextForGate` 优先级：payload → stdin 部分解析 → **transcript 文件**
-- **eager `recordVerdict`** — check 入口 `tryEagerRecordVerdict` 在门禁前落盘；audit 保留 `verdictSource: transcript|payload`
-- **大 Write 解析降级** — stdin >16KB 时跳过巨型 `tool_input` 解析；有 `path` 即继续门禁（非全盘 `parse_error`）；无 `path` 仍 `deny parse_error`
-- **Symbol 归一化** — `reuse(UrlUtils.method)` + `import UrlUtils` 覆盖；Bulk 表 **Symbol 列写 import 名**
-- **Discovery debug** — `grep_payload_path` 便于复盘 `discovery_path: none`
+### 5. Daily workflow (Agent)
 
-压测项目若 transcript 不可用：设 `"sameTurnAllow": false` 或分两轮（Confirm 轮 → 用户「继续」→ Write 轮）。
-
-### Upgrade v0.3.16 → v0.3.17
+Single-turn default (v0.3.14+): **Analyze → Discovery → Read util source → Confirm + Verdict → Write** in one assistant response.
 
 ```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
+node node_modules/agent-utils-reuse/bin/cli.mjs search "sort array" --limit 8
 ```
 
-**Hook fail-closed fix (P0)**:
-
-- **Removed `parse_fallback allow`** — JSON parse failure in confirm mode → `denyReason: parse_error`
-- **`sameTurnBypass` requires Confirm evidence** — reads + AGENTS alone no longer allow Write; `turnHasConfirmEvidence()` must pass
-- **Import-driven deny** — `verdict_not_recorded` includes symbol checklist from patch imports
-- **`maxImportSymbolsPerTurn`** (default 5) — hard deny `batch_limit_exceeded` in confirm mode
-- **`addsHelper` decoupled from `sameTurnAllow`** — Local helpers + Discovery enforced even when same-turn enabled
-- **`agentsReadMode: session`** — optional; sessionStart records AGENTS read for alwaysApply Rules projects
-- **`lightGatePaths`** — optional test-page light gate (imports only)
-- **KV**: `searchSynonyms`, `crossFileSiblingGroups`, method name in `searchText`
-
-### Upgrade v0.3.15 → v0.3.16
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**confirm + sameTurnAllow 同轮 Write 修复**:
-
-- **`parseHookJsonSafe`** — 外层 JSON 损坏时仍提取 `path` / `tool_input` / `text`
-- **Gate 重排** — uiOnly (#27) 与 **sameTurnBypass** 早于 addsHelper；`sameTurnAllow` 下 skips addsHelper 硬 verdict
-- **parse_fallback** — confirm + sameTurnAllow + reads/agents 满足时 JSON 解析失败 **allow**（非 fail-closed deny）
-- **`track-utils-verdict`** — partial stdin 提取中文 Bulk Confirm 文本
-
-验收卷：`{ "hookMode": "confirm", "sameTurnAllow": true }` — 日常开发仍推荐 **`hookMode: off`**。
-
-### Upgrade v0.3.14 → v0.3.15
+### 6. Upgrade later
 
 ```bash
 pnpm upgrade:utils-reuse
 ```
 
-**Default `hookMode: off` again** — no Write tool deny; Rules still require Confirm + `Verdict（最终）` in chat before Write.
+## hookMode (choose one)
 
-- **`load-config` / init / example bookrc** default `hookMode: off`
-- Existing projects with explicit `"hookMode": "confirm"` **unchanged** on upgrade
-- **`hooks.json`** empty by default (no preToolUse)
-
-Default consumer config after upgrade:
+| Mode | Write deny | When to use |
+|------|------------|-------------|
+| **`off`** (default) | No | Daily dev — Rules enforce Confirm in chat |
+| `confirm` | Yes | Acceptance tests / strict audit |
+| `remind` | No | Reminder only on Write |
 
 ```json
 { "hookMode": "off" }
 ```
 
-Acceptance / strict audit:
-
-```json
-{ "hookMode": "confirm", "sameTurnAllow": false }
-```
-
-### Upgrade v0.3.13 → v0.3.14
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Single-turn standard flow (default product experience)**:
-
-- **`sameTurnAllow: true` by default** (confirm projects) — analyze → D1/D2 → Read util → Confirm + `Verdict（最终）` → **same-turn Write** when Reads + AGENTS satisfied
-- **`placement-decision.md` §0** — six-step single-turn table; strict audit: `"sameTurnAllow": false` or split turns
-- **`verdict_not_recorded`** deny only when **`sameTurnAllow: false`**
-- Upgrade merges `sameTurnAllow: true` into existing `.utils-bookrc.json` when field missing
-
-Default consumer config after upgrade:
-
-```json
-{ "hookMode": "confirm", "sameTurnAllow": true }
-```
-
-### Upgrade v0.3.12 → v0.3.13
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Same-turn Confirm+Write fix**:
-
-- **`sameTurnAllow: true`** (opt-in in `.utils-bookrc.json`): Confirm in chat but hook payload has no assistant text → **allow+remind** when util Reads + AGENTS.md Read are satisfied (skips bulk/sibling audit this turn)
-- **`denyReason: verdict_not_recorded`** on generic Verdict deny (+ `payloadHadAssistantText` / `sessionVerdictRecorded`)
-- **Verdict marker**: accepts `Verdict (最终):` half-width; bulk compact table Verdict column may omit separate `Verdict（最终）` line
-- **Payload keys**: extended `extractAssistantTextFromHookInput` (see `.cursor/.utils-gate-hook-debug.log`)
-
-Consumer test project with bulk Confirm + same-turn Write:
-
-```json
-{ "hookMode": "confirm", "sameTurnAllow": true }
-```
-
-### Upgrade v0.3.11 → v0.3.12
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-pnpm test:verdict-substance
-pnpm test:search-utils-index
-```
-
-**Gate UX（v2 反馈采纳）**:
-
-- **sessionCoversPatch**: `needsConfirm` empty + session audit recorded → allow without this-turn Verdict
-- **Delta symbol merge**: `recordVerdict` accumulates symbols across delta confirms (confirmText append)
-- **noUtil Q4**: bulk `noUtil` rows require D1/D2/零候选 token (`noutil_q4_invalid`)
-- **D1 siblings**: `agent-utils-reuse search` prints `siblings @ path: …` from `siblingsByPath`
-- Rules: patch-scoped gate, partialReuse+wrapper same row, TEST-RUBRIC D1 keyword column
-
-### Upgrade v0.3.10 → v0.3.11
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Gate UX（测试反馈采纳）**:
-
-- **#27 uiOnly allow**: template/style-only patch on files with existing `@/utils` → allow without re-Confirm
-- **Delta Confirm**: Rules — only new symbol rows + `Gate N/A` block; Hook stale deny includes `alreadyCovered` / `needsConfirm`
-- **Q4 sibling templates** in `placement-decision.md`
-- **`strictD2`**: documented opt-in (default off); not implemented in hook yet
-- Test rubric guide: `docs/agent-catalog/TEST-RUBRIC-WRITING.zh.md`
-
-### Upgrade v0.3.9 → v0.3.10
-
-```bash
-pnpm upgrade:utils-reuse
-```
-
-**Fix**: `patchGitignore` now includes `.cursor/.utils-gate-agents-read.json` (v0.3.8+ AGENTS Read audit). Without it, `Gate verify: FAILED` after upgrade on projects that already had the older three audit lines.
-
-### Upgrade v0.3.8 → v0.3.9
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-pnpm test:verdict-substance
-```
-
-**Compact auditable Confirm (v0.3.9):**
-
-- **Bulk compact (≥3 symbols)** — default 4-column table: `| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |`; Q1–Q3 compressed into one Q4 line (not an exemption from five questions)
-- **Hook fixes**: `confirmText` full storage (8k cap) for sibling/bulk validation; Q4 column parsed from header (not hardcoded offset); sibling check uses union of Verdict reuse symbols + patch imports
-- **`getBulkRowViolations`**: deny when reuse row has empty Read / Q4 or Read not in session (`bulk_row_invalid`, `bulk_read_not_in_session`)
-- **`noUtil(sym)`** Verdict — D1 zero-candidate keywords; **#28**: separate row from D2 reuse (e.g. `noUtil(debounce)` + `reuse(filterEmptyParams)`)
-- **>5 reuse symbols**: allow + agent remind to split batches (≤5 per Confirm + Write)
-- **Legacy** 1–2 symbol prose Confirm and 7-column Bulk table still accepted
-
-**Deny debugging**: when Write denied, read `agent_message` JSON — `denyReason`, `siblingMissing`, `bulkViolations`, `missingReads`.
-
-**Maintainers**: push git tags (`git tag v0.3.9 && git push origin v0.3.9`).
-
-### Upgrade v0.3.7 → v0.3.8
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-pnpm test:verdict-substance
-```
-
-**Batch Confirm + reliable confirm (v0.3.8):**
-
-- **Default `hookMode: confirm`** — Write deny until full **`AGENTS.md`** Read + util Read + chat Confirm + **`Verdict（最终）`**
-- **Bulk Confirm table** (≥3 symbols): `| Symbol | 候选 | Q1 | Q2 | Q3 | Q4 | Verdict |` — Hook accepts per-row Q columns
-- **`utils-index.json` `siblingsByPath`** — same-file multi-export → Q4 must mention sibling in chat
-- **Discovery chat**: D1 candidates or `D1 "<kw>": 0 candidates → D2: ...` (page comments ≠ proof)
-- **Hook fixes**: exact-path Read audit; newUtil new file Write; arrow helpers; unresolved import still requires Verdict
-
-**Acceptance / flow testing**: batch harness needs `hookMode: confirm` + table Confirm; selection-only tests may use `off`.
-
-**Maintainers**: push git tags (`git tag v0.3.8 && git push origin v0.3.8`).
-
-### Upgrade v0.3.6 → v0.3.7
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Gate/KV test feedback (v0.3.7):**
-
-- **confirm hook**: deny JSON includes **`missingReads`** and **`staleSymbols`** (symbol-granular Verdict)
-- **Discovery audit** `via`: `cli` | `grep-index` | `d2-utils-dir`
-- **Rules**: D1 zero candidates → mandatory D2; sibling Grep; **Gate N/A**; Confirm must Read util source (not index/feature-only)
-- **patchAddsLocalHelper**: template-only `.vue` StrReplace no longer triggers addsHelper chain
-
-**Maintainers**: push git tags (`git tag v0.3.7 && git push origin v0.3.7`).
-
-### Upgrade v0.3.5 → v0.3.6
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Default Write Hook off (v0.3.6):**
-
-- **`hookMode: off`** is the new default — **no `preToolUse` Write deny**; Confirm + Verdict enforced by Rules only
-- Avoids Agent Shell bypass when hook timing/heuristics fail in Cursor
-- Opt-in hard gate: set `"hookMode": "confirm"` in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`
-- **`hookMode: remind`** — preToolUse allow + reminder only (no deny)
-
-**Maintainers**: push git tags (`git tag v0.3.6 && git push origin v0.3.6`).
-
-### Upgrade v0.3.4 → v0.3.5
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Verdict audit closure (v0.3.5):**
-
-- **Buffer-level BOM strip** (`EF BB BF`) — fixes fail-closed when all hooks crash on stdin parse
-- **Absolute-path Discovery** — Grep `E:/proj/src/utils` now records discovery (prefer relative `src/utils`)
-- **Local helpers table headers** — accepts `| Helper |`, `| 本地函数 |`, `Local helpers`, etc.
-- **`patchAddsLocalHelper`** — scans only `<script>` blocks in `.vue` (CSS/template patches no longer false-positive)
-- **Hook parse errors** include `err.message` in deny text; debug keys logged to `.utils-gate-hook-debug.log`
-
-**Maintainers**: push git tags (`git tag v0.3.5 && git push origin v0.3.5`).
-
-### Upgrade v0.3.3 → v0.3.4
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Same-turn Confirm→Write (v0.3.4):**
-
-- **Confirm then Implement in one assistant response** — no user "继续" required
-- **BOM-safe hook stdin** — fixes fail-closed when Cursor sends UTF-8 BOM
-- **Eager Verdict record** in preToolUse when assistant text is in hook payload
-- **`afterAgentThought`** hook for early Verdict capture
-- D1 Discovery: `search` or Grep **`utils-index.json`** (repo-wide business Grep ≠ D1)
-
-**Maintainers**: push git tags (`git tag v0.3.4 && git push origin v0.3.4`).
-
-### Upgrade v0.3.2 → v0.3.3
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Gate hardening (all init projects):**
-
-- **Hook fail-closed** — `hookMode: confirm` errors deny Write (no silent allow)
-- **Session Read → Write** — after Read under `utilsDir`, Write under `remindWritePaths` without prior assistant `Verdict（最终）` → deny (even if patch has no `@/utils` import)
-- **`pre-write-utils-checklist.mdc`** — alwaysApply Message A/B reminder
-- **Catalog docs** — two task types (index maintenance vs business Write); BACKFILL does not replace five-question gate
-
-**Maintainers**: push git tags (`git tag v0.3.3 && git push origin v0.3.3`) so GitHub installs resolve versions.
-
-### Upgrade v0.3.1 → v0.3.2
-
-```bash
-pnpm upgrade:utils-reuse
-```
-
-**New**: `upgrade:utils-reuse` — resolves latest GitHub semver tag (or npm `@latest`), runs `pnpm add`, then syncs gate. `update:utils-reuse` remains gate-only (for `file:` local dev).
-
-**Maintainers**: push git tags (`git tag v0.3.2 && git push origin v0.3.2`) so GitHub installs resolve versions.
-
-### Upgrade v0.3.0 → v0.3.1
-
-```bash
-pnpm upgrade:utils-reuse
-```
-
-**Docs only**: bilingual backfill guides `docs/agent-catalog/BACKFILL-UTILS-BOOK.zh.md` and `.en.md` — copy-paste Agent prompts to add missing `@utils-book` JSDoc on existing exports, then `pnpm gen:utils-book`. No Hook/search algorithm changes.
-
-### Upgrade v0.2.1 → v0.3.0
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm gen:utils-book
-pnpm test:hooks
-pnpm test:hook-discovery
-pnpm test:search-utils-index
-pnpm test:verdict-substance
-```
-
-**Behavior change**: **KV retrieval** — Agent Discovery D1 is `agent-utils-reuse search` or Grep `utils-index.json`. **Read `utils-book/*.md` no longer counts as Discovery.** Markdown utils-book is human-only. New file: `docs/agent-catalog/utils-index.json`. Hook adds `Shell` postToolUse for search command.
-
-### Upgrade v0.2.0 → v0.2.1
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-pnpm test:hook-discovery
-pnpm test:verdict-substance
-```
-
-**Behavior change**: **Post-selection proof** — Hook rejects hollow Confirm (`Q1-Q5 通过` without individual Q1–Q4). Adding local helpers requires prior Message A with **Local helpers** table + substantive Verdict (Discovery still required). See `placement-decision.md` §1.6.
-
-### Upgrade v0.1.9 → v0.2.0
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-pnpm test:hook-discovery
-```
-
-**Behavior change**: **Discovery gate** — Write under feature paths that **adds new local function helpers** requires this session: Read `utils-book/index.md` (D1) **or** Grep/SemanticSearch under `utilsDir` (D2). Rules require **Discovery + Local helpers table** in Message A. New audit: `.cursor/.utils-gate-discovery.json`; new hook: `track-utils-discovery.mjs` on Grep/SemanticSearch.
-
-### Upgrade v0.1.8 → v0.1.9
-
-```bash
-pnpm upgrade:utils-reuse
-pnpm test:hooks
-```
-
-**Breaking behavior change**: `hookMode: confirm` now denies Write when util files were Read but chat **Verdict（最终）** was not recorded in a prior assistant message. New hook: `afterAgentResponse` → `track-utils-verdict.mjs`.
-
-### Upgrade / update (general)
-
-**Recommended — one command** (latest package + gate sync):
-
-```bash
-pnpm upgrade:utils-reuse
-```
-
-Resolves the newest GitHub semver tag (for `github:owner/repo#…`), npm `@latest`, or reinstalls a `file:` link, then syncs Rules/Hooks/Docs.
-
-**Gate-only** (no lockfile / no `pnpm add` — use when developing the package via `file:`):
-
-```bash
-pnpm update:utils-reuse
-```
-
-**`file:` local dev**: if your linked package is **newer** than `node_modules`, `update` syncs templates from the **link** without re-running `pnpm add`. Run `agent-utils-reuse status` or `verify` to check drift.
-
-What **`upgrade`** does:
-
-1. Resolve latest version spec → `pnpm add -D …`
-2. Everything **`update`** does below
-
-What **`update`** (gate reinstall) does:
-
-1. Sync **overwrite-tier gate files** from templates — rules, hooks, skill, `hooks.json`, AGENTS snippet, gitignore audit lines
-2. **Verify** overwrite files match templates (exit 1 if not — no silent partial success)
-3. Remove deprecated gate files; prune obsolete `.utils-bookrc.json` keys
-4. Write `installedPackageVersion`, `gateFileHashes`, `gateOverwriteHashes`
-5. Merge-tier docs (`placement-decision.md`, …) still use hash conflict sidecars
-
-What it **does not** do (`update` alone): `pnpm add`, lockfile changes, or modifying `src/**` / `utils-book/`.
-
-| Command / flag | Action |
-|----------------|--------|
-| `pnpm upgrade:utils-reuse` | **Recommended** — latest package + reinstall + verify gate |
-| `pnpm update:utils-reuse` | Gate-only sync from node_modules or newer `file:` link |
-| `… upgrade --tag v0.3.2` | Pin version instead of auto-latest |
-| `… upgrade --dry-run` | Show resolved spec + planned gate reinstall |
-| `… update --bump` | Legacy: bump using existing dep channel (not auto-latest) |
-| `--accept-upstream` | Take package docs; discard local doc customizations |
-| `--force-docs` | Alias for `--accept-upstream` |
-
-Diagnose:
-
-```bash
-node node_modules/agent-utils-reuse/bin/cli.mjs status
-node node_modules/agent-utils-reuse/bin/cli.mjs verify
-```
-
-**Post-update acceptance** (any consumer project root):
-
-- `.cursor/hooks.json` → 2 `postToolUse` entries (Read + Grep/SemanticSearch)
-- `.cursor/hooks/track-utils-discovery.mjs` exists
-- `agent-utils-reuse verify` → `Gate verify: OK`
-- `pnpm test:hook-discovery .` (from agent-utils-reuse repo, pass `[projectRoot]`)
-
-### Merge conflicts (like git pull)
-
-Mergeable docs (`placement-decision.md`, `MERGE-AGENTS.md`, `README.md`) use **hash-based conflict detection**:
-
-- No local edits since last sync → fast-forward to package template
-- Local edits + upstream changed → **conflict**: your file kept; package copy written as `*.utils-reuse-upstream`
-
-```
-docs/agent-catalog/placement-decision.md
-docs/agent-catalog/placement-decision.md.utils-reuse-upstream
-```
-
-Resolve manually (`diff` the two files), delete the sidecar, run `pnpm update:utils-reuse` again — or use `--accept-upstream` to discard local doc changes.
-
-Every **`init`** still refreshes package-managed rules/hooks on first install.
-
-- **`init --force`**: refresh `AGENTS.md` snippet + project-core inject
-- **`init --accept-upstream`**: take package docs on init (rare)
-- **`hookMode`** and other package keys merge into `.utils-bookrc.json`
-
-### Projects with an existing agent-core rule
-
-If you already have `.cursor/rules/my-agent-core.mdc` (`alwaysApply: true`), add to `.utils-bookrc.json`:
-
-```json
-"projectAgentCoreRule": ".cursor/rules/my-agent-core.mdc"
-```
-
-Then `init --force` injects a marked utils gate block. **`project-agent-gate.mdc` remains installed** for redundancy.
+Details: [docs/en/configuration.md](docs/en/configuration.md#hookmode)
+
+## Best practices
+
+- **Default `hookMode: off`** — Rules already require Confirm + `Verdict（最终）` before Write.
+- **Read util exports in source** — not feature call sites only.
+- **Bulk Confirm** (≥3 symbols): `| Symbol | Read @ path | Q4 | Verdict |` — Symbol column = **import name** (e.g. `UrlUtils`, not `UrlUtils.method`).
+- **Split batches** when >5 reuse symbols per turn (≤5 per Confirm + Write).
+- **Acceptance**: `{ "hookMode": "confirm", "sameTurnAllow": true }` then `pnpm test:hooks .`
+
+More: [docs/en/best-practices.md](docs/en/best-practices.md)
+
+## What `init` installs
+
+| Path | Purpose |
+|------|---------|
+| `AGENTS.md` | Merged utils reuse section |
+| `.utils-bookrc.json` | Scan paths, hook mode |
+| `docs/agent-catalog/` | **Agent runtime docs** (not the human quick start) |
+| `docs/agent-catalog/utils-index.json` | Generated KV index (after `gen`) |
+| `.cursor/rules/*.mdc` | Mandatory Confirm gate Rules |
+| `.cursor/hooks/` | Hook scripts (`confirm` / `remind` only) |
+
+## Documentation
+
+| Audience | Start here |
+|----------|------------|
+| **Humans** | This README · [README.zh-CN.md](README.zh-CN.md) |
+| **Extended guides** | [docs/en/](docs/en/getting-started.md) · [docs/zh-CN/](docs/zh-CN/getting-started.md) |
+| **Cursor Agent** | `docs/agent-catalog/placement-decision.md` (synced to your project on init) |
+| **Maintainers** | [docs/maintainer/TEST-RUBRIC-WRITING.zh.md](docs/maintainer/TEST-RUBRIC-WRITING.zh.md) |
+| **Version history** | [docs/en/changelog-gate.md](docs/en/changelog-gate.md) |
 
 ## Commands
 
 | Command | Action |
 |---------|--------|
-| `pnpm upgrade:utils-reuse` | **Recommended** — latest package + reinstall + verify gate |
-| `pnpm update:utils-reuse` | Gate-only sync (no `pnpm add`; `file:` local dev) |
-| `… upgrade --tag v0.3.2` | Pin version on upgrade |
-| `… upgrade --dry-run` | Preview resolved spec + gate reinstall |
-| `… update --accept-upstream` | Take package docs; discard local doc customizations |
-| `… status` | Version drift, **gate verify**, deprecated files, merge conflicts |
-| `… verify` | Detailed overwrite-tier gate file check (exit 1 on drift) |
-| `node node_modules/agent-utils-reuse/bin/cli.mjs init` | First-time install |
-| `… init --with-examples` | Setup + sample array utils |
-| `… init --force` | Also refresh AGENTS.md snippet + project-core inject |
-| `pnpm gen:utils-book` | Regenerate utils-index.json + utils-book from `src/utils` |
-| `… search "<query>" [--limit N] [--json]` | Keyword search utils-index (Agent D1) |
-| `pnpm check:utils-book` | Regenerate + git diff index + book (CI gate) |
-| `pnpm test:search-utils-index` | Search CLI smoke tests |
-| `pnpm test:hooks` | Hook confirm + Verdict smoke tests |
-| `pnpm test:update` | Update command regression test (package dev) |
+| `pnpm upgrade:utils-reuse` | Latest package + gate sync |
+| `pnpm update:utils-reuse` | Gate-only sync (no `pnpm add`) |
+| `pnpm gen:utils-book` | Regenerate index + utils-book |
+| `agent-utils-reuse search "<query>"` | KV search (Agent D1) |
+| `pnpm test:hooks [projectRoot]` | Hook smoke tests |
 
-`init` does **not** generate the book — run `gen` after you have `.ts` files under `utilsDir`.
+## Development
 
-## Configuration (`.utils-bookrc.json`)
+From this repo:
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `utilsDir` | `src/utils` | Directory to scan |
-| `catalogDir` | `docs/agent-catalog` | Agent catalog root |
-| `utilsBookDir` | `docs/agent-catalog/utils-book` | Generated human-readable book |
-| `utilsIndexFile` | `docs/agent-catalog/utils-index.json` | Generated KV index (Agent D1) |
-| `skillsDir` | `.cursor/skills` | For `skills.md` index |
-| `agentsFile` | `AGENTS.md` | Agent guide file merged by `init` |
-| `jsdocTag` | `@utils-book` | One-line summary tag in JSDoc |
-| `hookMode` | `off` | `off` = Rules only (default v0.3.15); `confirm` = Write deny; `remind` = allow + reminder |
-| `maxImportSymbolsPerTurn` | `5` | confirm: hard deny when patch adds more import symbols without full Verdict |
-| `agentsReadMode` | `tool` | `session` = treat alwaysApply Rules as AGENTS read at sessionStart |
-| `lightGatePaths` | `[]` | Paths with import-only gate (skip Local helpers audit) |
-| `searchSynonyms` | `{}` | KV index: merge synonym tokens into `searchText` |
-| `crossFileSiblingGroups` | `[]` | KV index: e.g. `[["uploadFiles","uploadMultipleFiles"]]` for Q4 sibling hints |
-| `utilsImportAliases` | `["@/utils"]` | Import prefixes for Hook (merged disk + patch) |
-| `remindWritePaths` | `src/feature`, … | App paths scanned for `@/utils` on Write |
-| `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | Default for `code-before-edit.mdc` |
-| `projectAgentCoreRule` | `null` | Optional path to merge utils gate into your alwaysApply core rule |
-| `installedPackageVersion` | *(written by `update`)* | Last synced template/package version |
-| `gateFileHashes` | *(written by `update`)* | Content hashes for mergeable gate docs |
-| `gateOverwriteHashes` | *(written by `update`)* | Content hashes for overwrite-tier gate files |
-
-### hookMode (v0.3.15)
-
-| Mode | Write deny | hooks.json |
-|------|------------|------------|
-| **`off`** (default) | No | Empty — no hooks registered |
-| `confirm` | Yes | Full audit + preToolUse deny gate |
-| `remind` | No | `preToolUse` only (allow + reminder) |
-
-Rules **always** require Confirm + **`Verdict（最终）`** in chat before Write.
-
-**Rules-only** (no tool deny):
-
-```json
-{ "hookMode": "off" }
+```bash
+pnpm test:hooks
+pnpm test:update
 ```
 
-### confirm mode (opt-in)
-
-`init --force` installs:
-
-```json
-{
-  "hooks": {
-    "sessionStart": [{ "command": "node .cursor/hooks/track-utils-reads.mjs --reset" }],
-    "postToolUse": [
-      { "command": "node .cursor/hooks/track-utils-reads.mjs", "matcher": "Read" },
-      { "command": "node .cursor/hooks/track-utils-discovery.mjs", "matcher": "Grep|SemanticSearch|Shell" }
-    ],
-    "preToolUse": [{
-      "command": "node .cursor/hooks/check-discovery-before-shared-write.mjs",
-      "matcher": "Write|StrReplace|EditNotebook"
-    }],
-    "afterAgentResponse": [{
-      "command": "node .cursor/hooks/track-utils-verdict.mjs"
-    }]
-  }
-}
-```
-
-Init adds `.cursor/.utils-gate-reads.json`, `.cursor/.utils-gate-verdict.json`, `.cursor/.utils-gate-discovery.json`, and `.cursor/.utils-gate-agents-read.json` to `.gitignore`.
-
-### Known limits
-
-- **Verdict detection is heuristic** — Hook requires individual Q1–Q4 or bulk Confirm table rows; cannot verify Q4 equivalence
-- **Thinking-only Confirm** — not visible to Hook; must output Confirm in **user-visible chat**
-- **Local helpers / bulk table detection** — markdown header + data rows; cannot verify completeness vs planned helpers
-- **Discovery detection is heuristic** — matches new `function` / `const fn =` / arrow helpers in Write patches
-- **Shell bypass** — Agent Shell Write bypasses hooks; reducing false denies is the main lever
-- **Same-turn Verdict + Write** — supported when assistant text is in preToolUse payload (`tryEagerRecordVerdict`)
-- **Cloud Agent** — `afterAgentResponse` may not be wired; Rules still apply
-- **Tab / non-Agent mode** — hooks do not apply
-
-### Test Hook locally (Windows)
-
-Git Bash `node` is often aliased to `winpty node.exe` — **pipe tests fail** with `stdin is not a tty`. Use PowerShell or direct path:
-
-```powershell
-cd your-project
-node ../agent-utils-reuse/scripts/test-hook-confirm.mjs .
-```
-
-Or Git Bash: `/c/nvm4w/nodejs/node.exe .cursor/hooks/check-discovery-before-shared-write.mjs < /tmp/in.json`
-
-## JSDoc on exports (required in utilsDir)
-
-Every **new or changed export** under `utilsDir` must have **`/** */`** immediately above the export. Prefer `@utils-book` for a one-line behavior summary, then run `pnpm gen:utils-book`.
-
-```ts
-/** @utils-book 数字数组升序排序，返回新数组 */
-export function sortAsc(nums: number[]): number[] {
-  return [...nums].sort((a, b) => a - b)
-}
-```
-
-Without `@utils-book`, the generator uses the first description line in `/** */`, or `(无简介 — Confirm 前须 Read 实现)`.
-
-## Preview output
-
-Clone this repo and open [`examples/minimal/docs/agent-catalog/utils-book/`](examples/minimal/docs/agent-catalog/utils-book/) — sample generated book from two array utils.
+Preview generated book: [examples/minimal/docs/agent-catalog/utils-book/](examples/minimal/docs/agent-catalog/utils-book/)
 
 ## License
 
