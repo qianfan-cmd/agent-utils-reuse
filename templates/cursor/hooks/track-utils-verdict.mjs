@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import {
   extractAssistantTextFromHookInput,
+  extractTextFromRawHookStdin,
   loadHookConfig,
   logHookError,
-  parseHookJson,
+  parseHookJsonSafe,
   readHookStdin,
   recordVerdict,
   resetVerdictAudit
@@ -26,11 +27,24 @@ async function main() {
       return
     }
 
-    const input = parseHookJson(raw)
-    const text = extractAssistantTextFromHookInput(input)
-    const recorded = recordVerdict(text, cwd)
+    const { input, parseError, partial } = parseHookJsonSafe(raw)
+    let text = ''
+    if (input) {
+      text = extractAssistantTextFromHookInput(input)
+    }
+    if (!text.trim()) {
+      text = extractTextFromRawHookStdin(raw)
+    }
+    const recorded = text.trim() ? recordVerdict(text, cwd) : false
 
-    process.stdout.write(JSON.stringify({ ok: true, recorded }))
+    process.stdout.write(
+      JSON.stringify({
+        ok: true,
+        recorded,
+        partial: partial || Boolean(parseError),
+        parseError: parseError ? String(parseError.message) : undefined
+      })
+    )
   } catch (err) {
     logHookError(cwd, 'track-utils-verdict', err)
     if (config.hookMode === 'confirm') {

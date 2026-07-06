@@ -291,9 +291,43 @@ try {
     badParsed = null
   }
   assert(
-    'Invalid hook stdin JSON under confirm → deny',
-    badParsed?.permission === 'deny',
+    'Invalid hook stdin JSON + sameTurnAllow (default) + reads → allow parse_fallback (v0.3.16)',
+    badParsed?.permission === 'allow' &&
+      (badParsed?.denyReason === 'parse_fallback' || badParsed?.sameTurnBypass === true),
     badOut
+  )
+
+  fs.writeFileSync(
+    path.join(tempDir, '.utils-bookrc.json'),
+    `${JSON.stringify(
+      {
+        hookMode: 'confirm',
+        sameTurnAllow: false,
+        utilsDir: 'src/utils',
+        utilsImportAliases: ['@/utils'],
+        remindWritePaths: ['src/views']
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  )
+  const badStrict = spawnSync(process.execPath, [hookScript(tempDir)], {
+    cwd: tempDir,
+    input: '{not valid json',
+    encoding: 'utf8'
+  })
+  const badStrictOut = (badStrict.stdout || '').trim()
+  let badStrictParsed = null
+  try {
+    badStrictParsed = badStrictOut ? JSON.parse(badStrictOut) : null
+  } catch {
+    badStrictParsed = null
+  }
+  assert(
+    'Invalid hook stdin JSON + sameTurnAllow false → deny parse_error',
+    badStrictParsed?.permission === 'deny' && badStrictParsed?.denyReason === 'parse_error',
+    badStrictOut
   )
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true })
@@ -1079,6 +1113,87 @@ import { copyToClip } from '@/utils/copy'
   )
 } finally {
   fs.rmSync(mixedUiDir, { recursive: true, force: true })
+}
+
+// --- v0.3.16: malformed JSON + sameTurnAllow + addsHelper bypass ---
+const parseSafeDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-parse-safe-"))
+try {
+  fs.mkdirSync(path.join(parseSafeDir, "src", "views"), { recursive: true })
+  fs.mkdirSync(path.join(parseSafeDir, "src", "utils"), { recursive: true })
+  fs.writeFileSync(
+    path.join(parseSafeDir, ".utils-bookrc.json"),
+    JSON.stringify(
+      {
+        hookMode: "confirm",
+        sameTurnAllow: true,
+        utilsDir: "src/utils",
+        utilsImportAliases: ["@/utils"],
+        remindWritePaths: ["src/views"]
+      },
+      null,
+      2
+    ) + "\n"
+  )
+  fs.writeFileSync(path.join(parseSafeDir, "src/utils/copy.ts"), "export function copyToClip() {}\n")
+  fs.writeFileSync(
+    path.join(parseSafeDir, "src/views/Page.vue"),
+    "<template><div>test</div></template>\n"
+  )
+  resetAudit(parseSafeDir)
+  recordAgentsRead(parseSafeDir)
+  recordRead(parseSafeDir, "src/utils/copy.ts")
+
+  const malformedPayload =
+    '{"tool_input":{"path":"src/views/Page.vue","old_string":"test","new_string":"test-updated"},"broken":'
+  const malformedAllow = runHookRaw(parseSafeDir, "check-discovery-before-shared-write.mjs", malformedPayload)
+  assert(
+    "malformed JSON with extractable path + sameTurnAllow → allow",
+    malformedAllow.permission === "allow" &&
+      (malformedAllow.sameTurnBypass === true || malformedAllow.parsePartial === true),
+    JSON.stringify(malformedAllow)
+  )
+
+  spawnSync(process.execPath, [hookPath(parseSafeDir, "track-utils-discovery.mjs")], {
+    cwd: parseSafeDir,
+    input: JSON.stringify({ tool_input: { pattern: "copy", path: "src/utils" } }),
+    encoding: "utf8"
+  })
+  const helperNoVerdict = runHook(parseSafeDir, {
+    tool_input: {
+      path: "src/views/Page.vue",
+      old_string: "test",
+      new_string: "function localHelper() {}\ntest"
+    }
+  })
+  assert(
+    "addsHelper + sameTurnAllow + reads OK + no verdict file → allow (v0.3.16)",
+    helperNoVerdict.permission === "allow" && helperNoVerdict.sameTurnBypass === true,
+    JSON.stringify(helperNoVerdict)
+  )
+
+  const uiOnlyMalformed =
+    '{"tool_input":{"path":"src/views/Page.vue","old_string":"<div>test</div>","new_string":"<div>Test</div>"},broken'
+  const uiMalformedAllow = runHookRaw(
+    parseSafeDir,
+    "check-discovery-before-shared-write.mjs",
+    uiOnlyMalformed
+  )
+  assert(
+    "uiOnly template patch + malformed JSON + sameTurnAllow → allow",
+    uiMalformedAllow.permission === "allow",
+    JSON.stringify(uiMalformedAllow)
+  )
+
+  const chineseVerdict = `${SAMPLE_VERDICT}\n| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |\n| copyToClip | src/utils/copy.ts | 与 util 行为一致，不选 sibling | reuse(copyToClip) |`
+  const brokenVerdictStdin = `{"text":"${chineseVerdict.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}","broken":`
+  const vOut = runHookRaw(parseSafeDir, "track-utils-verdict.mjs", brokenVerdictStdin)
+  assert(
+    "track-utils-verdict partial JSON + Chinese bulk table → recorded",
+    vOut.ok === true && vOut.recorded === true,
+    JSON.stringify(vOut)
+  )
+} finally {
+  fs.rmSync(parseSafeDir, { recursive: true, force: true })
 }
 
 

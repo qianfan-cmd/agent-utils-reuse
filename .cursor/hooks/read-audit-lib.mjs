@@ -150,6 +150,136 @@ export function parseHookJson(raw) {
   }
 }
 
+/** Extract a JSON object value for `key` using brace counting (tolerates broken outer JSON). */
+function extractJsonObjectAtKey(raw, key) {
+  const re = new RegExp(`"${key}"\\s*:\\s*`, 'i')
+  const match = re.exec(raw)
+  if (!match) return null
+  let i = match.index + match[0].length
+  while (i < raw.length && /\s/.test(raw[i])) i += 1
+  if (raw[i] !== '{') return null
+  let depth = 0
+  let inString = false
+  let escape = false
+  const start = i
+  for (; i < raw.length; i += 1) {
+    const c = raw[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (inString && c === '\\') {
+      escape = true
+      continue
+    }
+    if (c === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (c === '{') depth += 1
+    else if (c === '}') {
+      depth -= 1
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, i + 1))
+        } catch {
+          return null
+        }
+      }
+    }
+  }
+  return null
+}
+
+/** Extract a JSON string field value (handles \\n, \\u, etc.). */
+function extractJsonStringField(raw, key) {
+  const re = new RegExp(`"${key}"\\s*:\\s*"`, 'i')
+  const match = re.exec(raw)
+  if (!match) return null
+  let i = match.index + match[0].length
+  let out = ''
+  let escape = false
+  for (; i < raw.length; i += 1) {
+    const c = raw[i]
+    if (escape) {
+      if (c === 'n') out += '\n'
+      else if (c === 't') out += '\t'
+      else if (c === 'r') out += '\r'
+      else if (c === 'u' && i + 4 < raw.length) {
+        const hex = raw.slice(i + 1, i + 5)
+        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+          out += String.fromCharCode(parseInt(hex, 16))
+          i += 4
+        } else out += c
+      } else out += c
+      escape = false
+      continue
+    }
+    if (c === '\\') {
+      escape = true
+      continue
+    }
+    if (c === '"') return out
+    out += c
+  }
+  return out.length > 0 ? out : null
+}
+
+/**
+ * Parse hook stdin; on failure extract path / tool_input / text for graceful gate (v0.3.16).
+ * @returns {{ input: object|null, parseError: Error|null, partial: boolean }}
+ */
+export function parseHookJsonSafe(raw) {
+  const trimmed = stripUtf8Bom(String(raw ?? '').trim())
+  if (!trimmed) return { input: null, parseError: null, partial: false }
+  try {
+    return { input: JSON.parse(trimmed), parseError: null, partial: false }
+  } catch (err) {
+    const input = {}
+    const pathMatch = trimmed.match(
+      /"(?:path|file_path|target_notebook)"\s*:\s*"((?:\\.|[^"\\])*)"/
+    )
+    if (pathMatch) {
+      try {
+        const p = JSON.parse(`"${pathMatch[1]}"`)
+        input.tool_input = { path: p }
+      } catch {
+        input.tool_input = {
+          path: pathMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+        }
+      }
+    }
+    const toolInput = extractJsonObjectAtKey(trimmed, 'tool_input')
+    if (toolInput && typeof toolInput === 'object') {
+      input.tool_input = { ...(input.tool_input ?? {}), ...toolInput }
+    }
+    const text = extractJsonStringField(trimmed, 'text')
+    if (text != null) input.text = text
+    if (Object.keys(input).length === 0) {
+      return { input: null, parseError: err, partial: true }
+    }
+    return { input, parseError: err, partial: true }
+  }
+}
+
+/** Extract assistant Confirm text from raw hook stdin when outer JSON is broken (v0.3.16). */
+export function extractTextFromRawHookStdin(raw) {
+  const trimmed = stripUtf8Bom(String(raw ?? '').trim())
+  if (!trimmed) return ''
+  for (const key of ['text', 'response', 'content', 'assistant_message', 'agent_message']) {
+    const s = extractJsonStringField(trimmed, key)
+    if (s?.trim()) return s
+  }
+  return ''
+}
+
+/** AGENTS read + at least one util Read recorded this session (sameTurnAllow bypass). */
+export function sessionReadyForSameTurnBypass(cwd = process.cwd()) {
+  if (!hasAgentsFileRead(cwd)) return false
+  return loadAudit(cwd).reads.length > 0
+}
+
 export function logHookPayloadKeys(input, cwd = process.cwd(), context = 'hook') {
   try {
     if (!input || typeof input !== 'object') return

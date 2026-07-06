@@ -101,6 +101,22 @@ pnpm add -D file:../agent-utils-reuse
 | `.cursor/rules/reuse-first.mdc` | Summary Rule |
 | `.cursor/hooks/` | Hook scripts (installed); **registered in hooks.json only when `hookMode: confirm` or `remind`** |
 
+### Upgrade v0.3.15 → v0.3.16
+
+```bash
+pnpm upgrade:utils-reuse
+pnpm test:hooks
+```
+
+**confirm + sameTurnAllow 同轮 Write 修复**:
+
+- **`parseHookJsonSafe`** — 外层 JSON 损坏时仍提取 `path` / `tool_input` / `text`
+- **Gate 重排** — uiOnly (#27) 与 **sameTurnBypass** 早于 addsHelper；`sameTurnAllow` 下 skips addsHelper 硬 verdict
+- **parse_fallback** — confirm + sameTurnAllow + reads/agents 满足时 JSON 解析失败 **allow**（非 fail-closed deny）
+- **`track-utils-verdict`** — partial stdin 提取中文 Bulk Confirm 文本
+
+验收卷：`{ "hookMode": "confirm", "sameTurnAllow": true }` — 日常开发仍推荐 **`hookMode: off`**。
+
 ### Upgrade v0.3.14 → v0.3.15
 
 ```bash

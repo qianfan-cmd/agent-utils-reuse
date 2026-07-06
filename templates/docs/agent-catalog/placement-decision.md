@@ -21,7 +21,7 @@
 | **5 Confirm** | Bulk 表（≥3）或 Legacy 分项 Q1–Q4 + **`Verdict（最终）`** | **chat，首个 Write 之前** |
 | **6 Implement** | StrReplace / Write | 同轮，步骤 5 之后 |
 
-Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** 时 **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后，步骤 6 同轮放行（须 session 已 Read util + AGENTS.md）。阅卷 strict：设 `"sameTurnAllow": false` 并分两轮 Write。
+Hook 默认 **`hookMode: off`**（Rules 约束，不拦 Write）。opt-in **`hookMode: confirm`** + **`sameTurnAllow: true`**：步骤 5 在 chat 中完成后步骤 6 同轮放行（须 session Read util + AGENTS）；**不依赖** `.utils-gate-verdict.json` 落盘；JSON 解析失败时 reads 满足则 **parse_fallback allow**（v0.3.16）。阅卷 strict：设 `"sameTurnAllow": false`。
 
 ---
 

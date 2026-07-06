@@ -20,15 +20,16 @@ import {
   matchesRemindPath,
   needsDiscoveryOutcomeInChat,
   normalizeAuditPath,
+  parseHookJsonSafe,
+  parseNestedJson,
+  readHookStdin,
+  sessionReadyForSameTurnBypass,
+  shouldRequireSelfUtilRead,
   patchAddsLocalHelper,
   requiredSymbolsFromPatch,
   resolveContentUtilPaths,
   resolvePatchUtilPaths,
   resolveTargetUtilPaths,
-  parseHookJson,
-  parseNestedJson,
-  readHookStdin,
-  shouldRequireSelfUtilRead,
   textHasD1OutcomeDocumented,
   tryEagerRecordVerdict
 } from './read-audit-lib.mjs'
@@ -160,15 +161,47 @@ function collectRequiredReads(normalized, payload, config, cwd) {
   return { requiredReads, isRemind, isUtils, uiOnly }
 }
 
+function writeSameTurnBypassResponse(extra = {}) {
+  markSameTurnBypass(process.cwd())
+  process.stdout.write(
+    JSON.stringify({
+      permission: 'allow',
+      sameTurnBypass: true,
+      sessionVerdictRecorded: false,
+      agent_message: remindSameTurnAllowMessage(),
+      ...extra
+    })
+  )
+}
+
+function shouldEarlySameTurnBypass(config, cwd, { missing, isRemind, isUtils }) {
+  if (config.sameTurnAllow !== true) return false
+  if (!sessionReadyForSameTurnBypass(cwd)) return false
+  if (hasVerdict(cwd)) return false
+  if (missing.length > 0) return false
+  if (!isRemind && !isUtils) return false
+  return true
+}
+
 function failClosedWrite(config, cwd, err, context) {
   logHookError(cwd, context, err)
   if (config.hookMode === 'off' || config.hookMode === 'remind') {
     process.stdout.write(JSON.stringify({ permission: 'allow' }))
     return
   }
+  if (config.sameTurnAllow === true && sessionReadyForSameTurnBypass(cwd)) {
+    writeSameTurnBypassResponse({
+      denyReason: 'parse_fallback',
+      parseError: true,
+      parsePartial: true
+    })
+    return
+  }
   process.stdout.write(
     JSON.stringify({
       permission: 'deny',
+      denyReason: 'parse_error',
+      parseError: true,
       agent_message: hookErrorDenyMessage(err?.message || String(err))
     })
   )
@@ -185,8 +218,14 @@ async function main() {
       return
     }
 
-    const input = parseHookJson(raw)
+    const { input, parseError, partial } = parseHookJsonSafe(raw)
     config = loadHookConfig(cwd)
+
+    if (!input) {
+      failClosedWrite(config, cwd, parseError ?? new Error('Hook JSON parse failed'), 'check-discovery-before-shared-write')
+      return
+    }
+
     const filePath = extractPath(input)
     if (!filePath) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
@@ -195,7 +234,7 @@ async function main() {
 
     const normalized = normalizeAuditPath(filePath)
     const payload = extractWriteContent(input)
-    const { requiredReads, isRemind, isUtils } = collectRequiredReads(
+    const { requiredReads, isRemind, isUtils, uiOnly } = collectRequiredReads(
       normalized,
       payload,
       config,
@@ -232,13 +271,34 @@ async function main() {
       return
     }
 
-    const addsHelper = isRemind && patchAddsLocalHelper(payload, normalized) && !isUtils
+    const missing = [...requiredReads].filter((p) => !hasRead(p, cwd))
+
+    if (isRemind && uiOnly && missing.length === 0) {
+      process.stdout.write(JSON.stringify({ permission: 'allow', uiOnly: true }))
+      return
+    }
+
+    if (shouldEarlySameTurnBypass(config, cwd, { missing, isRemind, isUtils })) {
+      writeSameTurnBypassResponse(
+        partial || parseError
+          ? { parsePartial: true, denyReason: partial ? 'parse_partial' : undefined }
+          : {}
+      )
+      return
+    }
+
+    const addsHelper =
+      config.sameTurnAllow !== true &&
+      isRemind &&
+      patchAddsLocalHelper(payload, normalized) &&
+      !isUtils
 
     if (addsHelper) {
       if (!hasDiscovery(cwd)) {
         process.stdout.write(
           JSON.stringify({
             permission: 'deny',
+            denyReason: 'missing_discovery',
             agent_message: denyDiscoveryMessage(config)
           })
         )
@@ -263,6 +323,7 @@ async function main() {
         process.stdout.write(
           JSON.stringify({
             permission: 'deny',
+            denyReason: 'verdict_not_recorded',
             agent_message: denyVerdictMessage(config)
           })
         )
@@ -273,6 +334,7 @@ async function main() {
         process.stdout.write(
           JSON.stringify({
             permission: 'deny',
+            denyReason: 'local_helpers_table_missing',
             agent_message: denyLocalHelpersTableMessage()
           })
         )
@@ -287,7 +349,6 @@ async function main() {
       return
     }
 
-    const missing = [...requiredReads].filter((p) => !hasRead(p, cwd))
     if (missing.length > 0) {
       process.stdout.write(
         JSON.stringify({
@@ -312,22 +373,16 @@ async function main() {
     const sameTurnBypass =
       config.sameTurnAllow === true &&
       !hasVerdict(cwd) &&
-      !payloadHadAssistantText &&
       !sessionCoversPatch &&
-      hasAgentsFileRead(cwd) &&
-      requiredReads.size > 0
+      sessionReadyForSameTurnBypass(cwd) &&
+      missing.length === 0 &&
+      (isRemind || isUtils)
 
     if (sameTurnBypass) {
-      markSameTurnBypass(cwd)
-      process.stdout.write(
-        JSON.stringify({
-          permission: 'allow',
-          sameTurnBypass: true,
-          sessionVerdictRecorded: false,
-          payloadHadAssistantText: false,
-          agent_message: remindSameTurnAllowMessage()
-        })
-      )
+      writeSameTurnBypassResponse({
+        payloadHadAssistantText,
+        parsePartial: partial || Boolean(parseError)
+      })
       return
     }
 
@@ -338,6 +393,7 @@ async function main() {
           denyReason: 'verdict_not_recorded',
           sessionVerdictRecorded: false,
           payloadHadAssistantText,
+          parseError: Boolean(parseError),
           agent_message: denyVerdictMessage(config)
         })
       )
