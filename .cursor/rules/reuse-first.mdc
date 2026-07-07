@@ -1,31 +1,25 @@
 ---
-description: Utils 按需复用 — 先摸底 → Identify → Confirm（五问）→ Verdict（不可跳过）
+description: Utils reuse pointer — 详规见 utils-reuse-gate.mdc
 alwaysApply: true
 ---
 
 # Utils 按需复用
 
-动手前 **完整 Read `AGENTS.md`**（禁 limit）。涉及工具函数时：**先读任务/业务代码** → **Identify** → **Read util 源码 export**（不能只看 feature 调用处）→ **Confirm**: Discovery + 分项 Q1–Q4 + `Verdict（最终）` in chat → **Implement**: Write（同一 assistant 轮，Verdict 在首个 Write 之前）。
+**详规 SSOT**：**[`.cursor/rules/utils-reuse-gate.mdc`](utils-reuse-gate.mdc)**
 
-**Read util ≠ 门禁完成。** 默认 **`hookMode: off`**（v0.3.15）；opt-in **`hookMode: confirm`** 会拦缺 Verdict 的 Write。
+流程摘要：**摸底 → Identify → Read util 源码 → Confirm + `Verdict（最终）` → Write**（同轮默认 OK）。
 
-**已有 import / WIP 接线 / 无新 import — 不豁免。** 强制步骤见 **`.cursor/rules/utils-reuse-gate.mdc`**。
+- **Read util ≠ 门禁完成**
+- 默认 **`hookMode: off`**；验收开 **`confirm`**
+- 已有 import / 无新 import **不豁免**
+- 展示层差异未写明 → 问用户（placement §1.5）
 
-## Do（默认偏向 reuse）
-
-- **已实现勿重写** — 同语义用公共 utils
-- **子集 / 单 export** — 只 Read/调用需要的方法
-- **五问通过 + Q5=否** → **reuse**
-- **展示层细小差异且需求未写明** → **问用户**（§1.5）
-
-## Verdict
+## Verdict 速查
 
 | Verdict | 含义 |
 |---------|------|
 | **reuse** | 五问通过，Q5 否 |
-| **newUtil** | Q1–Q4 硬失败要共享；或 Q5 是 |
-| **featureLocal** | 硬失败仅本页 |
-
-## 禁止
-
-- 无 **`Verdict（最终）`** 就 Write feature 文件 · 无实质五问 · 因 WIP/无新 import 跳过门禁 · **仅读 feature 调用处、未 Read util 源码 export** · 写 cache JSON
+| **partialReuse+featureLocal** | util 核心 + 薄包装 |
+| **newUtil** | 须共享新 export |
+| **featureLocal** | 仅本页 |
+| **noUtil** | D1/D2 无 export |

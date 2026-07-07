@@ -1,25 +1,19 @@
 ---
-description: HARD STOP before Write — Confirm + Verdict in chat before first Write (same turn OK)
+description: HARD STOP before Write — pointer to utils-reuse-gate SSOT
 alwaysApply: true
 ---
 
 # Pre-Write utils checklist (mandatory)
 
-When you are about to **Write / StrReplace / EditNotebook** under **`remindWritePaths`** (default `src/feature`, `src/components`, `src/hooks`, `src/views`) or **`utilsDir`**, and the change **imports or calls `@/utils`** (or adds util-semantics local helpers):
+**详规 SSOT**：**[`.cursor/rules/utils-reuse-gate.mdc`](utils-reuse-gate.mdc)** — 完整 Discovery、分层 gate、Bulk/Delta、Hook deny 列表。
 
-## HARD STOP — Read / search / gen index ≠ gate complete
+## Write 前硬停（6 条）
 
-**Do not call Write tools** until **all** are true in chat **before the first Write in this response**:
+1. **分层**：uiOnly / delta / newCall / full — 见详规与 `placement-decision.md` §1.6.1
+2. **Confirm**：分项或 bulk 表 + **`Verdict（最终）`** — **chat 中、首个 Write 之前**（同轮 OK）
+3. **Read util 源码 export** — 禁仅凭 index 或 feature 调用处 Confirm
+4. **Discovery**（触发时）：D1/D2 **固定一行格式**
+5. **Q4**：`reject <sibling> (<reason>)` 或 `no sibling` — 禁空泛通过
+6. **`hookMode: confirm`**（opt-in）硬拦 — 默认 **`off`** 靠 Rules
 
-1. **Confirm per symbol** — legacy (1–2): individual Q1–Q4; **bulk compact (≥3)**: `| Symbol | Read @ path | Q4 | Verdict |`; **delta (v0.3.12)**: only **new** symbol rows + `Gate N/A — <block>` — **not** full table repeat; session `alreadyCovered` → Hook allow without this-turn Verdict when `needsConfirm` empty
-2. **`Verdict（最终）`** with reuse / newUtil / **noUtil** / featureLocal / **partialReuse**
-3. Verdict is **before** the first Write tool call (same assistant turn OK)
-4. **Read util source export(s)** you will call — **forbidden**: Confirm from index summary or feature call sites only
-5. Pure UI / template-style-only patch (no script import delta) → **`Gate N/A: uiOnly`** or Hook allow without re-Confirm (v0.3.12)
-6. **>5 reuse symbols** → prefer split batches (≤5 symbol Confirm + Write per round)
-
-If any is false → output Discovery + Local helpers / bulk table + Confirm + Verdict in chat first, **then** Write (same response). No user "继续" required.
-
-With **`hookMode: confirm`** (opt-in), deny includes **`verdict_not_recorded`** (when Confirm/Verdict not in session audit — stricter with **`sameTurnAllow: false`**), **`missingReads`**, **`staleSymbols`**, **`needsConfirm`**, **`alreadyCovered`**, **`missing_agents_read`**, **`sibling_q4_missing`**, **`bulk_row_invalid`**, **`bulk_read_not_in_session`**, **`noutil_q4_invalid`**, **`missing_discovery_for_util`**, **`prefer_cli_search`**. Default **`hookMode: off`** — Rules only, no Write deny. Debug payload: `.cursor/.utils-gate-hook-debug.log`.
-
-Details: `.cursor/rules/utils-reuse-gate.mdc`, `docs/agent-catalog/placement-decision.md` §1.6.
+违规时先读 `agent_message` / `.cursor/.utils-gate-hook-debug.log`。

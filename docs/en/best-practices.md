@@ -15,15 +15,26 @@
 
 **Read util ≠ gate complete.** Confirm in chat is mandatory.
 
-## hookMode
+## AGENTS.md: once per session
 
-| Scenario | Setting |
-|----------|---------|
-| Daily development | `hookMode: off` — Rules enforce Confirm |
-| Acceptance / hard gate | `hookMode: confirm` (enables Discovery/batch/D1.5 by default) |
-| Split-turn only | `sameTurnAllow: false` |
+Recommended in `.utils-bookrc.json`:
 
-Before agent tasks with confirm:
+```json
+{ "agentsReadMode": "session" }
+```
+
+- **`session`**: sessionStart counts as AGENTS read (with alwaysApply Rules)
+- **`tool`** (default): full Read **each task** (no `limit`/`offset`)
+
+## hookMode tiers
+
+| Mode | Write deny | When |
+|------|------------|------|
+| **`off`** (default) | No | Daily dev — Rules enforce Confirm |
+| **`remind`** | No | Allow + reminder in `agent_message`; track violations |
+| **`confirm`** | Yes | Acceptance / PR self-check — Discovery, batch, sibling hard gate |
+
+Before tasks with `confirm`:
 
 ```bash
 pnpm gen:utils-book
@@ -31,49 +42,64 @@ agent-utils-reuse status
 agent-utils-reuse search "mention"
 ```
 
-v0.3.18: with `confirm`, same-turn Confirm can be read from Cursor `transcript_path` when preToolUse payload lacks assistant text.
+**Default stays `off`** — opt in to `confirm` when you need hard deny.
+
+## sameTurnAllow and audit
+
+| Setting | Behavior |
+|---------|----------|
+| `true` (default) | Same turn requires **detectable** Confirm in chat + session util Read |
+| `false` | No eager same-turn Confirm; split turns or payload/transcript evidence |
+
+Hooks audit **user-visible chat + session Read only**, not thinking. v0.3.18: `confirm` can read same-turn Confirm from `transcript_path`.
+
+## Layered gate (v0.3.22)
+
+| Layer | When |
+|-------|------|
+| uiOnly | template/style only, no script util delta |
+| delta new import | patch adds binding |
+| delta newCall | existing import, first `Binding.method` in patch |
+| sameSymbol | already Confirmed, params/copy only |
+
+See `placement-decision.md` §1.6.1.
+
+## Discovery / Confirm fixed format
+
+```
+D1 "upload": 3 → [uploadSingleFile @ src/utils/upload.ts, …]
+D1 "kw": 0 → D2 path:src/utils "kw"
+D2 path:src/utils "kw": N → [sym @ path, …]
+```
+
+Bulk Q4: `<chosen> OK; reject <sibling> (<reason>)` or `<chosen> OK; no sibling`.
 
 ## Bulk Confirm (≥3 symbols)
 
 ```markdown
 | Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
-| UrlUtils | src/utils/url.ts | OK; reject sibling | reuse(UrlUtils.replaceX) |
+| UrlUtils | src/utils/url.ts | OK; reject sibling (reason) | reuse(UrlUtils) |
 ```
 
-- **Symbol column** = import binding name (`UrlUtils`, not `UrlUtils.method`)
-- Q4 must mention sibling `reject` when same-file siblings exist
-- **≤5 reuse symbols per turn** — split into multiple Confirm + Write rounds
+- **Symbol column** = import binding (`UrlUtils`; newCall use `UrlUtils.method`)
+- Q4 must include `reject <sibling>` or `no sibling`
+- **≤5 reuse symbols per turn** — split rounds
 
-## Two task types — do not mix
+## Two task types
 
 | Task | Five-question gate? |
 |------|---------------------|
 | Feature work (`@/utils`, views) | **Yes** |
-| Index maintenance (BACKFILL, `gen`) | **No** — do not Write feature code |
-
-## Discovery
-
-- D1: `agent-utils-reuse search` or Grep `utils-index.json` — **not** Read `utils-book/*.md`
-- D1 zero candidates → mandatory D2 Grep `utilsDir`
-- State D1/D2 outcome in Confirm chat
-
-## Verdict types
-
-| Verdict | Meaning |
-|---------|---------|
-| `reuse(sym)` | Q1–Q4 pass, Q5 no |
-| `partialReuse(sym)+featureLocal(wrapper)` | Core in util; page wraps |
-| `newUtil(name)` | Must change util or shared new export |
-| `noUtil(sym)` | No shared export after D1/D2 |
-| `featureLocal(reason)` | Page-only |
+| Index maintenance (BACKFILL, `gen`) | **No** |
 
 ## Deny debugging
 
-When Write is denied in `confirm` mode, read `agent_message` JSON: `denyReason`, `missingReads`, `needsConfirm`, `siblingMissing`, `bulkViolations`.
+Read `agent_message`: `denyReason`, `missingReads`, `needsConfirm`, `siblingMissing`.
 
 Debug log: `.cursor/.utils-gate-hook-debug.log`
 
 ## References
 
-- Agent rules: `docs/agent-catalog/placement-decision.md` (in your project after init)
-- Maintainer test rubric: [docs/maintainer/TEST-RUBRIC-WRITING.zh.md](../maintainer/TEST-RUBRIC-WRITING.zh.md)
+- SSOT: `.cursor/rules/utils-reuse-gate.mdc`
+- `docs/agent-catalog/placement-decision.md`
+- [TEST-RUBRIC-WRITING.zh.md](../maintainer/TEST-RUBRIC-WRITING.zh.md)

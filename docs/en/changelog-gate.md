@@ -9,6 +9,17 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.22
+
+**Gate noise reduction & auditable formats**
+
+- **Layered gate** §1.6.1: uiOnly / delta new import / **newCall** (`Binding.method`) / sameSymbol
+- **Fixed D1/D2/Q4 one-line templates**; bulk Q4 requires `reject sibling` or `no sibling`
+- **featureLocal anti-duplication** (rules soft constraint)
+- **Hook newCall** (`confirm`): new method calls on existing bindings need method-level Confirm
+- **Rules convergence**: SSOT in `utils-reuse-gate.mdc`; checklist/alwaysApply are pointers
+- **best-practices**: `agentsReadMode: session`, hook tiers, sameTurnAllow audit notes
+
 ## v0.3.21
 
 **Gate flow hardening (confirm mode)**

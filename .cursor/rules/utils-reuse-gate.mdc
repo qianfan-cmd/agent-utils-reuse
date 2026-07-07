@@ -56,26 +56,52 @@ alwaysApply: true
 | Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
 |--------|-------------|---------------------------|---------|
 
-- **Bulk compact = 五问合法压缩**：Q1–Q3 默认等价通过；**Q4 一行**须含替换结论；同文件 sibling 须 `reject <sibling>` 或等价。
+- **Bulk compact = 五问合法压缩**：Q1–Q3 默认等价通过；**Q4 一行**须含替换结论；同文件 sibling **必须** `reject <sibling> (<reason>)` 或显式 **`no sibling`** — **禁止**空 Q4 / 仅写「OK」。
+- **Q4 最小模板**：`<chosen> OK; reject <sibling> (<reason>)` | `<chosen> OK; no sibling` | `no importable reuse object; D2 …`
 - **Read @ path**：须与本 session Read 的 util 文件一致（partial Read export 段 + 同文件 `Grep ^export` 即可）。
 - **`Verdict（最终）`** summary 仍推荐；**v0.3.13**：bulk compact 表 **Verdict 列**含 `reuse(`/`partialReuse(` 时可无单独 summary 行；`Verdict (最终):` 半角括号亦接受。
 - **Legacy**（1–2 symbol）：分项 Q1–Q4 prose 仍接受；7 列 Bulk 表（Q1–Q4 分列）仍接受。
 - **D1 零候选 + D2 有结果（#28）**：**两行** — `noUtil(关键词)` 行 + reuse D2 结果行；禁止捆在一格。
 - **D1 零候选 + D2 无 export（#28）**：**noUtil 短模板** — `D1 "kw": 0 → D2 path:src/utils "kw": 0 → noUtil(kw)`；Hook 校验 Q4 含 D1/D2/零候选 token（`noutil_q4_invalid`）。
 - **>5 reuse symbol**：优先分批（每批 ≤5 symbol：一张表 + 一次 Write）；Hook allow + remind。
-- **Delta Confirm（v0.3.11–v0.3.12）**：同会话、patch **仅新增 import symbol** → 只输出 **新增 symbol 行** + `Gate N/A — <本轮区块>`；已 Confirm 的 symbol **勿重复**（Hook `alreadyCovered` / `needsConfirm`；`needsConfirm` 空且 session audit 已 record → **allow 无需本轮 Verdict**）。
+- **Delta Confirm（v0.3.11–v0.3.12）**：同会话、patch **仅新增 import symbol** → 只输出 **新增 symbol 行** + `Gate N/A — <本轮区块>`；**newCall**（已有 import、新 `Binding.method`）→ 方法级新行（§1.6.1）；已 Confirm 的 symbol **勿重复**（Hook `alreadyCovered` / `needsConfirm`；`needsConfirm` 空且 session audit 已 record → **allow 无需本轮 Verdict**）。
 - **混页纯 UI（#27）**：仅改 `<template>` / `<style>` / 示例 JSON 文案、patch 无新 `@/utils` → Hook **uiOnly allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
 - **partialReuse + featureLocal(wrapper)**：可与 util **同表一行**，如 `partialReuse(validateHistoryImageUrls)+featureLocal(checkHistoryUrlItem)`；Hook **不强制** wrapper 单独行（Legacy ≥3 symbol 仍可用分项）。
 - **Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
 - **同轮 Confirm+Write（v0.3.17）**：`sameTurnAllow: true`（默认）— chat **须含可检测的 Confirm 文本** + session Read util + AGENTS → 同轮 Write allow；**仅有 Read 不放行**。JSON 解析失败 **fail-closed deny**。分轮：设 `"sameTurnAllow": false`。
 
-**D1 in chat**: list candidates OR `D1 "<kw>": 0 candidates → D2: Grep path:src/utils "<kw>"`. Grep `utils-index.json` ≡ CLI search. Page comments ≠ Discovery proof.
+**D1 in chat** — **固定一行格式**（任选其一，禁止只用「搜到了」）：
+
+```
+D1 "upload": 3 → [uploadSingleFile @ src/utils/upload.ts, uploadFiles @ …]
+D1 "debounce": 0 → D2 path:src/utils "debounce"
+```
+
+Grep `utils-index.json` ≡ CLI `agent-utils-reuse search`。Page comments ≠ Discovery proof。
+
+**D2 in chat** — D1 零候选时 **必须**出现：
+
+```
+D2 path:src/utils "upload": 2 → [uploadSingleFile @ …]
+```
+
+**分层 gate（v0.3.22）** — 见 `placement-decision.md` §1.6.1：
+
+| 层级 | Confirm |
+|------|---------|
+| **uiOnly** | `Gate N/A: uiOnly` — 无 script util 增量 |
+| **delta 新 import** | 仅新 binding 行 |
+| **delta newCall** | 已有 import，patch 首次 `Binding.method` — Symbol 写 `Binding.method` |
+| **sameSymbol** | `Gate N/A — sameSymbol` |
+| **full** | 完整表 |
 
 **D1.5 业务反查**（`hookMode: confirm` 默认开启，可 `allowBusinessDiscovery: false` 关闭）：`Grep` feature 路径（`remindWritePaths`）从调用点反查 util；Confirm 写 `D1.5: Grep <feature> → sym @ path`。
 
 **Confirm 硬门禁**：`hookMode: confirm` 默认启用 Discovery（util patch）、D1 优先 cli/index、分批上限、D1.5。任务前：`pnpm gen:utils-book` + `agent-utils-reuse status`。
 
-**Same-file siblings**: D1 / `agent-utils-reuse search` 命中行展示 `siblings @ path: …`（来自 `utils-index.json` `siblingsByPath`）→ Q4 须 `reject <sibling>` 或等价比较。**Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
+**Same-file siblings**: D1 / `agent-utils-reuse search` 命中行展示 `siblings @ path: …`（来自 `utils-index.json` `siblingsByPath`）→ Confirm 前 **Grep `^export` 同文件**（或贴 search siblings 行）→ Q4 须 `reject <sibling> (<reason>)` 或 **`no sibling`**。**Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
+
+**featureLocal 反重复（v0.3.22 — 规则软约束）**：拟写 local helper 且函数体/名含 `validate|parse|convert|base64|mime|dataUrl|upload` 等 util 语义，而 D1/D2 已有候选 export → Local helpers 表须 **对比行**说明为何非 `reuse` / `partialReuse`；Q4 写「reject reuse candidate because …」。**禁止**与 util 同语义的厚 wrapper（如已有 `validateHistoryImageUrls` 再写扩展名校验重复层）— 优先 `partialReuse` + 薄包装。
 
 **featureLocal + D2**：util 语义任务（upload/validate/convert/format…）若 Verdict 含 `featureLocal`，Q4 须写 **D2 Grep utilsDir 无 export** 或引用 Discovery 行；D1 零候选不得跳过 D2 叙事。
 
@@ -98,7 +124,7 @@ The gate **applies** (Confirm + Verdict required) when **any** of:
 
 ## Mandatory flow
 
-1. **Read `AGENTS.md`** in full once per session/task — **no** `limit`/`offset`.
+1. **Read `AGENTS.md`** in full once per **session** — **no** `limit`/`offset`. 推荐 `"agentsReadMode": "session"`（`.utils-bookrc.json`）；`tool` 模式下每任务仍须 Read。
 2. **Understand the task**: Read / Grep business code, plan, **existing imports** — **before** Confirm.
 3. **Identify** each util `symbol @ path` **and** each planned/retained feature helper.
 4. **Discovery** (when triggered): D1 or D2 above — before writing local helpers or when gate applies.

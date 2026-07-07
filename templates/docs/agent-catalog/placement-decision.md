@@ -171,6 +171,26 @@ flowchart TD
 
 **文件中已存在、本次仍依赖的 helper**（如 `validateFile`）须在 Local helpers 表与 Confirm 中 **一并重走**，不因「上次就有」而跳过。
 
+#### 1.6.1 分层 gate：full / delta / uiOnly / newCall（v0.3.22）
+
+按 **本轮 patch 增量** 选层，勿整文件重 Confirm：
+
+| 层级 | 触发条件 | Confirm 范围 |
+|------|----------|--------------|
+| **uiOnly** | 仅 `<template>` / `<style>` / 示例 JSON 文案；patch **无** script import 增量、无 util 语义 helper | `Gate N/A: uiOnly` — **禁止** fake import utils 过关 |
+| **delta — 新 import** | patch 新增 `@/utils` 绑定名（如 `import { newSym }`） | 表内 **仅新 binding 行** + `Gate N/A — <区块>` |
+| **delta — newCall** | 文件 **已有** import（如 `PromptUtils`），patch **首次**调用 `PromptUtils.newMethod()` 或新的 named export 调用 | **方法级或 export 级新行**：Symbol 写 `PromptUtils.newMethod` 或对应 export 名；Read 该 **method/export** 源码 |
+| **delta — sameSymbol** | 已有 import + 该 symbol/方法 **本会话已 Confirm**；仅改参数、文案、样式 | `Gate N/A — sameSymbol` |
+| **full** | 首次触达 util、多 symbol 大改、或无法判定 patch 范围 | 完整 Discovery + 表（仍可用 bulk compact） |
+
+**newCall 判定（规则）**：
+
+- `import { PromptUtils }` 已存在，patch 只加 `PromptUtils.convertX()` → **newCall**，不是 uiOnly，也 **不能**因 binding 已 import 而跳过。
+- `import { uploadSingleFile }` 已存在，patch 只改调用参数 → **sameSymbol**。
+- 不确定时按 **newCall** 出一行（宁可多一行，勿空心化）。
+
+**Hook（`hookMode: confirm`）**：patch 内对 **已有 binding** 的 `Binding.method` 调用会并入 `requiredSymbols`；方法级 symbol **须**在本会话 Verdict/bulk 表覆盖（v0.3.22），不与 import 根名混用豁免。
+
 ---
 
 ## 2. Discovery（必做 — 触发时）
@@ -268,7 +288,17 @@ Hook `verdict_stale_for_symbol` 的 deny JSON 含 `needsConfirm` / `alreadyCover
 | **多批** | 第一批 session audit 已 record → 第二批只 Delta + 新 symbol Write |
 | **deny 后** | 读 `denyReason`（`verdict_not_recorded` / `missing_reads` / `sibling_q4_missing` 等），**禁止**一律当成没 Confirm |
 
-**Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
+**Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。分层见 **§1.6.1**（uiOnly / delta / newCall / sameSymbol）。
+
+**场景对照（Gate N/A 与分层）**
+
+| 场景 | 层级 | 动作 |
+|------|------|------|
+| 骨架屏 / 纯 template 文案 | uiOnly | `Gate N/A: uiOnly` |
+| 测试页只改 mock 常量、无 util 语义 | uiOnly 或 Gate N/A | 无 D1/D2 |
+| 已有 `PromptUtils`，patch 加 `PromptUtils.convert()` | newCall | Delta 一行 + Read export |
+| 改 `utilsDir` 新 export | utils 维护路径 | Export JSDoc + `gen:utils-book`；**非** feature Confirm 表 |
+| 低语义脚手架接线（emit/IME）且 patch **仍调用** utils | delta/full | 仍须 Confirm 被调用的 symbol |
 
 **混页纯 UI（#27）**：文件顶已有 `@/utils`，本轮只改 template/style → 表内 `Gate N/A — <区块>` 或 **无 Confirm**（Hook uiOnly allow）。**不用** `// @gate-na` 注释。
 
@@ -290,7 +320,7 @@ Hook **不强制** wrapper 单独行；禁止无 wrapper 行的 `partialReuse(x)
 
 **D1 同 path 多 export**：chat 列 `uploadFiles @ imageUploadUtils.ts (siblings: uploadMultipleFiles, uploadSingleFile)`；`agent-utils-reuse search` 命中行亦展示 siblings（v0.3.12）。
 
-**Q4 sibling 一行模板**：`reject uploadMultipleFiles (sequential API N/A)` | `reject sortDesc (desc not needed)`
+**Q4 sibling 一行模板**：`<chosen> OK; reject uploadMultipleFiles (sequential API N/A)` | `<chosen> OK; no sibling` | `reject sortDesc (desc not needed)` — **禁止**空 sibling 格。
 
 **featureLocal 须附 D2**：util 语义 helper 的 Q4 写 `D2 Grep src/utils "<kw>": no export`；可选 **`strictD2: true`** in `.utils-bookrc.json`（未来 opt-in hook，见 README）。
 

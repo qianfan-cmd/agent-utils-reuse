@@ -9,6 +9,17 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.22
+
+**门禁减负与可审计格式（反馈落地）**
+
+- **分层 gate** §1.6.1：uiOnly / delta 新 import / **newCall**（`Binding.method`）/ sameSymbol
+- **D1/D2/Q4 固定一行模板**；bulk Q4 须 `reject sibling` 或 `no sibling`
+- **featureLocal 反重复**（规则软约束）
+- **Hook newCall**（`confirm`）：patch 内已有 binding 的新方法调用须 method-level Confirm
+- **规则收敛**：详规 SSOT 在 `utils-reuse-gate.mdc`；checklist/alwaysApply 改为指针
+- **best-practices**：`agentsReadMode: session`、hook 三档、sameTurnAllow 审计说明
+
 ## v0.3.21
 
 **门禁流程补强**

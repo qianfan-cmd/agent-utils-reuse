@@ -882,10 +882,16 @@ export function getVerdictCoverage(requiredSymbols, cwd = process.cwd()) {
   if (!audit.recorded || covered.size === 0) {
     return { needsConfirm: unique, alreadyCovered: [], recorded: audit.recorded === true }
   }
-  const needsConfirm = unique.filter(
-    (s) => !covered.has(String(s).toLowerCase()) &&
+  const needsConfirm = unique.filter((s) => {
+    const lower = String(s).toLowerCase()
+    if (String(s).includes('.')) {
+      return !covered.has(lower)
+    }
+    return (
+      !covered.has(lower) &&
       !covered.has(String(normalizeVerdictSymbolForImport(s, unique)).toLowerCase())
-  )
+    )
+  })
   const alreadyCovered = unique.filter((s) => !needsConfirm.includes(s))
   return { needsConfirm, alreadyCovered, recorded: true }
 }
@@ -958,7 +964,40 @@ export function patchTextForGate(payload) {
 export function requiredSymbolsFromPatchDelta(normalized, payload, config, cwd = process.cwd()) {
   const patchText = patchTextForGate(payload)
   if (!patchText.trim()) return []
-  return extractImportedUtilsSymbols(patchText, config)
+  const imports = extractImportedUtilsSymbols(patchText, config)
+  const memberCalls = extractUtilMemberCallsFromPatch(patchText, readFeatureFileContent(normalized, cwd), config)
+  return mergeRequiredImportAndCallSymbols(imports, memberCalls, patchText, config)
+}
+
+/** Read target feature file on disk before Write (for newCall delta). */
+export function readFeatureFileContent(normalized, cwd = process.cwd()) {
+  const abs = path.join(cwd, normalized)
+  if (!fs.existsSync(abs)) return ''
+  try {
+    return fs.readFileSync(abs, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Patch adds Binding.method on bindings already imported in file (v0.3.22 newCall).
+ */
+export function extractUtilMemberCallsFromPatch(patchText, beforeContent, config) {
+  if (!patchText || typeof patchText !== 'string' || !patchText.trim()) return []
+  const existingBindings = extractImportedUtilsSymbols(beforeContent ?? '', config)
+  const newBindings = new Set(extractImportedUtilsSymbols(patchText, config))
+  const preExisting = existingBindings.filter((b) => !newBindings.has(b))
+  const calls = new Set()
+  for (const binding of preExisting) {
+    const escaped = String(binding).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const memberRe = new RegExp(`\\b${escaped}\\.([a-zA-Z_$][\\w$]*)\\b`, 'g')
+    let m
+    while ((m = memberRe.exec(patchText)) !== null) {
+      calls.add(`${binding}.${m[1]}`)
+    }
+  }
+  return [...calls]
 }
 
 export function resolvePatchUtilPaths(payload, config, cwd = process.cwd()) {
@@ -967,20 +1006,41 @@ export function resolvePatchUtilPaths(payload, config, cwd = process.cwd()) {
   return resolveContentUtilPaths(patchText, config, cwd)
 }
 
+export function mergeRequiredImportAndCallSymbols(importSymbols, memberCalls, patchText, config) {
+  const newImports = new Set(extractImportedUtilsSymbols(patchText ?? '', config))
+  const rootsWithMemberCalls = new Set(
+    memberCalls.map((m) => String(m).split('.')[0]).filter(Boolean)
+  )
+  const imports = (importSymbols ?? []).filter((sym) => {
+    if (rootsWithMemberCalls.has(sym) && !newImports.has(sym)) return false
+    return true
+  })
+  return [...new Set([...imports, ...memberCalls])]
+}
+
 export function requiredSymbolsFromPatch(normalized, payload, config, cwd = process.cwd()) {
-  if (isPatchUiOnly(payload, normalized, config)) {
-    return requiredSymbolsFromPatchDelta(normalized, payload, config, cwd)
-  }
   const patchText = patchTextForGate(payload)
+  const beforeContent = readFeatureFileContent(normalized, cwd)
+  const memberCalls = extractUtilMemberCallsFromPatch(patchText, beforeContent, config)
+  const audit = loadVerdictAudit(cwd)
+
+  if (isPatchUiOnly(payload, normalized, config)) {
+    const imports = extractImportedUtilsSymbols(patchText, config)
+    return mergeRequiredImportAndCallSymbols(imports, memberCalls, patchText, config)
+  }
   const merged = mergeWritePayload(normalized, payload, cwd)
-  let symbols = extractImportedUtilsSymbols(merged, config)
-  if (symbols.length === 0 && !patchText.trim() && hasVerdict(cwd)) {
-    const audit = loadVerdictAudit(cwd)
+  let importSymbols = extractImportedUtilsSymbols(merged, config)
+  if (importSymbols.length === 0 && !patchText.trim() && audit.recorded === true) {
     if (Array.isArray(audit.symbols) && audit.symbols.length > 0) {
-      symbols = [...audit.symbols]
+      importSymbols = [...audit.symbols]
     }
   }
-  return symbols
+  // newCall delta: patch adds Binding.method — only new imports in patch + member calls (v0.3.22)
+  if (audit.recorded === true && memberCalls.length > 0) {
+    const patchImports = extractImportedUtilsSymbols(patchText, config)
+    return mergeRequiredImportAndCallSymbols(patchImports, memberCalls, patchText, config)
+  }
+  return mergeRequiredImportAndCallSymbols(importSymbols, memberCalls, patchText, config)
 }
 
 const VERDICT_MARKER_RES = [

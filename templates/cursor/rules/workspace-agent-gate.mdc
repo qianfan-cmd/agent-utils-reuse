@@ -1,43 +1,28 @@
 ---
-description: Project root workspace gate — read AGENTS.md first; utils Confirm before Write
+description: Project root workspace gate — read AGENTS.md; utils gate pointer
 alwaysApply: true
 ---
 
 # Workspace agent gate (mandatory)
 
-Open Cursor at the **project root** (directory with `package.json` and `AGENTS.md`). Rules and hooks resolve paths from that root.
+Open Cursor at the **project root** (`package.json` + `AGENTS.md`).
 
 ## Before modifying source or config
 
-When the task will touch application source or project config:
+1. **Read `AGENTS.md` in full** — no `limit`/`offset`. 推荐 `"agentsReadMode": "session"`（每 session 一次）。
+2. **Understand the task** — Read/Grep business code and existing imports.
+3. **When utils gate applies** — follow **[`utils-reuse-gate.mdc`](utils-reuse-gate.mdc)**（Identify → Discovery → Read util → Confirm + Verdict → Write，同轮可）。
 
-1. **First step**: Read **`AGENTS.md`** at the project root in **full** (no `limit`/`offset`). Path from `.utils-bookrc.json` → `agentsFile`, default `AGENTS.md`.
-2. **Understand the task**: Read / Grep / search **business code**, specs, and **existing imports**.
-3. **When utils gate applies** (see `.cursor/rules/utils-reuse-gate.mdc` — **includes existing `@/utils` in target file, WIP wiring NOT exempt**):
-   - **Identify** each util `symbol @ path`
-   - **Read** export(s)/method(s) you will call **in util source** (`utilsDir` / `@/utils` path) — partial Read / Grep within that file OK; feature call sites alone do **not** count
-   - **Confirm phase**: Discovery (when triggered) + **Local helpers** table + **Confirm (Q1–Q4 per symbol, separately)** + **`Verdict（最终）`**
-4. **Implement phase**: Write / StrReplace — **same assistant response**, after Confirm text.
+## Utils detail (SSOT)
 
-## Optional (not required every task)
+**[`.cursor/rules/utils-reuse-gate.mdc`](utils-reuse-gate.mdc)** · `docs/agent-catalog/placement-decision.md` §1.6
 
-- utils-book Shortlist when candidates unclear
-- Read `placement-decision.md` for §1.5 ask-user / edge cases
-- Read `reuse-before-create` Skill (rules already cover mandatory steps)
+## Hook
 
-## Utils detail
-
-Details: **`.cursor/rules/utils-reuse-gate.mdc`**. Write 前 checklist: **`.cursor/rules/pre-write-utils-checklist.mdc`**.
-
-## Hook (default off, v0.3.15)
-
-Default **`hookMode: off`** — Rules-only; no Write deny. Opt-in **`hookMode: confirm`** for AGENTS.md Read + util Read + Confirm + Verdict deny. **`remind`**: allow + reminder.
+默认 **`hookMode: off`**。硬拦 opt-in **`confirm`**；**`remind`** 仅提醒。见 `docs/zh-CN/best-practices.md`。
 
 ## Do NOT
 
-- Skip full `AGENTS.md` read (no limit-only reads)
-- Treat **Read util as gate complete** — Verdict in chat is mandatory
-- **Confirm from feature usage only** — must Read util **source** export(s) you will call
-- Write before Confirm + **`Verdict（最终）`** when gate applies
-- Assume gate does not apply because there is no new import
-- Write `.utils-discovery-cache.json` or gate cache files
+- Treat Read util as gate complete
+- Write before **`Verdict（最终）`** when gate applies
+- Write `.utils-discovery-cache.json`

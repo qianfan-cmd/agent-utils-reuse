@@ -817,6 +817,87 @@ Verdict（最终）: reuse(copyToClip)`
     JSON.stringify(coverAllow)
   )
 
+  // --- v0.3.22: newCall — existing import, patch adds Binding.method ---
+  const newCallDir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-new-call-"))
+  try {
+    fs.mkdirSync(path.join(newCallDir, "src", "views"), { recursive: true })
+    fs.mkdirSync(path.join(newCallDir, "src", "utils"), { recursive: true })
+    fs.writeFileSync(
+      path.join(newCallDir, ".utils-bookrc.json"),
+      JSON.stringify(
+        mergeTestConfirmBookrc({
+          utilsDir: "src/utils",
+          utilsImportAliases: ["@/utils"],
+          remindWritePaths: ["src/views"]
+        }),
+        null,
+        2
+      ) + "\n"
+    )
+    fs.writeFileSync(path.join(newCallDir, "src", "utils", "copy.ts"), "export function copyToClip() {}\n")
+    fs.writeFileSync(
+      path.join(newCallDir, "src", "utils", "url.ts"),
+      "export const UrlUtils = { replaceX() {} }\n"
+    )
+    fs.writeFileSync(
+      path.join(newCallDir, "src", "views", "Page.vue"),
+      `<template><div>test</div></template>
+<script setup lang="ts">
+import { copyToClip } from '@/utils/copy'
+import { UrlUtils } from '@/utils/url'
+copyToClip()
+</script>
+`
+    )
+    resetAudit(newCallDir)
+    recordAgentsRead(newCallDir)
+    recordRead(newCallDir, "src/utils/copy.ts")
+    recordRead(newCallDir, "src/utils/url.ts")
+    recordVerdict(
+      newCallDir,
+      `| Symbol | Read @ path | Q4 | Verdict |
+| copyToClip | copy.ts | clip OK | reuse(copyToClip) |
+Verdict（最终）: reuse(copyToClip)`
+    )
+
+    const newCallDeny = runHook(newCallDir, {
+      tool_input: {
+        path: "src/views/Page.vue",
+        old_string: "copyToClip()",
+        new_string: "copyToClip()\nUrlUtils.replaceX()"
+      }
+    })
+    assert(
+      "newCall UrlUtils.replaceX without method-level Verdict → deny (needsConfirm or verdict)",
+      newCallDeny.permission === "deny" &&
+        (newCallDeny.denyReason === "verdict_stale_for_symbol" ||
+          newCallDeny.denyReason === "verdict_not_recorded" ||
+          (Array.isArray(newCallDeny.needsConfirm) && newCallDeny.needsConfirm.some((s) => /replaceX/i.test(s)))),
+      JSON.stringify(newCallDeny)
+    )
+
+    recordVerdict(
+      newCallDir,
+      `| Symbol | Read @ path | Q4 | Verdict |
+| UrlUtils.replaceX | url.ts | replaceX OK; no sibling | reuse(UrlUtils.replaceX) |
+Verdict（最终）: reuse(UrlUtils.replaceX)`
+    )
+    const newCallAllow = runHook(newCallDir, {
+      tool_input: {
+        path: "src/views/Page.vue",
+        old_string: "copyToClip()",
+        new_string: "copyToClip()\nUrlUtils.replaceX()"
+      }
+    })
+    assert(
+      "newCall + method-level Confirm → allow",
+      newCallAllow.permission === "allow",
+      JSON.stringify(newCallAllow)
+    )
+  } finally {
+    fs.rmSync(newCallDir, { recursive: true, force: true })
+  }
+
   recordRead(coverDir, "src/utils/other.ts")
   recordVerdict(
     coverDir,
