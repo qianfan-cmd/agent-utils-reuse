@@ -79,14 +79,14 @@ function denyVerdictMessage(config, symbols = []) {
   const strict =
     config?.sameTurnAllow === false
       ? ' Strict mode (`sameTurnAllow: false`): split turns (Confirm first, Write next).'
-      : ' sameTurnAllow: Confirm text must appear in this turn chat before Write — reads alone do not satisfy the gate.'
-  return `${checklist}${strict} See ${PLACEMENT_SECTION}.`
+      : ' sameTurnAllow: Confirm text must appear in this turn chat BEFORE the first Write — Grep/Read/exploration alone do NOT satisfy the gate.'
+  return `Denied: ${checklist} Exploration (Grep, Read util) ≠ Confirm — output Bulk table or Verdict（最终） in chat first.${strict} See ${PLACEMENT_SECTION}.`
 }
 
 function denyBatchLimitMessage(symbols, config) {
   const max = config.maxImportSymbolsPerTurn ?? 5
   const list = symbols.map((s) => `\`${s}\``).join(', ')
-  return `Denied: Write adds ${symbols.length} @/utils symbols (limit ${max}/turn): ${list}. Split into batches — output Bulk Confirm table (≤${max} symbols) per batch, then Write. See utils-reuse-gate.mdc.`
+  return `Denied: Write adds ${symbols.length} @/utils symbols (limit ${max}/turn): ${list}. Split into batches (≤${max} per Bulk Confirm + Write) — see docs/maintainer/TEST-RUBRIC-WRITING.zh.md §8-symbol batch. See utils-reuse-gate.mdc.`
 }
 
 function remindSameTurnAllowMessage() {
@@ -110,8 +110,18 @@ function denyPreferCliSearchMessage(config) {
   return `Denied: preferCliSearch — session Discovery must include agent-utils-reuse search (cli) or Grep utils-index.json (grep-index)${d15}. D2-only Grep utilsDir is not sufficient. See utils-reuse-gate.mdc.`
 }
 
-function denyD1OutcomeMessage() {
-  return `Denied: Document Discovery in chat — D1 candidates (sym @ path) OR \`D1 "<kw>": 0 candidates → D2: ...\`. Grep index ≡ CLI search. Page comments do not count. See ${PLACEMENT_SECTION}.`
+function denyD1OutcomeMessage(discoveryAudit = null, config = null) {
+  const base =
+    'Denied: Document Discovery in chat — D1 candidates (sym @ path) OR `D1 "<kw>": 0 candidates → D2: ...`. Grep index ≡ CLI search. Page comments do not count.'
+  if (discoveryAudit?.recorded) {
+    const via = Array.isArray(discoveryAudit.via) ? discoveryAudit.via.join(', ') : ''
+    const d15 =
+      config?.allowBusinessDiscovery && via.includes('business-lookup')
+        ? ' Suggest: `D1.5: Grep <feature-path> "<kw>" → sym @ path`.'
+        : ' Suggest: `D1 "kw": N → [sym @ path, …]` with siblings if any.'
+    return `${base} Session already has Discovery (${via || 'recorded'}) — add the narrative line to Confirm chat.${d15} See ${PLACEMENT_SECTION}.`
+  }
+  return `${base} See ${PLACEMENT_SECTION}.`
 }
 
 function denyAgentsReadMessage(agentsFile) {
@@ -360,7 +370,7 @@ async function main() {
           JSON.stringify({
             permission: 'deny',
             denyReason: 'd1_outcome_missing',
-            agent_message: denyD1OutcomeMessage()
+            agent_message: denyD1OutcomeMessage(discoveryAudit, config)
           })
         )
         return
@@ -397,7 +407,7 @@ async function main() {
             JSON.stringify({
               permission: 'deny',
               denyReason: 'd1_outcome_missing',
-              agent_message: denyD1OutcomeMessage()
+              agent_message: denyD1OutcomeMessage(loadDiscoveryAudit(cwd), config)
             })
           )
           return

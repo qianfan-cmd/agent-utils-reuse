@@ -258,7 +258,7 @@ Q1–Q4 通过且 Q5=否 → **reuse(sortDesc)**，即 §二 Demo。
 
 工程上还有不少细节，本文不展开，感兴趣直接看仓库：
 
-- **hookMode**：默认 `off`（Rules 软约束 Confirm）；`confirm` 验收时硬拦缺 Verdict 的 Write（§二 那种 chat 留痕没做全就会被 deny）
+- **hookMode**：默认 `off`（Rules 软约束 Confirm）；**测 compliance 须**合并 [`.utils-bookrc.compliance.json`](https://github.com/qianfan-cmd/agent-utils-reuse/blob/main/docs/agent-catalog/.utils-bookrc.compliance.json) 开 `confirm`（见 [production-rollout §验收模式](https://github.com/qianfan-cmd/agent-utils-reuse/blob/main/docs/zh-CN/production-rollout.md#验收模式)）
 - **分层 gate**：只改 template 不必重出整表（uiOnly / delta / newCall / sameSymbol / full）
 - **transcript 回读**：压测发现 preToolUse payload 常无 assistant 文本（v0.3.18）
 - **验收**：`pnpm test:hooks .`（agent-utils-reuse 仓库内，传入业务项目根）、`status` / `verify-index`

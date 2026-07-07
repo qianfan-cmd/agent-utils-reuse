@@ -62,6 +62,20 @@ Split-turn strict audit:
 { "hookMode": "confirm", "sameTurnAllow": false }
 ```
 
+## Compliance profile (acceptance testing)
+
+Default **`hookMode: off`** is Rules-only — it **cannot** prove whether the Agent outputs Confirm in chat. For acceptance or consumer stress tests, merge fields from [`docs/agent-catalog/.utils-bookrc.compliance.json`](../agent-catalog/.utils-bookrc.compliance.json) into project-root `.utils-bookrc.json`, then run `pnpm update:utils-reuse --yes` (or `init --force`) so hooks are registered.
+
+| Field | compliance value | Purpose |
+|-------|------------------|---------|
+| `hookMode` | `confirm` | Deny Write when Verdict / D1 / Read missing |
+| `strictBatchLimit` | `true` | Deny single-turn patch with >5 `@/utils` imports (`batch_limit_exceeded`) |
+| `agentsReadMode` | `tool` | Require full AGENTS.md Read in session (no limit/offset) |
+| `allowBusinessDiscovery` | `true` | D1.5 feature Grep counts as Discovery; chat still needs `D1.5: Grep … → sym @ path` |
+| `lightGatePaths` | e.g. `src/views/test` | Weaken Local helpers on test paths; **not** util Confirm |
+
+Full runbook: [production-rollout.md § Acceptance mode](production-rollout.md#acceptance-mode).
+
 ### confirm mode hooks
 
 When `hookMode: confirm` or `remind`, `init` registers:

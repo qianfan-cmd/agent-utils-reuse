@@ -43,6 +43,10 @@ Before first business Write when gate applies (detail):
 
 **Read util files does NOT complete the gate** — post-selection proof (Confirm + Verdict) is a separate hard step.
 
+**Identify + Read ≠ gate complete** — Grep/Read util 源码是前置步骤，**不是** Confirm。exploration 后直接 Write（无 chat 内 Bulk 表或 `Verdict（最终）`）= **违规**，即使同轮也须 **Confirm 文本在首个 Write 之前**。
+
+**重任务（多 symbol）** — patch 新增 **≥3** 个 `@/utils` import → 必须先 **Bulk compact 表**（非散文）；**>5** reuse symbol → **分批**（每批 ≤5 表行 + 部分 Write），第二批 **Delta Confirm**。详见 `placement-decision.md` §3.1。
+
 **Cross-feature copy**: Before copying pure functions from another feature component, run Discovery D1/D2. If only in a component, featureLocal OK — **placement debt** + convergence candidate in Message A.
 
 `placement-decision.md` §1.6 judgment tree, §3 Message A format, §1.5 edge cases.

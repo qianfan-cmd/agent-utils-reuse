@@ -45,6 +45,8 @@ node node_modules/agent-utils-reuse/bin/cli.mjs init --force
 
 会复制 Rules、hooks、`.utils-bookrc.json` 并合并 `AGENTS.md`。**在项目根打开 Cursor。**
 
+**测 compliance（验收 Agent 是否输出 Confirm）**：默认 `hookMode: off` 仅 Rules 软约束，跳过 Confirm 仍能 Write。压测请合并 [`docs/agent-catalog/.utils-bookrc.compliance.json`](docs/agent-catalog/.utils-bookrc.compliance.json) 字段并 `pnpm update:utils-reuse --yes`；步骤见 [production-rollout §验收模式](docs/zh-CN/production-rollout.md#验收模式)。
+
 ### 3. 生成 utils 索引
 
 ```bash

@@ -53,6 +53,8 @@
 
 测试专用可在 `.utils-bookrc.json` 设 `"maxImportSymbolsPerTurn": 8`（仅压测，生产保持默认 5）。
 
+验收配置模板：[`docs/agent-catalog/.utils-bookrc.compliance.json`](../agent-catalog/.utils-bookrc.compliance.json)（`hookMode: confirm` + `strictBatchLimit: true`）。Runbook：[production-rollout.md §验收模式](../zh-CN/production-rollout.md#验收模式)。
+
 ## 分轮增量卷
 
 若故意分三轮追加同一文件，在题面说明：

@@ -59,6 +59,20 @@ Rules 始终要求聊天 Confirm + `Verdict（最终）`。
 { "hookMode": "confirm", "sameTurnAllow": false }
 ```
 
+## 验收 / Compliance 配置模板
+
+默认 **`hookMode: off`** 仅 Rules 软约束，**无法**验证 Agent 是否在 chat 输出 Confirm。压测或 consumer 验收时，合并 [`docs/agent-catalog/.utils-bookrc.compliance.json`](../agent-catalog/.utils-bookrc.compliance.json) 中的字段到项目根 `.utils-bookrc.json`，然后 `pnpm update:utils-reuse --yes`（或 `init --force`）确保 hooks 注册。
+
+| 字段 | compliance 值 | 用途 |
+|------|----------------|------|
+| `hookMode` | `confirm` | 缺 Verdict / D1 / Read 时硬拦 Write |
+| `strictBatchLimit` | `true` | 单轮 patch >5 个 `@/utils` import → `batch_limit_exceeded` |
+| `agentsReadMode` | `tool` | 须 session 内 Read 全量 AGENTS.md（禁 limit） |
+| `allowBusinessDiscovery` | `true` | D1.5 业务 Grep 计入 Discovery；chat 仍须写 `D1.5: Grep … → sym @ path` |
+| `lightGatePaths` | 如 `src/views/test` | 测试页弱化 Local helpers 强制，**不弱化** util Confirm |
+
+完整验收步骤见 [production-rollout.md §验收模式](production-rollout.md#验收模式)。
+
 ## 已有 core rule
 
 ```json

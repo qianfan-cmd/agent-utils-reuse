@@ -1,0 +1,12 @@
+{
+  "_comment": "验收 / compliance profile — merge into project root .utils-bookrc.json for gate acceptance testing. Default hookMode stays off in .utils-bookrc.example.json.",
+  "hookMode": "confirm",
+  "sameTurnAllow": true,
+  "agentsReadMode": "tool",
+  "maxImportSymbolsPerTurn": 5,
+  "strictBatchLimit": true,
+  "requireDiscoveryForUtilGate": true,
+  "preferCliSearch": true,
+  "allowBusinessDiscovery": true,
+  "lightGatePaths": ["src/views/test"]
+}

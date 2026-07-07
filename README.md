@@ -45,6 +45,8 @@ node node_modules/agent-utils-reuse/bin/cli.mjs init --force
 
 This copies Rules, hooks, `.utils-bookrc.json`, and merges `AGENTS.md`. Open **Cursor at the project root**.
 
+**Testing compliance** (whether the Agent outputs Confirm in chat): default `hookMode: off` is Rules-only — skipping Confirm still allows Write. For acceptance tests, merge [`docs/agent-catalog/.utils-bookrc.compliance.json`](docs/agent-catalog/.utils-bookrc.compliance.json) and run `pnpm update:utils-reuse --yes`. See [production-rollout § Acceptance mode](docs/en/production-rollout.md#acceptance-mode).
+
 ### 3. Generate utils index
 
 ```bash

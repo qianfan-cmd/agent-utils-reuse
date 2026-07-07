@@ -252,6 +252,31 @@ flowchart TD
 
 **分批 Write（>5 reuse symbol）**：单轮 Confirm 超过 5 个 reuse → 优先 2+ 轮，每轮 ≤5 symbol + 一张表 + 部分 Write。
 
+### 3.1 重任务 playbook（多 symbol + 本地逻辑）
+
+**何时触发**：单页/测试页一次 patch 新增 **≥3** `@/utils` import，或任务清单含 upload/validate/convert 等多 util 语义。
+
+**exploration ≠ Confirm**：业务 Grep、Read util 源码、Identify 列表 — **均不构成** reuse 证明。chat 须仍有 Discovery 叙事行 + Confirm 表（`hookMode: confirm` 会拦缺文本）。
+
+**表怎么出**：
+
+| 情况 | 推荐 |
+|------|------|
+| ≥3 util symbol | **Bulk compact 4 列表**（默认） |
+| util + 多个 featureLocal helper | util 进 4 列表；`featureLocal(x)` 可**同表一行**；或 util 表 + 独立 **Local helpers** 3 列表 |
+| >5 reuse symbol | **5+2 分批**：表 1 ≤5 行 + Write 批 1 → Delta 表 2 + Write 批 2 |
+| 测试页纯 UI 解析 | `lightGatePaths` 可弱化 Local helpers；**不弱化** util Confirm |
+
+**D1.5 业务反查**（`allowBusinessDiscovery: true`）：`Grep` feature 路径找调用点 → session 记 Discovery；chat **仍须**一行：
+
+```markdown
+D1.5: Grep src/views/OtherPage.vue "validateHistory" → validateHistoryImageUrls @ src/utils/...
+```
+
+**按 util 文件分组 Q4**（可读性，非 Hook 要求）：同文件 sibling 在同一行写 `reject <sibling>`；跨文件不必合并行。
+
+验收配置：[`docs/agent-catalog/.utils-bookrc.compliance.json`](.utils-bookrc.compliance.json) + [production-rollout.md](../../zh-CN/production-rollout.md#验收模式)。
+
 **Delta Confirm（v0.3.11 — 同文件多轮增量）**
 
 同会话、patch **仅新增 import symbol** 时，不必重出整表：
