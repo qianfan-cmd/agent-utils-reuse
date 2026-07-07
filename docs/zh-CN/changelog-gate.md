@@ -11,11 +11,11 @@ pnpm test:hooks
 
 ## v0.3.23
 
-**Uninstall completeness**
+**卸载更彻底**
 
-- Remove generated `skills.md` on uninstall
-- Dry-run no longer warns about `utils-book` / other planned catalog removals
-- Remove empty `docs/agent-catalog` when only gate artifacts remain
+- uninstall 会删除 `gen` 生成的 `skills.md`
+- `--dry-run` 不再对 `utils-book` 等计划删除项误报警
+- `catalogDir` 内仅剩门禁产物时，会删除空目录 `docs/agent-catalog`
 
 ## v0.3.22
 

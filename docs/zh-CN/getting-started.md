@@ -75,6 +75,25 @@ pnpm update:utils-reuse    # 仅同步门禁
 - `pnpm test:hooks .`
 - `hookMode: confirm`：Read util → 聊天 Confirm → Write → allow
 
+## 卸载
+
+**需 v0.3.20+。** 完整删除/保留清单见 [README 卸载门禁](../../README.zh-CN.md#卸载门禁)。
+
+```bash
+pnpm exec agent-utils-reuse uninstall --dry-run
+pnpm exec agent-utils-reuse uninstall --yes
+pnpm install
+```
+
+Windows / Git Bash 命令找不到时：
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs uninstall --yes
+pnpm install
+```
+
+在 agent-utils-reuse 仓库内可跑：`pnpm test:uninstall`。
+
 ## Windows 测 Hook
 
 用 PowerShell，勿用 Git Bash 管道：

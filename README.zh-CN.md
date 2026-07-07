@@ -163,14 +163,41 @@ pnpm upgrade:utils-reuse
 
 ## 卸载门禁
 
-彻底移除 Rules/Hooks、`docs/agent-catalog`、生成的 index/book、`AGENTS.md` 标记块及 `package.json` 依赖：
+**需 v0.3.20+**（含 `uninstall` 子命令）。一键移除：
+
+| 会删除 | 不删除 |
+|--------|--------|
+| `.cursor/rules`、Hook 脚本、`reuse-before-create` skill | `src/utils` 上的 `@utils-book` JSDoc |
+| `.utils-bookrc.json`、`.cursor/` 下 session 审计文件 | 你在 `catalogDir` 下自行添加的非门禁文件 |
+| `docs/agent-catalog/`：可合并文档、`utils-index.json`、`utils-book/`、`skills.md`、snippet | |
+| `AGENTS.md` 门禁标记块（及可选 `projectAgentCoreRule`） | |
+| `.cursor/hooks.json` 中门禁条目；`package.json` 依赖与门禁 scripts | |
+
+若 `catalogDir` 内仅剩门禁产物，会一并删除该目录（v0.3.23+）。非门禁文件会在 **Warnings** 中列出并保留。
+
+**一键删除**（`--yes` 跳过确认提示，直接执行）：
+
+```bash
+pnpm exec agent-utils-reuse uninstall --yes
+```
+
+uninstall 会**同时修改** `package.json`：移除 `devDependencies` 里的 `agent-utils-reuse`，以及 `gen:utils-book`、`upgrade:utils-reuse` 等门禁 scripts（见上表「会删除」）。**业务源码不会动**。
+
+建议再跑 `pnpm install`，让 `pnpm-lock.yaml` 和 `node_modules` 与改过的 `package.json` 一致（从 `node_modules` 里清掉该包）。不跑也能用项目，只是 lockfile / `node_modules` 里可能还留着旧依赖，直到你下次 install。
+
+可选：先预览计划删除项（**不写盘**）：
+
+```bash
+pnpm exec agent-utils-reuse uninstall --dry-run
+```
+
+Git Bash / Windows 若命令找不到：
 
 ```bash
 node node_modules/agent-utils-reuse/bin/cli.mjs uninstall --yes
-pnpm install
 ```
 
-不会删除 `src/utils` 上的 `@utils-book` 注释。可先 `--dry-run` 预览。
+（同样可选 `pnpm install` 同步 lockfile。）
 
 ## 开发本仓库
 

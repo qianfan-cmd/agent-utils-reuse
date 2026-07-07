@@ -111,5 +111,6 @@ Then `init --force` injects a marked utils block. `project-agent-gate.mdc` remai
 | `pnpm update:utils-reuse` | Gate-only sync |
 | `pnpm gen:utils-book` | Regenerate index + book |
 | `pnpm check:utils-book` | CI: gen + git diff |
+| `agent-utils-reuse uninstall --yes` | Remove gate + catalog (see [README § Uninstall](../../README.md#uninstall)) |
 
-See [getting-started.md](getting-started.md) for upgrade flags.
+See [getting-started.md](getting-started.md) for upgrade flags and uninstall.

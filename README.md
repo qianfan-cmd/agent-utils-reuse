@@ -163,14 +163,41 @@ More: [docs/en/best-practices.md](docs/en/best-practices.md)
 
 ## Uninstall
 
-To remove the gate entirely (Rules, Hooks, `docs/agent-catalog`, generated index/book, `AGENTS.md` marker block, and `package.json` dependency):
+**Requires v0.3.20+** (`uninstall` subcommand). Removes the gate in one shot:
+
+| Removed | Kept |
+|---------|------|
+| `.cursor/rules`, hook scripts, `reuse-before-create` skill | `src/utils` `@utils-book` JSDoc |
+| `.utils-bookrc.json`, session audit files under `.cursor/` | Custom files you added under `catalogDir` |
+| `docs/agent-catalog/`: mergeable docs, `utils-index.json`, `utils-book/`, `skills.md`, snippet | |
+| Gate marker blocks in `AGENTS.md` (and optional `projectAgentCoreRule`) | |
+| Gate entries in `.cursor/hooks.json`; gate scripts/dependency in `package.json` | |
+
+If `catalogDir` contains only gate artifacts, the directory itself is removed (v0.3.23+). Non-gate files under `catalogDir` are listed in **Warnings** and kept.
+
+**One-shot remove** (`--yes` skips the confirmation prompt):
+
+```bash
+pnpm exec agent-utils-reuse uninstall --yes
+```
+
+Uninstall also **edits** `package.json`: removes the `agent-utils-reuse` devDependency and gate scripts (`gen:utils-book`, `upgrade:utils-reuse`, etc.). **Application source is unchanged.**
+
+Run `pnpm install` afterward so the lockfile and `node_modules` match the updated `package.json` (drops the package from `node_modules`). Skipping is OK for day-to-day dev; the stale dependency lingers until the next install.
+
+Optional: preview planned removals (**no writes**):
+
+```bash
+pnpm exec agent-utils-reuse uninstall --dry-run
+```
+
+If `agent-utils-reuse` is not on PATH (common on Windows / Git Bash):
 
 ```bash
 node node_modules/agent-utils-reuse/bin/cli.mjs uninstall --yes
-pnpm install
 ```
 
-`src/utils` JSDoc comments are not removed. Preview with `--dry-run` first.
+(Optional `pnpm install` to sync the lockfile.)
 
 ## Development
 

@@ -120,6 +120,25 @@ cd your-project
 node ../agent-utils-reuse/scripts/test-hook-confirm.mjs .
 ```
 
+## Uninstall
+
+**Requires v0.3.20+.** See [README § Uninstall](../../README.md#uninstall) for the full removed/kept list.
+
+```bash
+pnpm exec agent-utils-reuse uninstall --dry-run
+pnpm exec agent-utils-reuse uninstall --yes
+pnpm install
+```
+
+Windows / Git Bash when the bin is not on PATH:
+
+```bash
+node node_modules/agent-utils-reuse/bin/cli.mjs uninstall --yes
+pnpm install
+```
+
+Smoke test from the agent-utils-reuse repo: `pnpm test:uninstall`.
+
 ## Monorepo / CI
 
 - Run `init` and `gen` at each **consumer app root** that uses the gate.

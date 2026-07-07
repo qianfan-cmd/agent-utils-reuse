@@ -76,4 +76,12 @@ Rules 始终要求聊天 Confirm + `Verdict（最终）`。
 
 ## 命令
 
-见 [getting-started.md](getting-started.md)。
+| 命令 | 作用 |
+|------|------|
+| `pnpm upgrade:utils-reuse` | 升级包 + 门禁 |
+| `pnpm update:utils-reuse` | 仅同步门禁 |
+| `pnpm gen:utils-book` | 重新生成 index + book |
+| `pnpm check:utils-book` | CI：gen + git diff |
+| `agent-utils-reuse uninstall --yes` | 卸载门禁与 catalog（见 [README 卸载](../../README.zh-CN.md#卸载门禁)） |
+
+详见 [getting-started.md](getting-started.md)（含升级参数与卸载）。
