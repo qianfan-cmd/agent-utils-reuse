@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process'
 
 import { AGENTS_BLOCK_START } from '../lib/merge-agents.mjs'
 import {
+  GATE_GENERATED_CATALOG_FILES,
   MERGEABLE_GATE_DOC_FILES,
   PACKAGE_HOOK_FILES,
   PACKAGE_RULE_FILES
@@ -99,6 +100,10 @@ try {
   for (const name of MERGEABLE_GATE_DOC_FILES) {
     assert.ok(!fs.existsSync(path.join(projectRoot, catalogDir, name)), `doc ${name} removed`)
   }
+  for (const name of GATE_GENERATED_CATALOG_FILES) {
+    assert.ok(!fs.existsSync(path.join(projectRoot, catalogDir, name)), `generated ${name} removed`)
+  }
+  assert.ok(!fs.existsSync(path.join(projectRoot, catalogDir)), 'catalog dir removed when empty')
 
   const agents = fs.readFileSync(path.join(projectRoot, 'AGENTS.md'), 'utf8')
   assert.ok(!agents.includes(AGENTS_BLOCK_START), 'AGENTS marker block removed')

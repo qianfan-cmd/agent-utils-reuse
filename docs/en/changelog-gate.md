@@ -9,6 +9,14 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.3.23
+
+**Uninstall completeness**
+
+- Remove generated `skills.md` on uninstall
+- Dry-run no longer warns about `utils-book` / other planned catalog removals
+- Remove empty `docs/agent-catalog` when only gate artifacts remain
+
 ## v0.3.22
 
 **Gate noise reduction & auditable formats**
