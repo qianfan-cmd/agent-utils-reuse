@@ -22,7 +22,13 @@
 | **Hook**（可选） | `hookMode: confirm` 时无 Confirm 证据则硬拦 Write |
 | **AGENTS.md** | 自动合并 utils 复用节 |
 
-设计说明：[docs/design/utils-reuse-blog.md](docs/design/utils-reuse-blog.md)
+## 博客 / 设计说明
+
+| | |
+|---|---|
+| **掘金** | [AI 写代码总在重复造轮子？我们把 Utils 复用门禁做进了 Agent 运行时](https://juejin.cn/post/7659439864581586994) |
+| **CSDN** | [AI 写代码总在重复造轮子？我们把 Utils 复用门禁做进了 Agent 运行时](https://blog.csdn.net/2302_80913785/article/details/162672726) |
+| **仓库设计稿** | [docs/design/utils-reuse-blog.md](docs/design/utils-reuse-blog.md)（Markdown 源稿） |
 
 ## 快速开始
 

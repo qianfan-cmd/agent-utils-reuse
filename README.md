@@ -22,7 +22,13 @@ English | [简体中文](README.zh-CN.md)
 | **Hooks** (opt-in) | `hookMode: confirm` hard-denies Write without Confirm evidence |
 | **AGENTS.md** | Merged utils reuse section |
 
-Design deep-dive: [docs/design/utils-reuse-blog.md](docs/design/utils-reuse-blog.md) (Chinese).
+## Read more
+
+| | |
+|---|---|
+| **掘金** (中文) | [AI 写代码总在重复造轮子？我们把 Utils 复用门禁做进了 Agent 运行时](https://juejin.cn/post/7659439864581586994) |
+| **CSDN** (中文) | [AI 写代码总在重复造轮子？我们把 Utils 复用门禁做进了 Agent 运行时](https://blog.csdn.net/2302_80913785/article/details/162672726) |
+| **Repo design doc** | [docs/design/utils-reuse-blog.md](docs/design/utils-reuse-blog.md) (source markdown) |
 
 ## Quick start
 
