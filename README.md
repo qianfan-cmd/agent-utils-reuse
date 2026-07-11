@@ -2,7 +2,11 @@
 
 English | [简体中文](README.zh-CN.md)
 
-**Stop AI agents from silently forking your shared utilities.** This package adds a **Confirm gate** (five questions + `Verdict（最终）` in chat before Write), **KV utils search** (`utils-index.json`), and **Cursor Rules/Hooks** to any frontend project.
+**Help AI agents prefer existing utilities in `src/utils` when writing frontend code — stop reinventing the wheel.**
+
+In Cursor, agents often Read `src/utils` then still rewrite sort/upload/validate logic inside a component. This package adds a **reuse gate**: search candidates, read util source, **prove reuse in chat** (auditable), then Write — fewer silent forks of shared helpers.
+
+**What you get in practice**: agents import from `@/utils` instead of duplicating helpers; you can review chat evidence; optional `hookMode: confirm` hard-denies Write without proof. One-shot `init` — no change to your app structure.
 
 ## Why
 

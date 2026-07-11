@@ -2,7 +2,19 @@
 
 [English](README.md) | 简体中文
 
-**防止 AI 编码 Agent 静默 fork 你的公共工具函数。** 本包为前端项目提供 **Confirm 门禁**（五问 + 聊天中的 `Verdict（最终）` 再 Write）、**KV 工具检索**（`utils-index.json`）以及 **Cursor Rules/Hook**。
+**让 AI Agent 写前端业务代码时，优先复用 `src/utils` 里已有的工具函数，防止重复造轮子。**
+
+你在 Cursor 里提需求改页面，Agent 经常这样：先 Read 了 `src/utils`，转头还是在 `ListPage.vue` 里又写一份排序、上传、校验……逻辑几乎一样，Review 时那种「utils 里不是有吗？」很头大。
+
+**本包做什么**：给 Agent 加一套**复用门禁**——改业务代码前，先检索候选、读 util 源码，在 **chat 里写清楚为什么 reuse**（可审查、可对照），再 Write。目标是**少在组件里静默 fork 公共函数**，修 bug 不用改两遍。
+
+**用起来什么效果**：
+
+- Agent 倾向 `import { sortDesc } from '@/utils/...'`，而不是再写 `sortDescLocal`
+- 你 Review 时能看到 chat 里的复用依据，而不只是「它读过 utils 了」
+- 可选 `hookMode: confirm`：没写清依据就拦 Write（默认 `off`，靠 Rules 提醒）
+
+接入方式：`init` 写入 Rules、`AGENTS.md`、工具索引 CLI；**不用改现有业务代码结构**。
 
 ## 为什么需要
 
