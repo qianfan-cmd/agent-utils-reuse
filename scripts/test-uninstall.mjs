@@ -117,6 +117,47 @@ try {
   assert.equal(status.status, 0, status.stderr)
 
   console.log('test-uninstall: OK')
+
+  // Multi-target: init --all, uninstall --claude keeps cursor + AGENTS
+  const multiDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-utils-reuse-uninstall-multi-'))
+  fs.writeFileSync(
+    path.join(multiDir, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: 'uninstall-multi-test',
+        private: true,
+        devDependencies: {
+          'agent-utils-reuse': `file:${PACKAGE_ROOT.replace(/\\/g, '/')}`
+        }
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  )
+  const multiInstall = spawnSync('npm', ['install'], {
+    cwd: multiDir,
+    encoding: 'utf8',
+    shell: process.platform === 'win32'
+  })
+  if (multiInstall.status !== 0) {
+    throw new Error(`multi npm install failed: ${multiInstall.stderr}`)
+  }
+  const multiInit = runCli(['init', '--all', '--yes', '--force'], multiDir)
+  assert.equal(multiInit.status, 0, multiInit.stderr)
+  assert.ok(fs.existsSync(path.join(multiDir, '.cursor', 'hooks.json')), 'cursor hooks after --all')
+  assert.ok(fs.existsSync(path.join(multiDir, '.claude', 'settings.json')), 'claude settings after --all')
+  assert.ok(fs.existsSync(path.join(multiDir, '.codex', 'hooks.json')), 'codex hooks after --all')
+
+  const uninstallClaude = runCli(['uninstall', '--claude', '--yes'], multiDir)
+  assert.equal(uninstallClaude.status, 0, uninstallClaude.stderr)
+  assert.ok(!fs.existsSync(path.join(multiDir, '.claude')), 'claude tree removed')
+  assert.ok(fs.existsSync(path.join(multiDir, '.cursor', 'hooks.json')), 'cursor kept after --claude uninstall')
+  assert.ok(fs.existsSync(path.join(multiDir, '.utils-bookrc.json')), 'bookrc kept')
+  const agentsAfter = fs.readFileSync(path.join(multiDir, 'AGENTS.md'), 'utf8')
+  assert.ok(agentsAfter.includes(AGENTS_BLOCK_START), 'AGENTS block kept when cursor remains')
+
+  console.log('test-uninstall multi-target: OK')
 } catch (err) {
   console.error(err)
   process.exit(1)

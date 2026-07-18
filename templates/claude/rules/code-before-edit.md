@@ -1,0 +1,38 @@
+---
+paths: src/**/*.{vue,ts,tsx}
+---
+
+# Before editing source — mandatory order
+
+You are about to read or modify **application source** (default globs: `src/**/*.{vue,ts,tsx}`).
+
+## Gate applies here
+
+If the target file **already imports `@/utils`** or you will call util symbols: **Confirm + Verdict required** — even for WIP wiring, no new import, obvious reuse, or **existing local helpers still in use**. See `utils-reuse-gate.md`.
+
+## Mandatory order
+
+1. **Read `AGENTS.md`** in full (no limit/offset).
+2. **Understand the task**: Read / Grep business code and existing imports.
+3. When gate applies or adding local pure helpers:
+   - **Discovery**: D1 (`agent-utils-reuse search` or Grep `utils-index.json`; **forbidden**: Read `utils-book/*.md`) or D2 (Grep/SemanticSearch `utilsDir`)
+   - **Identify** each util `symbol @ path` **and** each planned/retained feature helper
+   - **Read** each export/method you will call **in the util source file** (not only how another feature imports it); **Grep same util file** for sibling exports
+   - **Confirm phase**: Discovery + **Local helpers** table + Confirm (**Q1–Q4 per symbol, separately**) + **`Verdict（最终）`** in chat
+4. **Implement phase**: Write / StrReplace — **same assistant response**, after Confirm text.
+
+## Session checklist
+
+- [ ] Read full `AGENTS.md` this session
+- [ ] Understood task / business context before Confirm
+- [ ] Utils: Discovery D1/D2 when adding local helpers or gate applies
+- [ ] Utils: Local helpers table in Message A (one row per planned/**retained** helper)
+- [ ] Utils: Q1, Q2, Q3, Q4 appear **separately** per symbol (not `Q1-Q5 通过`)
+- [ ] Utils: Read **util source** export(s) you will call (feature call sites alone do not count)
+- [ ] Utils: Confirm + **`Verdict（最终）`** in a **prior** message (no Write/StrReplace in that message)
+- [ ] Cross-feature copy: **placement debt** in Verdict when featureLocal
+- [ ] New/changed **exported** functions, classes, or consts: **`/** */`** immediately above export (utilsDir: include `@utils-book` when possible)
+- [ ] Cosmetic UI diff not specified: ask user (placement §1.5)
+- [ ] Typecheck after `.vue` / `.ts` changes (see `AGENTS.md`)
+
+Details: `.claude/rules/utils-reuse-gate.md`, `placement-decision.md` §1.6

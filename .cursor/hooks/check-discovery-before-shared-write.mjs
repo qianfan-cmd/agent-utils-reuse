@@ -198,8 +198,22 @@ function collectRequiredReads(normalized, payload, config, cwd) {
   return { requiredReads, isRemind, isUtils, uiOnly }
 }
 
-function gateApplies({ isUtils, requiredSymbols, requiredReads }) {
-  return isUtils || requiredSymbols.length > 0 || requiredReads.size > 0
+function gateApplies({
+  isUtils,
+  requiredSymbols,
+  requiredReads,
+  isRemind,
+  payload,
+  normalized,
+  isLightGate
+}) {
+  if (isUtils || requiredSymbols.length > 0 || requiredReads.size > 0) return true
+  return (
+    !isLightGate &&
+    isRemind &&
+    patchAddsLocalHelper(payload, normalized) &&
+    !isUtils
+  )
 }
 
 function failClosedWrite(config, cwd, err, context, raw = '') {
@@ -310,7 +324,17 @@ async function main() {
 
     const requiredSymbols = requiredSymbolsFromPatch(normalized, payload, config, cwd)
 
-    if (!gateApplies({ isUtils, requiredSymbols, requiredReads })) {
+    if (
+      !gateApplies({
+        isUtils,
+        requiredSymbols,
+        requiredReads,
+        isRemind,
+        payload,
+        normalized,
+        isLightGate
+      })
+    ) {
       process.stdout.write(JSON.stringify({ permission: 'allow' }))
       return
     }

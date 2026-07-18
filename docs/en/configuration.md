@@ -26,6 +26,7 @@
 | `remindWritePaths` | `src/feature`, … | App paths scanned on Write |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | `code-before-edit.mdc` globs |
 | `projectAgentCoreRule` | `null` | Merge utils gate into your alwaysApply rule |
+| `installedAgentTargets` | `["cursor"]` (written by init) | Installed IDE targets: `cursor` / `claude` / `codex` |
 | `installedPackageVersion` | *(written by update)* | Last synced version |
 | `gateFileHashes` | *(written by update)* | Mergeable doc hashes |
 | `gateOverwriteHashes` | *(written by update)* | Overwrite-tier file hashes |
@@ -35,6 +36,19 @@
 | `allowBusinessDiscovery` | `false`* | Accept D1.5 feature-path Grep as Discovery |
 
 \*When **`hookMode: confirm`**, these default to **`true`** unless set to `false` in bookrc.
+
+## Multi-agent targets (v0.4.0+)
+
+CLI flags on `init` / `update` / `uninstall` / `verify`:
+
+- Default: **Cursor** only
+- `--claude`: Claude Code (`.claude/settings.json` + `.claude/rules/*.md`)
+- `--codex`: OpenAI Codex (`.codex/hooks.json` + `.agents/skills/`)
+- `--all`: all three in one repo
+
+One bookrc drives `hookMode`, Discovery, and Confirm for every target; hooks and audit files are **per IDE directory**.
+
+See [multi-agent-targets.md](multi-agent-targets.md).
 
 ## hookMode
 

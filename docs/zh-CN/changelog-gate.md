@@ -9,6 +9,17 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.4.0
+
+**Multi-agent targets (Cursor / Claude Code / Codex)**
+
+- CLI：`init` / `update` / `uninstall` / `verify` 支持 `--claude` / `--codex` / `--all`；**无 flag 仍仅 Cursor**（与 v0.3.23 等价）
+- 共享 Hook 核心：`templates/shared/hooks/`；各 IDE 薄 wrapper + `_shared/` 副本
+- Claude：`.mdc` → `.claude/rules/*.md`；hooks merge 进 `.claude/settings.json`
+- Codex：`.codex/hooks.json` + `.agents/skills/`；规则主要靠 `AGENTS.md`
+- bookrc 可选 `installedAgentTargets`；共享 AGENTS/catalog 仅在最后一个 target 卸载时剥离
+- 修复：`patchAddsLocalHelper` 场景下 `gateApplies` 过早放行（Discovery 测试）
+
 ## v0.3.23
 
 **卸载更彻底**

@@ -117,6 +117,19 @@ node node_modules/agent-utils-reuse/bin/cli.mjs search "sort array" --limit 8
 pnpm upgrade:utils-reuse
 ```
 
+## Multi-agent targets (v0.4.0+)
+
+Default **`init` still installs Cursor only** (same as v0.3.x). Optional Claude Code / OpenAI Codex:
+
+```bash
+agent-utils-reuse init --claude --yes   # Claude Code (.claude/)
+agent-utils-reuse init --codex --yes    # Codex (.codex/ + .agents/skills/)
+agent-utils-reuse init --all --yes      # all three in one repo
+agent-utils-reuse update --claude --yes
+```
+
+Details: [docs/en/multi-agent-targets.md](docs/en/multi-agent-targets.md) · [docs/zh-CN/multi-agent-targets.md](docs/zh-CN/multi-agent-targets.md)
+
 ## hookMode (choose one)
 
 | Mode | Write deny | When to use |
@@ -170,7 +183,8 @@ More: [docs/en/best-practices.md](docs/en/best-practices.md)
 | `pnpm update:utils-reuse` | Gate-only sync (no `pnpm add`) |
 | `pnpm gen:utils-book` | Regenerate index + utils-book |
 | `agent-utils-reuse search "<query>"` | KV search (Agent D1) |
-| `agent-utils-reuse uninstall --yes` | Remove gate, catalog, dependency (see below) |
+| `agent-utils-reuse init [--claude\|--codex\|--all]` | First install (Cursor default) |
+| `agent-utils-reuse uninstall [--claude\|--codex\|--all] --yes` | Remove gate (per target; see below) |
 | `pnpm test:hooks [projectRoot]` | Hook smoke tests |
 
 ## Uninstall

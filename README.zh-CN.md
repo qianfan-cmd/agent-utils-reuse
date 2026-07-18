@@ -125,6 +125,19 @@ node node_modules/agent-utils-reuse/bin/cli.mjs search "数组 排序" --limit 8
 pnpm upgrade:utils-reuse
 ```
 
+## 多 Agent 工具（v0.4.0+）
+
+默认 **`init` 仍仅装 Cursor**（与 v0.3.x 相同）。可选扩展 Claude Code / OpenAI Codex：
+
+```bash
+agent-utils-reuse init --claude --yes   # Claude Code（.claude/）
+agent-utils-reuse init --codex --yes    # Codex（.codex/ + .agents/skills/）
+agent-utils-reuse init --all --yes      # 三端同仓
+agent-utils-reuse update --claude --yes
+```
+
+详规：[docs/zh-CN/multi-agent-targets.md](docs/zh-CN/multi-agent-targets.md)
+
 ## hookMode 怎么选
 
 | 模式 | 拦 Write | 适用 |
@@ -174,6 +187,7 @@ pnpm upgrade:utils-reuse
 
 | 命令 | 作用 |
 |------|------|
+| `agent-utils-reuse init [--claude\|--codex\|--all]` | 首次安装（默认 Cursor） |
 | `pnpm upgrade:utils-reuse` | 升级包 + 同步门禁 |
 | `pnpm update:utils-reuse` | 仅同步门禁（不 `pnpm add`） |
 | `pnpm gen:utils-book` | 重新生成索引与 utils-book |

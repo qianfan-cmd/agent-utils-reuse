@@ -1,0 +1,57 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/track-utils-reads.mjs --reset"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/check-discovery-before-shared-write.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/track-utils-reads.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/track-utils-discovery.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/track-utils-verdict.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

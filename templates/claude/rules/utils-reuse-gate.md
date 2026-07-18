@@ -1,0 +1,197 @@
+# Utils Confirm gate (mandatory)
+
+## HARD STOP — Read ≠ gate complete
+
+**Read util source does NOT complete the gate.** **Post-selection proof** — Confirm (Q1–Q5 **per symbol**) + **`Verdict（最终）`** in **chat** — is a separate mandatory step with the same priority as Read.
+
+**HARD STOP — hollow Confirm forbidden**
+
+- **Each util + each Local helpers table row** must have **individual Q1, Q2, Q3, Q4** (and Q5) in Confirm phase chat.
+- **Forbidden**: `Q1-Q5 通过`, `五问通过`, or any Verdict without分项 Q1–Q4.
+- **Rules enforce** Confirm + Verdict in chat before Write. **Default `hookMode: off` (v0.3.15)** — no Write deny; Rules only.
+- Hook (`hookMode: confirm` opt-in) **fail-closed** + same-turn Verdict; denies when Verdict lacks分项 Q1–Q4 or when adding local helpers without Local helpers table.
+
+**Confirm→Implement workflow:**
+
+1. **Confirm phase** — Identify + Discovery (when triggered) + **Local helpers** table + Confirm (Q1–Q5 **per symbol**) + **`Verdict（最终）` in chat**.
+2. **Implement phase** — Write / StrReplace **in the same assistant response**, after Confirm text (before first Write tool).
+
+**Confirm→Implement same turn (default v0.3.14)**: 单轮六步 — 分析 → D1/D2 → Read util → Confirm 表 + `Verdict（最终）` → Write（同一条 assistant 回复）。Hook 默认 **`sameTurnAllow: true`**；显式 `"sameTurnAllow": false` 时须 payload.text 或分两轮。
+
+**Before first business Write / StrReplace**: chat must include substantive **Confirm (Q1–Q5 per util and per local helper row)** and **`Verdict（最终）`** **before** the first Write tool in this response. **Forbidden**: empty "Q1–Q5 pass"; Write before Verdict text.
+
+**Non-skippable**: For each util you will **import or call**, and each **planned/retained feature helper**, complete Confirm + Verdict in **chat**, then Write.
+
+**Confirm confirms**: whether **this symbol**, for **this task's planned usage**, can replace what you would write **without changing the util** (Q1–Q5). See `placement-decision.md` §1.6.
+
+**Discovery (mandatory when triggered)** — see § Discovery below; Confirm phase must state **D1** or **D2** used.
+
+## Discovery (mandatory when triggered)
+
+**Trigger Discovery** when **any** of:
+
+- Gate applies (below)
+- You will **add or materially rewrite** a **local pure helper** in feature code (FileReader, dataUrl, validate, convert, base64, mime, DOM text extraction, etc.)
+
+**Discovery action** (pick **one**; state in Confirm phase; **repo-wide Grep for business usage is NOT D1**):
+
+- **D1 (KV — preferred)**: `agent-utils-reuse search "<task keywords>" --limit 8` **or** `Grep` with **`path: docs/agent-catalog/utils-index.json`** (relative to project root) → list candidate `sym @ path`
+- **D2**: `Grep` / `SemanticSearch` with **`path: src/utils`** (relative; absolute paths also accepted v0.3.5+) under configured `utilsDir` (keywords from planned helpers, e.g. `base64`, `dataUrl`, `validateFile`)
+
+**Forbidden for Shortlist (D1)**: Read `utils-book/index.md`, Read `utils-book/{章}.md`, or Grep entire `utils-book/` — Markdown is **human-only** (v0.3.0).
+
+**Cross-feature copy**: Before copying pure functions from another feature component, run D1 or D2. If logic exists only in a component (not in `utilsDir`), **featureLocal** is OK — note **placement debt** in Confirm phase (composable or newUtil extraction candidate). **Cross-feature component copy ≠ reuse(utils)** — do not label component reuse as `reuse(symbol)`.
+
+**D1 zero candidates → mandatory D2**: If D1 (CLI search or Grep `utils-index.json`) returns **no** candidates, you **must** run D2 (`Grep path:src/utils`) before writing util-semantics local helpers. **Forbidden**: skip D2 and featureLocal-duplicate when utils may exist.
+
+**Confirm in user-visible chat only** — not thinking-only; Hook cannot audit thinking.
+
+**Bulk Confirm (≥3 util symbols) — compact default (v0.3.9)**:
+
+| Symbol | Read @ path | Q4（替换 + sibling 拒选） | Verdict |
+|--------|-------------|---------------------------|---------|
+
+- **Bulk compact = 五问合法压缩**：Q1–Q3 默认等价通过；**Q4 一行**须含替换结论；同文件 sibling **必须** `reject <sibling> (<reason>)` 或显式 **`no sibling`** — **禁止**空 Q4 / 仅写「OK」。
+- **Q4 最小模板**：`<chosen> OK; reject <sibling> (<reason>)` | `<chosen> OK; no sibling` | `no importable reuse object; D2 …`
+- **Read @ path**：须与本 session Read 的 util 文件一致（partial Read export 段 + 同文件 `Grep ^export` 即可）。
+- **`Verdict（最终）`** summary 仍推荐；**v0.3.13**：bulk compact 表 **Verdict 列**含 `reuse(`/`partialReuse(` 时可无单独 summary 行；`Verdict (最终):` 半角括号亦接受。
+- **Legacy**（1–2 symbol）：分项 Q1–Q4 prose 仍接受；7 列 Bulk 表（Q1–Q4 分列）仍接受。
+- **D1 零候选 + D2 有结果（#28）**：**两行** — `noUtil(关键词)` 行 + reuse D2 结果行；禁止捆在一格。
+- **D1 零候选 + D2 无 export（#28）**：**noUtil 短模板** — `D1 "kw": 0 → D2 path:src/utils "kw": 0 → noUtil(kw)`；Hook 校验 Q4 含 D1/D2/零候选 token（`noutil_q4_invalid`）。
+- **>5 reuse symbol**：优先分批（每批 ≤5 symbol：一张表 + 一次 Write）；Hook allow + remind。
+- **Delta Confirm（v0.3.11–v0.3.12）**：同会话、patch **仅新增 import symbol** → 只输出 **新增 symbol 行** + `Gate N/A — <本轮区块>`；**newCall**（已有 import、新 `Binding.method`）→ 方法级新行（§1.6.1）；已 Confirm 的 symbol **勿重复**（Hook `alreadyCovered` / `needsConfirm`；`needsConfirm` 空且 session audit 已 record → **allow 无需本轮 Verdict**）。
+- **混页纯 UI（#27）**：仅改 `<template>` / `<style>` / 示例 JSON 文案、patch 无新 `@/utils` → Hook **uiOnly allow**（不要求重出整表）；**禁止** `// @gate-na` 注释协议。
+- **partialReuse + featureLocal(wrapper)**：可与 util **同表一行**，如 `partialReuse(validateHistoryImageUrls)+featureLocal(checkHistoryUrlItem)`；Hook **不强制** wrapper 单独行（Legacy ≥3 symbol 仍可用分项）。
+- **Patch-scoped gate（v0.3.12）**：文件顶已有 `@/utils` **不**触发整文件 re-Confirm；仅 **本次 patch 新增 import/call** 或 util-semantics 本地 helper 须 Confirm。
+- **同轮 Confirm+Write（v0.3.17）**：`sameTurnAllow: true`（默认）— chat **须含可检测的 Confirm 文本** + session Read util + AGENTS → 同轮 Write allow；**仅有 Read 不放行**。JSON 解析失败 **fail-closed deny**。分轮：设 `"sameTurnAllow": false`。
+
+**D1 in chat** — **固定一行格式**（任选其一，禁止只用「搜到了」）：
+
+```
+D1 "upload": 3 → [uploadSingleFile @ src/utils/upload.ts, uploadFiles @ …]
+D1 "debounce": 0 → D2 path:src/utils "debounce"
+```
+
+Grep `utils-index.json` ≡ CLI `agent-utils-reuse search`。Page comments ≠ Discovery proof。
+
+**D2 in chat** — D1 零候选时 **必须**出现：
+
+```
+D2 path:src/utils "upload": 2 → [uploadSingleFile @ …]
+```
+
+**分层 gate（v0.3.22）** — 见 `placement-decision.md` §1.6.1：
+
+| 层级 | Confirm |
+|------|---------|
+| **uiOnly** | `Gate N/A: uiOnly` — 无 script util 增量 |
+| **delta 新 import** | 仅新 binding 行 |
+| **delta newCall** | 已有 import，patch 首次 `Binding.method` — Symbol 写 `Binding.method` |
+| **sameSymbol** | `Gate N/A — sameSymbol` |
+| **full** | 完整表 |
+
+**D1.5 业务反查**（`hookMode: confirm` 默认开启，可 `allowBusinessDiscovery: false` 关闭）：`Grep` feature 路径（`remindWritePaths`）从调用点反查 util；Confirm 写 `D1.5: Grep <feature> → sym @ path`。
+
+**Confirm 硬门禁**：`hookMode: confirm` 默认启用 Discovery（util patch）、D1 优先 cli/index、分批上限、D1.5。任务前：`pnpm gen:utils-book` + `agent-utils-reuse status`。
+
+**Same-file siblings**: D1 / `agent-utils-reuse search` 命中行展示 `siblings @ path: …`（来自 `utils-index.json` `siblingsByPath`）→ Confirm 前 **Grep `^export` 同文件**（或贴 search siblings 行）→ Q4 须 `reject <sibling> (<reason>)` 或 **`no sibling`**。**Q4 一行模板**：`<chosen> OK; reject <sibling> (<reason>)`.
+
+**featureLocal 反重复（v0.3.22 — 规则软约束）**：拟写 local helper 且函数体/名含 `validate|parse|convert|base64|mime|dataUrl|upload` 等 util 语义，而 D1/D2 已有候选 export → Local helpers 表须 **对比行**说明为何非 `reuse` / `partialReuse`；Q4 写「reject reuse candidate because …」。**禁止**与 util 同语义的厚 wrapper（如已有 `validateHistoryImageUrls` 再写扩展名校验重复层）— 优先 `partialReuse` + 薄包装。
+
+**featureLocal + D2**：util 语义任务（upload/validate/convert/format…）若 Verdict 含 `featureLocal`，Q4 须写 **D2 Grep utilsDir 无 export** 或引用 Discovery 行；D1 零候选不得跳过 D2 叙事。
+
+**Gate N/A**: Pure UI / no `@/utils` in **patch** / no util-semantics helpers → **`Gate N/A: <reason>`** or uiOnly allow (v0.3.11 template/style patch).
+
+## Gate applies — NOT exempt
+
+The gate **applies** (Confirm + Verdict required) when **any** of:
+
+- Write/StrReplace under `remindWritePaths` (default `src/feature`, `src/components`, `src/hooks`, `src/views`) on `.vue`/`.ts`, and the **target file on disk (after merging the patch)** has `@/utils` imports **or** calls imported util symbols
+- Task involves mention, upload, prompt conversion, format, validate, or similar **utils semantics**
+- You will **import or call** anything under configured `utilsDir`
+
+**NOT exempt** (gate still applies):
+
+- **Existing** `@/utils` in file — **except** v0.3.11 **UI-only patch**（仅 template/style、无新 import）→ Hook allow without re-Confirm
+- WIP wiring only (events, IME, emit) — if utils are still called **in the patch**
+- Obvious reuse — still require Read export(s) + Confirm + Verdict in chat when patch adds/changes util usage
+- Helper **already in file** — still re-Confirm in Local helpers table when gate applies
+
+## Mandatory flow
+
+1. **Read `AGENTS.md`** in full once per **session** — **no** `limit`/`offset`. 推荐 `"agentsReadMode": "session"`（`.utils-bookrc.json`）；`tool` 模式下每任务仍须 Read。
+2. **Understand the task**: Read / Grep business code, plan, **existing imports** — **before** Confirm.
+3. **Identify** each util `symbol @ path` **and** each planned/retained feature helper.
+4. **Discovery** (when triggered): D1 or D2 above — before writing local helpers or when gate applies.
+5. **Read** each **export/method you will call** in the **util source file** under `utilsDir` / `@/utils` (partial Read of that file, or Grep **within that util file**, is OK).
+   - **Understand the task** by Read/Grep **feature/business code** — that does **not** substitute for Read of the util export you will call.
+   - **Forbidden**: Confirm from only reading another feature's `import` / call sites (e.g. `ai-promptInput.vue`) without Read of `promptUtils.ts` (or the util path you identified).
+   - **Same-file siblings (mandatory)**: After Read export X @ `file.ts` → **Grep that same util file** for related exports before any local helper (e.g. `fileToBase64` when you Read `uploadSingleFile`).
+6. **Output Confirm in chat** (never as JSON cache) — **before first Write tool**:
+   - **Discovery** line (D1 or D2) when triggered
+   - **Local helpers** table — one row per planned/**retained** feature helper vs utils/component candidate (see `placement-decision.md` §3). Header: **`Local helpers`** or **`| 本地函数 |`** recommended; **`| Helper |`** also accepted (v0.3.5+)
+   - Substantive **Confirm（五问）** — **per util and per Local helpers row**; legacy: Q1–Q4 as separate items; **bulk compact (≥3)**: one **Q4** cell per row (Hook validates Read + Q4)
+   - **`Verdict（最终）`** per row: `reuse(sym)` | `partialReuse(sym)+featureLocal(wrapper)` | `newUtil(name)` | `noUtil(sym)` | `featureLocal(reason)` | `featureLocal+placement debt(ref→candidate)`
+7. **Then** Write / StrReplace in the **same response** (after step 6).
+
+## Export JSDoc (utilsDir — mandatory)
+
+When **creating or materially changing** an export under configured `utilsDir` (default `src/utils/`):
+
+- Place a block comment **`/** ... */` immediately above** each `export` (only whitespace/newlines between comment and export).
+- **Prefer** `@utils-book 一句话功能描述` — what the symbol does; **not** reuse Verdict or business scenario.
+- Without `@utils-book`, the first non-`@` line in `/** */` is used for utils-index search.
+- After **newUtil** or new exports: run **`pnpm gen:utils-book`** (and commit utils-book if your project tracks it).
+
+```ts
+/** @utils-book 将 ISO 日期格式化为 YYYY-MM-DD（本地时区） */
+export function formatDateLocal(iso: string): string { ... }
+```
+
+**Forbidden**: new/changed utils export with no `/** */`; single-line `//` only (generator ignores it); `@utils-book` text that says "reuse" instead of describing behavior.
+
+## Plan approved → Implement
+
+- Read/Search in earlier Implement messages is **allowed**.
+- **`Verdict（最终）`** must appear in a **chat before the first Write tool in this response** / StrReplace (same task).
+- **No** Write/StrReplace until chat includes substantive Confirm + `Verdict（最终）` or `Verdict:`.
+
+## Hook (default `off`, v0.3.15)
+
+Default **`hookMode: off`** — Rules-only Confirm + Verdict; **no Write deny**. Opt-in **`hookMode: confirm`** — enforces AGENTS.md Read + util Read + Confirm; **`sameTurnAllow: true` by default** when confirm is enabled. Set **`"sameTurnAllow": false`** for strict bulk/sibling audit. **`remind`**: allow + reminder only.
+
+**Opt-in `hookMode: confirm`**: deny Write until util Read + **`Verdict（最终）`** with **individual Q1–Q4** per **current patch symbols**; deny includes **`missingReads`** / **`staleSymbols`** in hook JSON. Set in `.utils-bookrc.json`, then `pnpm update:utils-reuse --yes`.
+
+**`hookMode: remind`**: preToolUse allow + reminder only (see README).
+
+When `@/utils` in target (`confirm` only):
+
+1. Util **files** Read this session
+2. Prior-chat **`Verdict（最终）`** with **individual Q1–Q4**
+
+**When patch adds new local function/helper under `remindWritePaths`:**
+
+1. Discovery this session (`agent-utils-reuse search` or Grep `utils-index.json` or Grep/SemanticSearch `utilsDir`)
+2. Prior-chat Verdict with **individual Q1–Q4**
+3. **Local helpers** table in that Verdict message
+
+**Read util / search / gen index do NOT complete the gate** — Confirm in chat, then Write (same assistant turn OK).
+
+Heuristic detection — still require accurate Q4 equivalence and placement debt content per Rules; see `placement-decision.md` §7.
+
+Set `"hookMode": "confirm"` or `"remind"` in `.utils-bookrc.json` (see README). Cloud agents may not run hooks — Rules still apply.
+
+## Do NOT
+
+- Treat Read util as gate complete — **Verdict in chat is mandatory**
+- Write `.utils-discovery-cache.json` or gate cache files
+- **reuse** without Read of called export(s) + Confirm + Verdict in chat
+- **Confirm** from feature consumer usage only — must Read **util source** export(s) you will call
+- Skip Confirm because reuse seems obvious or "no new import"
+- Output hollow **Q1–Q5 通过** without individual Q1–Q4 lines
+- Read `AGENTS.md` with limit/offset only
+- Add or change a utils **export** without **`/** */`** immediately above it (see Export JSDoc)
+- Add util-semantics **local helpers** without Discovery (D1/D2) + Local helpers table in Confirm phase
+- **Rewrite** a whole helper when a **same-file sibling export** already covers the core logic — prefer reuse or thin featureLocal wrapper
+- Copy pure functions from another feature component without Discovery — **placement debt** mandatory if featureLocal
+- Skip re-Confirm for **existing** local helpers in the file when gate applies

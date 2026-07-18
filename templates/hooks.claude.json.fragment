@@ -1,0 +1,57 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/track-utils-reads.mjs --reset"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/check-discovery-before-shared-write.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/track-utils-reads.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Bash|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/track-utils-discovery.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/track-utils-verdict.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

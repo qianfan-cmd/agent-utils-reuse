@@ -1,0 +1,23 @@
+# Project agent gate (agent-utils-reuse)
+
+Installed by **`agent-utils-reuse init`**. Utils 详规：**[`.claude/rules/utils-reuse-gate.md`](utils-reuse-gate.md)**
+
+## Hard checklist
+
+1. Read **`AGENTS.md`** in full — 推荐 `"agentsReadMode": "session"`。
+2. Understand task + existing imports.
+3. Utils gate applies → **Confirm + `Verdict（最终）` before Write**（见 utils-reuse-gate）。
+4. Implement — Write **after** Confirm text（同轮 OK）。
+
+## Hook
+
+默认 **`hookMode: off`**。Opt-in **`confirm`** / **`remind`** — 见 best-practices。
+
+## Project-specific core rule
+
+Set **`projectAgentCoreRule`** in `.utils-bookrc.json` + `init --force` to merge into your alwaysApply rule.
+
+## Do NOT
+
+- Skip gate for WIP / no new import
+- Write feature without **`Verdict（最终）`** when gate applies

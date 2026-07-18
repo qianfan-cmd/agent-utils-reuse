@@ -9,6 +9,17 @@ pnpm upgrade:utils-reuse
 pnpm test:hooks
 ```
 
+## v0.4.0
+
+**Multi-agent targets (Cursor / Claude Code / Codex)**
+
+- CLI: `init` / `update` / `uninstall` / `verify` accept `--claude` / `--codex` / `--all`; **no flags = Cursor only** (byte-equivalent to v0.3.23 on Cursor side)
+- Shared hook core in `templates/shared/hooks/`; per-IDE thin wrappers + copied `_shared/`
+- Claude: `.mdc` → `.claude/rules/*.md`; hooks merged into `.claude/settings.json`
+- Codex: `.codex/hooks.json` + `.agents/skills/`; rules mainly via `AGENTS.md`
+- Optional bookrc `installedAgentTargets`; shared AGENTS/catalog removed only when the last target is uninstalled
+- Fix: `gateApplies` early-allow skipped local-helper Discovery checks
+
 ## v0.3.23
 
 **Uninstall completeness**

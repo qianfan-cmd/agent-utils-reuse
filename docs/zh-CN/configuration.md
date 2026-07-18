@@ -26,6 +26,7 @@
 | `remindWritePaths` | `src/feature` 等 | Write 扫描路径 |
 | `sourceGlobs` | `src/**/*.{vue,ts,tsx}` | code-before-edit |
 | `projectAgentCoreRule` | `null` | 注入自有 core rule |
+| `installedAgentTargets` | `["cursor"]`（init 写入） | 已安装的 IDE：`cursor` / `claude` / `codex` |
 | `requireDiscoveryForUtilGate` | `false`* | util import Write 须 Discovery |
 | `preferCliSearch` | `false`* | 须 cli 或 grep-index Discovery |
 | `strictBatchLimit` | `false`* | patch >5 import 一律 deny |
@@ -33,13 +34,26 @@
 
 \* **`hookMode: confirm`** 时默认 **`true`**，可在 bookrc 显式设 `false` 关闭。
 
+## 多 Agent 目标（v0.4.0+）
+
+CLI 在 `init` / `update` / `uninstall` / `verify` 上支持：
+
+- 默认：仅 **Cursor**
+- `--claude`：Claude Code（`.claude/settings.json` + `.claude/rules/*.md`）
+- `--codex`：OpenAI Codex（`.codex/hooks.json` + `.agents/skills/`）
+- `--all`：三端同仓
+
+`hookMode`、Discovery、Confirm 规则**一份** bookrc，三端共用；各 IDE 目录下 hooks/审计文件**隔离**。
+
+详见 [multi-agent-targets.md](multi-agent-targets.md)。
+
 ## hookMode
 
-| 模式 | 拦 Write | hooks.json |
+| 模式 | 拦 Write | hooks 配置 |
 |------|----------|------------|
-| **`off`**（默认） | 否 | 空 |
-| `confirm` | 是 | 完整审计 |
-| `remind` | 否 | 仅提醒 |
+| **`off`**（默认） | 否 | Cursor: 空 hooks.json；Claude/Codex: 无门禁 hooks |
+| `confirm` | 是 | 各 IDE 对应 hooks 配置 |
+| `remind` | 否 | 仅 PreToolUse 提醒 |
 
 Rules 始终要求聊天 Confirm + `Verdict（最终）`。
 

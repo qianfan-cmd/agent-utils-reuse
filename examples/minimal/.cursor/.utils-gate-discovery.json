@@ -1,7 +1,9 @@
 {
-  "recorded": false,
+  "recorded": true,
   "d1": false,
-  "d2": false,
-  "via": [],
-  "at": null
+  "d2": true,
+  "via": [
+    "d2-utils-dir"
+  ],
+  "at": "2026-07-18T12:59:32.598Z"
 }

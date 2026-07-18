@@ -1,0 +1,20 @@
+# Utils 按需复用
+
+**详规 SSOT**：**[`.claude/rules/utils-reuse-gate.md`](utils-reuse-gate.md)**
+
+流程摘要：**摸底 → Identify → Read util 源码 → Confirm + `Verdict（最终）` → Write**（同轮默认 OK）。
+
+- **Read util ≠ 门禁完成**
+- 默认 **`hookMode: off`**；验收开 **`confirm`**
+- 已有 import / 无新 import **不豁免**
+- 展示层差异未写明 → 问用户（placement §1.5）
+
+## Verdict 速查
+
+| Verdict | 含义 |
+|---------|------|
+| **reuse** | 五问通过，Q5 否 |
+| **partialReuse+featureLocal** | util 核心 + 薄包装 |
+| **newUtil** | 须共享新 export |
+| **featureLocal** | 仅本页 |
+| **noUtil** | D1/D2 无 export |

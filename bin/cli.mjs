@@ -10,6 +10,7 @@ import { printInitSummary, runInit } from '../lib/init.mjs'
 import { printStatusSummary, printUpdateSummary, printUpgradeSummary, printVerifySummary, runStatus, runUpdate, runUpgrade, runVerify } from '../lib/update.mjs'
 import { formatIndexHealthSummary, verifyIndexHealth } from '../lib/index-health.mjs'
 import { printUninstallSummary, runUninstall } from '../lib/uninstall-gate.mjs'
+import { resolveAgentTargetsFromArgv } from '../lib/resolve-agent-targets.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_VERSION = JSON.parse(
@@ -48,6 +49,7 @@ function parseFlags(argv) {
     skipBump: flags.has('--skip-bump'),
     tag,
     json: flags.has('--json'),
+    agentTargets: resolveAgentTargetsFromArgv(argv).targets,
     limit: (() => {
       const idx = positionals.indexOf('--limit')
       if (idx >= 0 && positionals[idx + 1]) {
@@ -84,9 +86,9 @@ function printHelp() {
   console.log(`agent-utils-reuse v${PACKAGE_VERSION} — Utils reuse gate for AI coding agents
 
 Usage:
-  agent-utils-reuse init [--yes] [--force] [--accept-upstream] [--with-examples]
-  agent-utils-reuse upgrade [--yes] [--dry-run] [--tag <ref>] [--accept-upstream]
-  agent-utils-reuse update [--yes] [--dry-run] [--bump] [--tag <ref>] [--accept-upstream]
+  agent-utils-reuse init [--yes] [--force] [--accept-upstream] [--with-examples] [--claude] [--codex] [--all]
+  agent-utils-reuse upgrade [--yes] [--dry-run] [--tag <ref>] [--accept-upstream] [--claude] [--codex] [--all]
+  agent-utils-reuse update [--yes] [--dry-run] [--bump] [--tag <ref>] [--accept-upstream] [--claude] [--codex] [--all]
   agent-utils-reuse status
   agent-utils-reuse verify
   agent-utils-reuse verify-index
@@ -94,7 +96,13 @@ Usage:
   agent-utils-reuse search "<query>" [--limit N] [--json]
   agent-utils-reuse verify-index
   agent-utils-reuse check
-  agent-utils-reuse uninstall [--yes] [--dry-run]
+  agent-utils-reuse uninstall [--yes] [--dry-run] [--claude] [--codex] [--all]
+
+Agent targets (default: cursor only):
+  --cursor           Install/sync Cursor (.cursor/) — default when no IDE flag
+  --claude           Include Claude Code (.claude/)
+  --codex            Include OpenAI Codex (.codex/ + .agents/skills/)
+  --all              cursor + claude + codex
 
 Commands:
   init     First-time install — templates, AGENTS.md merge, .utils-bookrc.json, hooks
@@ -146,7 +154,8 @@ async function main() {
     skipBump,
     tag,
     json,
-    limit
+    limit,
+    agentTargets
   } = parseFlags(argv)
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
@@ -155,7 +164,14 @@ async function main() {
   }
 
   if (command === 'init') {
-    const result = runInit(cwd, { yes, force, withExamples, acceptUpstream, forceDocs })
+    const result = runInit(cwd, {
+      yes,
+      force,
+      withExamples,
+      acceptUpstream,
+      forceDocs,
+      targets: agentTargets
+    })
     printInitSummary(result)
     return
   }
@@ -168,7 +184,8 @@ async function main() {
       bump,
       skipBump,
       acceptUpstream,
-      forceDocs
+      forceDocs,
+      targets: agentTargets
     })
     printUpdateSummary(result)
     if (result.exitCode) {
@@ -183,7 +200,8 @@ async function main() {
       tag,
       dryRun,
       acceptUpstream,
-      forceDocs
+      forceDocs,
+      targets: agentTargets
     })
     printUpgradeSummary(result)
     if (result.exitCode) {
@@ -199,7 +217,7 @@ async function main() {
   }
 
   if (command === 'verify') {
-    const result = runVerify(cwd)
+    const result = runVerify(cwd, { targets: agentTargets })
     printVerifySummary(result)
     if (!result.verifyResult?.ok) {
       process.exit(1)
@@ -231,7 +249,7 @@ async function main() {
   }
 
   if (command === 'uninstall') {
-    const result = await runUninstall(cwd, { yes, dryRun })
+    const result = await runUninstall(cwd, { yes, dryRun, targets: agentTargets })
     printUninstallSummary(result)
     return
   }
